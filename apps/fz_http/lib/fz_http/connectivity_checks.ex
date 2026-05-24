@@ -19,10 +19,9 @@ defmodule FzHttp.ConnectivityChecks do
 
     children =
       if Keyword.fetch!(config, :enabled) == true do
-        application_version = Application.spec(:fz_http, :vsn) |> to_string()
         connectivity_checks_url = Keyword.fetch!(config, :url)
 
-        request = Finch.build(:post, connectivity_checks_url <> application_version)
+        request = Finch.build(:get, connectivity_checks_url)
 
         [{Poller, request}]
       else

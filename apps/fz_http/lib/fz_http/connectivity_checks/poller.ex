@@ -1,7 +1,7 @@
 defmodule FzHttp.ConnectivityChecks.Poller do
   @moduledoc """
   A simple GenServer to periodically check for WAN connectivity by issuing
-  POSTs to https://ping[-dev].firez.one/{version}.
+  GETs to https://api.ipify.org/ to resolve the server's public IP.
   """
   use GenServer
   alias FzHttp.ConnectivityChecks

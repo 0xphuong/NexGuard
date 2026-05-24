@@ -81,7 +81,7 @@ config :fz_http, FzHttp.ConnectivityChecks,
   http_client_options: [],
   enabled: true,
   interval: 43_200,
-  url: "https://ping-dev.firez.one/"
+  url: "https://api.ipify.org/"
 
 config :fz_http,
   admin_email: "firezone@localhost",
