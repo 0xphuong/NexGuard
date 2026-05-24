@@ -4,14 +4,12 @@
   class: "navbar-item has-divider is-desktop-icon-only",
   style: "height: 100%"
 ) do %>
-  <%= if @count == 0 do %>
-    <span class="ng-notif-badge">
-      <i class="mdi mdi-bell-outline"></i>
-    </span>
-  <% else %>
-    <span class="ng-notif-badge ng-notif-badge--active">
-      <i class="mdi mdi-bell-ring"></i>
+  <span class="icon" style="position: relative;">
+    <%= if @count == 0 do %>
+      <i class="mdi mdi-bell-outline" style="color: #64748b;"></i>
+    <% else %>
+      <i class="mdi mdi-bell-ring" style="color: #dc2626;"></i>
       <span class="ng-notif-count"><%= @count %></span>
-    </span>
-  <% end %>
+    <% end %>
+  </span>
 <% end %>

@@ -1469,6 +1469,158 @@ pre {
   &::-webkit-progress-value { background: #2563eb; border-radius: 999px; }
 }
 
+/* ── Top Navbar ───────────────────────────────────────────────── */
+
+#navbar-main.ng-topnav {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06) !important;
+  min-height: 3.25rem !important;
+  padding: 0 0.5rem !important;
+}
+
+// Icon buttons (docs, notifications, ws-status, mobile toggles)
+.ng-topnav-icon-btn {
+  &.navbar-item, &.navbar-link {
+    color: #64748b !important;
+    transition: color 0.15s, background 0.15s !important;
+
+    &:hover {
+      color: #1e293b !important;
+      background: #f1f5f9 !important;
+    }
+
+    .icon { color: inherit !important; }
+  }
+}
+
+#web-ui-connect-success .icon i { color: #10b981 !important; }
+#web-ui-connect-error   .icon i { color: #dc2626 !important; }
+
+// User section
+.ng-topnav-user {
+  &.navbar-item, &.navbar-item > a {
+    padding: 0 0.75rem !important;
+  }
+}
+
+.ng-topnav-user-trigger {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0.5rem !important;
+  padding: 0.375rem 0.625rem !important;
+  border-radius: 8px !important;
+  transition: background 0.15s !important;
+  cursor: pointer;
+
+  &:hover { background: #f1f5f9 !important; }
+
+  .icon {
+    color: #94a3b8 !important;
+    margin-left: 0 !important;
+    width: 1rem !important;
+
+    i { font-size: 1rem !important; }
+  }
+}
+
+.ng-topnav-avatar {
+  width: 30px;
+  height: 30px;
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  color: #ffffff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+.ng-topnav-email {
+  font-size: 0.875rem !important;
+  font-weight: 500 !important;
+  color: #374151 !important;
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  @media (max-width: 1024px) { display: none; }
+}
+
+// Dropdown panel
+.ng-topnav-dropdown {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 10px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1) !important;
+  padding: 0.375rem !important;
+  min-width: 200px !important;
+  top: calc(100% + 6px) !important;
+
+  .navbar-divider { margin: 0.375rem 0 !important; }
+}
+
+.ng-topnav-menu-item {
+  border-radius: 6px !important;
+  font-size: 0.875rem !important;
+  color: #374151 !important;
+  padding: 0.5rem 0.75rem !important;
+  transition: background 0.15s !important;
+
+  &:hover { background: #f1f5f9 !important; color: #1e293b !important; }
+
+  .icon { color: #64748b !important; }
+}
+
+.ng-topnav-signout {
+  color: #dc2626 !important;
+
+  &:hover { background: #fef2f2 !important; color: #dc2626 !important; }
+  .icon { color: #dc2626 !important; }
+}
+
+/* ── Admin Footer ─────────────────────────────────────────────── */
+
+.ng-admin-footer {
+  padding: 0.875rem 1.5rem;
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  margin-top: auto;
+}
+
+.ng-admin-footer-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ng-footer-copyright {
+  font-size: 0.8rem;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.ng-footer-version {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94a3b8;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s;
+
+  .mdi { font-size: 0.875rem; }
+
+  &:hover { color: #2563eb; text-decoration: none; }
+}
+
 /* ── Notifications Page ───────────────────────────────────────── */
 
 .ng-notif-page-count {

@@ -18,94 +18,94 @@
   </head>
   <body>
     <div id="app">
-      <nav id="navbar-main" class="navbar is-fixed-top">
+      <nav id="navbar-main" class="navbar is-fixed-top ng-topnav">
         <div class="navbar-brand">
-          <a class="navbar-item is-hidden-desktop jb-aside-mobile-toggle">
-            <span class="icon"><i class="mdi mdi-forwardburger mdi-24px"></i></span>
+          <a class="navbar-item is-hidden-desktop jb-aside-mobile-toggle ng-topnav-icon-btn">
+            <span class="icon"><i class="mdi mdi-menu mdi-24px"></i></span>
           </a>
         </div>
         <div class="navbar-brand is-right">
-          <a class="navbar-item is-hidden-desktop jb-navbar-menu-toggle" data-target="navbar-menu">
+          <a class="navbar-item is-hidden-desktop jb-navbar-menu-toggle ng-topnav-icon-btn" data-target="navbar-menu">
             <span class="icon"><i class="mdi mdi-dots-vertical"></i></span>
           </a>
         </div>
         <div class="navbar-menu fadeIn animated faster" id="navbar-menu">
           <div class="navbar-end">
-            <div class="navbar-item has-dropdown has-dropdown-with-icons has-divider is-hoverable">
-              <a class="navbar-link is-arrowless">
-                <div class="is-user-name"><span><%= @current_user.email %></span></div>
-                <span class="icon"><i class="mdi mdi-chevron-down"></i></span>
-              </a>
-              <div class="navbar-dropdown">
-                <%= link(to: ~p"/settings/account", class: "navbar-item") do %>
-                  <span class="icon"><i class="mdi mdi-account"></i></span>
-                  <span>Account Settings</span>
-                <% end %>
-                <hr class="navbar-divider" />
-                <%= link(to: ~p"/sign_out", method: :delete, class: "navbar-item") do %>
-                  <span class="icon"><i class="mdi mdi-logout"></i></span>
-                  <span>Log Out</span>
-                <% end %>
-              </div>
-            </div>
-            <%= Phoenix.Component.live_render(@conn, FzHttpWeb.NotificationsLive.Badge,
-              router: FzHttpWeb.Router
-            ) %>
-            <a
-              target="_blank"
-              href="https://docs.nexguard.binhphuong.io.vn/?utm_source=product"
-              title="Documentation"
-              class="navbar-item has-divider is-desktop-icon-only"
-            >
-              <span class="icon"><i class="mdi mdi-help-circle-outline"></i></span>
-            </a>
+
+            <%# ── WebSocket status ── %>
             <a
               id="web-ui-connect-success"
               href="#"
               title="Secure websocket connected."
-              class="navbar-item has-divider is-desktop-icon-only"
+              class="navbar-item has-divider is-desktop-icon-only ng-topnav-icon-btn ng-topnav-ws-ok"
             >
-              <span class="icon has-text-success"><i class="mdi mdi-wifi"></i></span>
+              <span class="icon"><i class="mdi mdi-shield-check-outline"></i></span>
             </a>
             <a
               id="web-ui-connect-error"
               href="#"
               title="Secure websocket not connected! Check docs.nexguard.binhphuong.io.vn/administer/troubleshoot for help."
-              class="is-hidden navbar-item has-divider is-desktop-icon-only"
+              class="is-hidden navbar-item has-divider is-desktop-icon-only ng-topnav-icon-btn ng-topnav-ws-err"
             >
-              <span class="icon has-text-danger"><i class="mdi mdi-wifi-off"></i></span>
+              <span class="icon"><i class="mdi mdi-shield-alert-outline"></i></span>
             </a>
+
+            <%# ── Documentation ── %>
+            <a
+              target="_blank"
+              href="https://docs.nexguard.binhphuong.io.vn/?utm_source=product"
+              title="Documentation"
+              class="navbar-item has-divider is-desktop-icon-only ng-topnav-icon-btn"
+            >
+              <span class="icon"><i class="mdi mdi-help-circle-outline"></i></span>
+            </a>
+
+            <%# ── Notifications badge ── %>
+            <%= Phoenix.Component.live_render(@conn, FzHttpWeb.NotificationsLive.Badge,
+              router: FzHttpWeb.Router
+            ) %>
+
+            <%# ── User dropdown ── %>
+            <div class="navbar-item has-dropdown has-dropdown-with-icons has-divider is-hoverable ng-topnav-user">
+              <a class="navbar-link is-arrowless ng-topnav-user-trigger">
+                <div class="ng-topnav-avatar">
+                  <%= @current_user.email |> String.first() |> String.upcase() %>
+                </div>
+                <span class="ng-topnav-email"><%= @current_user.email %></span>
+                <span class="icon"><i class="mdi mdi-chevron-down"></i></span>
+              </a>
+              <div class="navbar-dropdown is-right ng-topnav-dropdown">
+                <%= link(to: ~p"/settings/account", class: "navbar-item ng-topnav-menu-item") do %>
+                  <span class="icon"><i class="mdi mdi-account-cog-outline"></i></span>
+                  <span>Account Settings</span>
+                <% end %>
+                <hr class="navbar-divider" />
+                <%= link(to: ~p"/sign_out", method: :delete, class: "navbar-item ng-topnav-menu-item ng-topnav-signout") do %>
+                  <span class="icon"><i class="mdi mdi-logout-variant"></i></span>
+                  <span>Sign Out</span>
+                <% end %>
+              </div>
+            </div>
+
           </div>
         </div>
       </nav>
 
       <%= @inner_content %>
 
-      <footer class="footer">
-        <div class="container-fluid">
-          <div class="level">
-            <div class="level-left">
-              <div class="level-item">
-                <strong>
-                  © 2026 NexGuard &mdash; Open-source WireGuard VPN &amp; firewall management.
-                </strong>
-              </div>
-            </div>
-            <div class="level-right">
-              <div class="level-item">
-                <a href={"https://github.com/0xphuong/nexguard/tree/refs/tags/#{application_version()}"}>
-                  Version <%= application_version() %>
-                </a>
-              </div>
-              <div class="level-item">
-                <div class="logo">
-                  <a href="https://nexguard.binhphuong.io.vn?utm_source=product">
-                    <img src={static_path("/images/logo.svg")} alt="nexguard.dev" />
-                  </a>
-                </div>
-              </div>
-            </div>
-          </div>
+      <footer class="ng-admin-footer">
+        <div class="ng-admin-footer-inner">
+          <span class="ng-footer-copyright">
+            © 2026 NexGuard &mdash; Open-source WireGuard VPN &amp; firewall management.
+          </span>
+          <a
+            href={"https://github.com/0xphuong/nexguard/tree/refs/tags/#{application_version()}"}
+            class="ng-footer-version"
+            target="_blank"
+          >
+            <i class="mdi mdi-tag-outline"></i>
+            v<%= application_version() %>
+          </a>
         </div>
       </footer>
     </div>
