@@ -9,10 +9,7 @@ defmodule FzHttpWeb.SidebarComponent do
     <aside class="aside is-placed-left is-expanded is-vertically-scrollable ">
       <div class="aside-tools">
         <div class="aside-tools-label">
-          <span class="ng-brand">
-            <i class="mdi mdi-shield-lock ng-brand-icon"></i>
-            <span class="ng-brand-nex">Nex</span><span class="ng-brand-guard">Guard</span>
-          </span>
+          <span>Firezone</span>
         </div>
       </div>
       <div class="menu is-menu-main">

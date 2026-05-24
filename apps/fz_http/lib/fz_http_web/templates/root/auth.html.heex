@@ -1,30 +1,39 @@
-<h1 class="ng-auth-title">Secure Access</h1>
-<p class="ng-auth-subtitle">Sign in to NexGuard Network</p>
+<h3 class="is-3 title">Sign In</h3>
 
-<%= for provider <- @openid_connect_providers do %>
-  <%= link(
-    "Sign in with #{provider.label}",
-    to: ~p"/auth/oidc/#{provider.id}",
-    class: "ng-btn ng-btn-outline"
-  ) %>
-<% end %>
+<hr />
 
-<%= for provider <- @saml_identity_providers do %>
-  <%= link(
-    "Sign in with #{provider.label}",
-    to: "/auth/saml/auth/signin/#{provider.id}/",
-    class: "ng-btn ng-btn-outline"
-  ) %>
-<% end %>
+<div class="content">
+  <p>
+    Please sign in via one of the methods below.
+  </p>
 
-<%= if (@openid_connect_providers != [] or @saml_identity_providers != []) and @local_enabled do %>
-  <div class="ng-divider">or</div>
-<% end %>
+  <%= for provider <- @openid_connect_providers do %>
+    <p>
+      <%= link(
+        "Sign in with #{provider.label}",
+        to: ~p"/auth/oidc/#{provider.id}",
+        class: "button"
+      ) %>
+    </p>
+  <% end %>
 
-<%= if @local_enabled do %>
-  <%= link(
-    "Sign in with Email",
-    to: ~p"/auth/identity",
-    class: "ng-btn ng-btn-primary"
-  ) %>
-<% end %>
+  <%= for provider <- @saml_identity_providers do %>
+    <p>
+      <%= link(
+        "Sign in with #{provider.label}",
+        to: "/auth/saml/auth/signin/#{provider.id}/",
+        class: "button"
+      ) %>
+    </p>
+  <% end %>
+
+  <%= if @local_enabled do %>
+    <p>
+      <%= link(
+        "Sign in with email",
+        to: ~p"/auth/identity",
+        class: "button"
+      ) %>
+    </p>
+  <% end %>
+</div>

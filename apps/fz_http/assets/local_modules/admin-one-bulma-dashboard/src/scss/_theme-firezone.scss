@@ -1,196 +1,154 @@
-/* NexGuard theme — dark navy + cyan 2026 */
+/* Firezone theme, using palette from https://app.getparade.com/firezoneinc/style-guide */
 
-/* ── Palette ── */
-$primary-main: #38bdf8;
-$primary-000: #082f49;
-$primary-100: #0c4a6e;
-$primary-200: #075985;
-$primary-300: #0ea5e9;
-$primary-400: #38bdf8;
-$primary-500: #7dd3fc;
-$primary-600: #bae6fd;
-$primary-700: #e0f2fe;
-$primary-800: #f0f9ff;
-$primary-900: #f8fcff;
+/* Common variables */
+$primary-main: #FF7300;
+$primary-000: #331700;
+$primary-100: #5c2900;
+$primary-200: #7f3900;
+$primary-300: #c25700;
+$primary-400: #ff7605;
+$primary-500: #ff9a47;
+$primary-600: #ffbc85;
+$primary-700: #ffddc2;
+$primary-800: #fff1e5;
+$primary-900: #fff9f5;
+$accent-main: #5E00D6;
+$accent-000: #160033;
+$accent-100: #28005c;
+$accent-200: #37007f;
+$accent-300: #3400c2;
+$accent-400: #4805ff;
+$accent-500: #7847ff;
+$accent-600: #a585ff;
+$accent-700: #d2c2ff;
+$accent-800: #ece5ff;
+$accent-900: #f8f5ff;
+$interface-main: #1B140E;
+$interface-000: #1b140e;
+$interface-100: #4c3e33;
+$interface-200: #766a60;
+$interface-300: #90867f;
+$interface-400: #a7a3a0;
+$interface-500: #c7c4c2;
+$interface-600: #dfdedd;
+$interface-700: #ebebea;
+$interface-800: #f8f7f7;
+$interface-900: #fcfcfc;
 
-$accent-main: #38bdf8;
-$accent-000: #082f49;
-$accent-100: #0c4a6e;
-$accent-200: #075985;
-$accent-300: #0ea5e9;
-$accent-400: #38bdf8;
-$accent-500: #7dd3fc;
-$accent-600: #bae6fd;
-$accent-700: #e0f2fe;
-$accent-800: #f0f9ff;
-$accent-900: #f8fcff;
-
-/* Dark navy interface scale (000 = darkest, 900 = lightest) */
-$interface-main: #060d1a;
-$interface-000: #060d1a;
-$interface-100: #0d1b30;
-$interface-200: #142035;
-$interface-300: #1e3048;
-$interface-400: #334155;
-$interface-500: #475569;
-$interface-600: #64748b;
-$interface-700: #94a3b8;
-$interface-800: #cbd5e1;
-$interface-900: #f1f5f9;
-
+/* We'll need some initial vars to use here */
 @import "node_modules/bulma/sass/utilities/initial-variables";
 
+/* Base: Size  */
 $size-base: 1rem;
 $default-padding: $size-base * 1.5;
 
+/* Default font */
 $family-sans-serif: "Fira Sans", sans-serif;
 $family-primary: $family-sans-serif;
+
+/* Monospace font */
 $family-monospace: "Fira Mono", monospace;
 
-/* ── Bulma dark mode: scheme cascade vars ── */
-$scheme-main:     $interface-100;   /* card / input / modal bg */
-$scheme-main-bis: $interface-200;   /* striped / offset bg */
-$scheme-main-ter: $interface-300;   /* tertiary bg */
-$scheme-invert:   $interface-900;   /* text on dark bg */
+/* Text color */
+$text: $interface-100;
+$text-light: $interface-200;
+$text-strong: $interface-000;
 
-/* ── Text ── */
-$text:        $interface-800;   /* #cbd5e1 */
-$text-light:  $interface-700;   /* #94a3b8 */
-$text-strong: $interface-900;   /* #f1f5f9 */
+/* Base color */
+$base-color: $interface-main;
+$base-color-light: rgba(24, 28, 33, .06);
 
-/* ── Semantic / state colors ── */
-$base-color:       $interface-000;
-$base-color-light: rgba(255, 255, 255, .07);
-$light-border:     1px solid $base-color-light;
-$hr-height:        1px;
+/* General overrides */
+/* See https://coolors.co/331700-990c00-ff0000 */
+$info: $accent-300;
+$primary: $accent-main;
+$success: #80B900;
+$warning: #FFB900;
+$danger: #990C00;
+$body-background-color: $interface-800;
+$link: $accent-300;
+$link-visited: $accent-600;
+$light-border: 1px solid $base-color-light;
+$hr-height: 1px;
 
-$info:    $primary-300;
-$primary: $primary-main;
-$success: #4ade80;
-$warning: #fbbf24;
-$danger:  #f87171;
-$light:   $interface-300;
-$dark:    $interface-900;
+/* NavBar: specifics */
+$navbar-input-color: $interface-100;
+$navbar-input-placeholder-color: $interface-600;
+$navbar-box-shadow: 0 1px 0 rgba(24,28,33,.04);
+$navbar-divider-border: 1px solid rgba($interface-600, .25);
+$navbar-item-h-padding: $default-padding * .75;
+$navbar-avatar-size: 1.75rem;
 
-$body-background-color: $interface-main;
-$link:         $primary-300;
-$link-visited: $primary-400;
+/* Aside: Bulma override */
+$menu-item-radius: 0;
+$menu-list-link-padding: $size-base * .5 0;
+$menu-label-color: $interface-300;
+$menu-item-color: $interface-400;
+$menu-item-hover-color: $interface-800;
+$menu-item-hover-background-color: darken($base-color, 3.5%);
+$menu-item-active-color: $interface-800;
+$menu-item-active-background-color: darken($base-color, 2.5%);
 
-/* ── Form: custom var required by _form.scss ── */
-$checkbox-border: 1px solid $interface-300;
+/* Aside: specifics */
+$aside-width: $size-base * 14;
+$aside-mobile-width: $size-base * 15;
+$aside-icon-width: $size-base * 3;
+$aside-submenu-font-size: $size-base * .95;
+$aside-box-shadow: none;
+$aside-background-color: $base-color;
+$aside-tools-background-color: darken($aside-background-color, 10%);
+$aside-tools-color: $interface-800;
 
-/* ── Bulma: input / form ── */
-$input-color:                     $interface-900;
-$input-background-color:          rgba(255, 255, 255, .04);
-$input-border-color:              $interface-300;
-$input-hover-border-color:        $interface-400;
-$input-focus-border-color:        $primary-main;
-$input-placeholder-color:         $interface-500;
-$input-disabled-background-color: $interface-200;
-$input-disabled-border-color:     $interface-300;
-$input-disabled-color:            $interface-500;
-$label-color:                     $interface-700;
+/* Title Bar: specifics */
+$title-bar-color: $interface-400;
+$title-bar-active-color: $interface-100;
 
-/* ── Bulma: table ── */
-$table-avatar-size:        $size-base * 1.5;   /* required by _table.scss */
-$table-avatar-size-mobile: 25vw;               /* required by _table.scss */
-$table-color:                                   $interface-800;
-$table-background-color:                        $interface-100;
-$table-cell-border:                             1px solid $interface-200;
-$table-cell-heading-color:                      $interface-900;
-$table-head-cell-color:                         $interface-700;
-$table-foot-cell-color:                         $interface-700;
-$table-row-hover-background-color:              $interface-200;
-$table-striped-row-even-background-color:       $interface-200;
-$table-striped-row-even-hover-background-color: $interface-300;
+/* Hero Bar: specifics */
+$hero-bar-background: $interface-800;
 
-/* ── Bulma: button (default style) ── */
-$button-color:              $interface-800;
-$button-background-color:   $interface-200;
-$button-border-color:       $interface-300;
-$button-hover-color:        $interface-900;
-$button-hover-border-color: $interface-400;
-$button-focus-border-color: $primary-main;
+/* Card: Bulma override */
+$card-shadow: none;
+$card-header-shadow: none;
 
-/* ── Bulma: card ── */
-$card-shadow:                    none;
-$card-header-shadow:             none;
-$card-border:                    1px solid $base-color-light;
+/* Card: specifics */
+$card-border: 1px solid $base-color-light;
 $card-header-border-bottom-color: $base-color-light;
 
-/* ── Bulma: dropdown ── */
-$dropdown-content-background-color:   $interface-100;
-$dropdown-item-color:                 $interface-800;
-$dropdown-item-hover-background-color: $interface-200;
-$dropdown-item-active-background-color: $primary-main;
-$dropdown-divider-background-color:   $interface-300;
+/* Table: Bulma override */
+$table-cell-border: 1px solid $interface-700;
 
-/* ── Navbar ── */
-$navbar-background-color:                     $interface-000;
-$navbar-item-color:                           $interface-700;
-$navbar-item-hover-color:                     $interface-900;
-$navbar-item-hover-background-color:          $interface-100;
-$navbar-item-active-color:                    $interface-900;
-$navbar-item-active-background-color:         transparent;
-$navbar-dropdown-background-color:            $interface-100;
-$navbar-dropdown-item-hover-background-color: $interface-200;
-$navbar-dropdown-item-hover-color:            $interface-900;
-$navbar-dropdown-item-active-background-color: $primary-main;
-$navbar-dropdown-item-active-color:           $interface-000;
-$navbar-input-color:                          $interface-800;
-$navbar-input-placeholder-color:              $interface-500;
-$navbar-box-shadow:                           0 1px 0 rgba(255, 255, 255, .05);
-$navbar-divider-border:                       1px solid rgba($interface-700, .15);
-$navbar-item-h-padding:                       $default-padding * .75;
-$navbar-avatar-size:                          1.75rem;
+/* Table: specifics */
+$table-avatar-size: $size-base * 1.5;
+$table-avatar-size-mobile: 25vw;
 
-/* ── Aside (Sidebar) ── */
-$menu-item-radius:    0;
-$menu-list-link-padding:          $size-base * .5 0;
-$menu-label-color:                $interface-500;
-$menu-item-color:                 $interface-700;   /* #94a3b8 ≈ 7:1 on dark bg */
-$menu-item-hover-color:           $interface-900;
-$menu-item-hover-background-color: rgba(255, 255, 255, .04);
-$menu-item-active-color:          $primary-main;    /* cyan active */
-$menu-item-active-background-color: rgba(56, 189, 248, .12);
+/* Form */
+$checkbox-border: 1px solid $base-color;
 
-$aside-width:                $size-base * 14;
-$aside-mobile-width:         $size-base * 15;
-$aside-icon-width:           $size-base * 3;
-$aside-submenu-font-size:    $size-base * .95;
-$aside-box-shadow:           1px 0 0 rgba(255, 255, 255, .04);
-$aside-background-color:     $interface-000;
-$aside-tools-background-color: #040911;
-$aside-tools-color:          $interface-800;
+/* Modal card: Bulma override */
+$modal-card-head-background-color: $interface-800;
+$modal-card-title-size: $size-base;
+$modal-card-body-padding: $default-padding 20px;
+$modal-card-head-border-bottom: 1px solid $interface-800;
+$modal-card-foot-border-top: 0;
 
-/* ── Title Bar ── */
-$title-bar-color:        $interface-600;
-$title-bar-active-color: $interface-900;
+/* Modal card: specifics */
+$modal-card-width: 40vw;
+$modal-card-width-mobile: 90vw;
+$modal-card-foot-background-color: $interface-800;
 
-/* ── Hero Bar (page heading section) ── */
-$hero-bar-background: $interface-100;
-
-/* ── Modal ── */
-$modal-card-head-background-color:  $interface-100;
-$modal-card-title-size:             $size-base;
-$modal-card-body-padding:           $default-padding 20px;
-$modal-card-head-border-bottom:     1px solid $interface-200;
-$modal-card-foot-border-top:        0;
-$modal-card-width:                  40vw;
-$modal-card-width-mobile:           90vw;
-$modal-card-foot-background-color:  $interface-100;
-
-/* ── Notification ── */
+/* Notification: Bulma override */
 $notification-padding: $default-padding * .75 $default-padding;
 
-/* ── Footer ── */
-$footer-background-color: $interface-000;
-$footer-padding:          $default-padding * .33 $default-padding;
-$footer-logo-height:      $size-base * 2;
+/* Footer: Bulma override */
+$footer-background-color: $white;
+$footer-padding: $default-padding * .33 $default-padding;
 
-/* ── Progress ── */
-$progress-bar-background-color: $interface-300;
+/* Footer: specifics */
+$footer-logo-height: $size-base * 2;
 
-/* ── Icons ── */
-$icon-update-mark-size:  $size-base * .5;
+/* Progress: Bulma override */
+$progress-bar-background-color: $interface-600;
+
+/* Icon: specifics */
+$icon-update-mark-size: $size-base * .5;
 $icon-update-mark-color: $primary-main;

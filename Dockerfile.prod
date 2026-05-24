@@ -39,7 +39,7 @@ COPY priv priv
 COPY apps apps
 
 # mix phx.digest triggers fz_http compilation, need version to be set here
-ARG VERSION=1.0.0
+ARG VERSION=0.0.0-docker
 ENV VERSION=$VERSION
 
 # compile assets

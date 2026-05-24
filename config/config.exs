@@ -84,7 +84,7 @@ config :fz_http, FzHttp.ConnectivityChecks,
   url: "https://ping-dev.firez.one/"
 
 config :fz_http,
-  admin_email: "admin@localhost",
+  admin_email: "firezone@localhost",
   default_admin_password: "firezone1234"
 
 config :fz_http,
@@ -99,7 +99,7 @@ config :fz_wall, cli: FzWall.CLI.Sandbox
 config :fz_wall,
   wireguard_ipv4_masquerade: true,
   wireguard_ipv6_masquerade: true,
-  wireguard_interface_name: "wg-nexguard",
+  wireguard_interface_name: "wg-firezone",
   nft_path: "nft",
   egress_interface: "dummy"
 
@@ -114,7 +114,7 @@ config :fz_wall,
 config :fz_vpn,
   wireguard_private_key_path: "priv/wg_dev_private_key",
   stats_push_service_enabled: true,
-  wireguard_interface_name: "wg-nexguard",
+  wireguard_interface_name: "wg-firezone",
   wireguard_port: 51_820,
   wg_adapter: FzVpn.Interface.WGAdapter.Live,
   supervised_children: [FzVpn.Server, FzVpn.StatsPushService]

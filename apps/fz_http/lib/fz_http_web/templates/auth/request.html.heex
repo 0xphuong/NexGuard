@@ -1,41 +1,48 @@
-<%= link("← Back", to: ~p"/", class: "ng-back") %>
+<h3 class="is-3 title">Sign In</h3>
 
-<h1 class="ng-auth-title">Welcome back</h1>
-<p class="ng-auth-subtitle">Enter your credentials to continue</p>
+<hr />
 
-<%= form_tag @callback_path, method: "post" do %>
-  <div class="ng-field">
-    <label for="email" class="ng-label">Email address</label>
-    <input
-      class="ng-input"
-      type="email"
-      name="email"
-      id="email"
-      required
-      autocomplete="email"
-      placeholder="you@example.com"
-      value={@conn.params["email"]}
-    />
-  </div>
+<div class="block">
+  <%= link("<- Back to sign in methods", to: ~p"/") %>
+</div>
 
-  <div class="ng-field">
-    <label for="password" class="ng-label">Password</label>
-    <input
-      class="ng-input"
-      type="password"
-      name="password"
-      id="password"
-      required
-      autocomplete="current-password"
-      placeholder="••••••••"
-    />
-  </div>
+<div class="block">
+  <%= form_tag @callback_path, method: "post" do %>
+    <div class="field">
+      <label for="email" class="label">Email</label>
+      <div class="control">
+        <input
+          class="input"
+          type="email"
+          name="email"
+          id="email"
+          required
+          value={@conn.params["email"]}
+        />
+      </div>
+    </div>
 
-  <div class="ng-form-actions">
-    <%= submit("Sign In", class: "ng-btn ng-btn-primary") %>
-    <%= link("Forgot password?",
-      to: ~p"/auth/reset_password",
-      class: "ng-link"
-    ) %>
-  </div>
-<% end %>
+    <div class="field">
+      <label for="password" class="label">Password</label>
+      <div class="control">
+        <input class="input" type="password" name="password" id="password" required />
+      </div>
+    </div>
+
+    <div class="field">
+      <div class="control">
+        <div class="level">
+          <div class="level-left">
+            <%= submit("Sign In", class: "button") %>
+          </div>
+          <div class="level-right">
+            <%= link("Forgot password",
+              to: ~p"/auth/reset_password",
+              class: "forgot-password"
+            ) %>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>

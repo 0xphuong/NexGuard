@@ -14,17 +14,17 @@ services:
         ipv4_address: 172.28.0.99
         ipv6_address: fcff:3990:3990::99
 
-  nexguard:
+  firezone:
     build:
       context: .
       dockerfile: Dockerfile.dev
       args:
         DATABASE_HOST: postgres
         DATABASE_PORT: 5432
-        DATABASE_NAME: nexguard_dev
+        DATABASE_NAME: firezone_dev
         DATABASE_USER: postgres
         DATABASE_PASSWORD: postgres
-    image: nexguard_dev
+    image: firezone_dev
     volumes:
       - ./priv:/var/app/priv
       - ./apps:/var/app/apps
@@ -63,7 +63,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: nexguard_dev
+      POSTGRES_DB: firezone_dev
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       start_period: 20s
@@ -120,7 +120,7 @@ services:
 
   client:
     depends_on:
-      - nexguard
+      - firezone
     image: linuxserver/wireguard:latest
     environment:
       - PUID=1000

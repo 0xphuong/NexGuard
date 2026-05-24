@@ -4,8 +4,7 @@
   class="has-aside-left has-aside-mobile-transition has-navbar-fixed-top has-aside-expanded"
 >
   <head>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <.live_title prefix="NexGuard • ">
+    <.live_title prefix="Firezone • ">
       <%= assigns[:page_title] %>
     </.live_title>
     <link phx-track-static rel="stylesheet" href={static_path("/dist/admin.css")} />
@@ -16,352 +15,6 @@
       conn: @conn,
       current_user: @current_user
     ) %>
-    <style>
-      /* ── NexGuard Admin — dark mode fine-tuning ── */
-
-      /* Navbar: ensure dark bg + correct text on all Bulma versions */
-      nav.navbar {
-        background-color: #060d1a !important;
-        border-bottom: 1px solid rgba(255, 255, 255, .05);
-      }
-
-      nav.navbar .navbar-item,
-      nav.navbar .navbar-link {
-        color: #94a3b8;
-      }
-
-      nav.navbar .navbar-item:hover,
-      nav.navbar .navbar-link:hover {
-        background-color: #0d1b30 !important;
-        color: #f1f5f9 !important;
-      }
-
-      nav.navbar .navbar-dropdown {
-        background-color: #0d1b30;
-        border: 1px solid rgba(255, 255, 255, .07);
-        border-top: none;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, .5);
-      }
-
-      nav.navbar .navbar-dropdown .navbar-item:hover {
-        background-color: #142035 !important;
-      }
-
-      nav.navbar hr.navbar-divider {
-        background-color: rgba(148, 163, 184, .12);
-      }
-
-      nav.navbar .is-user-name span {
-        color: #cbd5e1;
-        font-weight: 500;
-      }
-
-      /* Sidebar: active item cyan left accent */
-      aside.aside .menu-list a.is-active {
-        border-left: 2px solid #38bdf8;
-        padding-left: calc(0.75rem - 2px);
-      }
-
-      aside.aside .aside-tools .aside-tools-label {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: .5rem .75rem;
-      }
-
-      .ng-brand {
-        display: flex;
-        align-items: center;
-        gap: .4rem;
-        user-select: none;
-      }
-
-      .ng-brand-icon {
-        font-size: 1.2rem;
-        color: #38bdf8;
-        line-height: 1;
-      }
-
-      .ng-brand-nex {
-        font-size: 1.05rem;
-        font-weight: 700;
-        letter-spacing: .01em;
-        color: #f1f5f9;
-      }
-
-      .ng-brand-guard {
-        font-size: 1.05rem;
-        font-weight: 700;
-        letter-spacing: .01em;
-        color: #38bdf8;
-      }
-
-      /* Hero bar (page heading) */
-      section.hero.is-hero-bar .title {
-        color: #f1f5f9;
-        font-weight: 700;
-      }
-
-      section.hero.is-hero-bar p {
-        color: #64748b;
-        font-size: .9rem;
-      }
-
-      /* Tables */
-      table.table {
-        background-color: #0d1b30;
-        color: #cbd5e1;
-      }
-
-      table.table thead th {
-        color: #64748b;
-        font-size: .775rem;
-        font-weight: 600;
-        letter-spacing: .06em;
-        text-transform: uppercase;
-        border-color: #1e3048;
-        background-color: #060d1a;
-      }
-
-      table.table tbody tr td {
-        border-color: #142035;
-        color: #cbd5e1;
-        vertical-align: middle;
-      }
-
-      table.table.is-striped tbody tr:not(.is-selected):nth-child(even) {
-        background-color: #142035;
-      }
-
-      table.table.is-hoverable tbody tr:not(.is-selected):hover {
-        background-color: #1e3048;
-      }
-
-      table.table a {
-        color: #38bdf8;
-      }
-
-      table.table a:hover {
-        color: #7dd3fc;
-      }
-
-      /* Inline code / IPs in tables */
-      .code, code {
-        background-color: rgba(56, 189, 248, .06);
-        color: #7dd3fc;
-        border-radius: 4px;
-        padding: .1em .35em;
-        font-size: .875em;
-      }
-
-      pre {
-        background-color: #060d1a;
-        color: #94a3b8;
-        border: 1px solid rgba(255, 255, 255, .06);
-        border-radius: 8px;
-      }
-
-      /* Cards */
-      .card {
-        background-color: #0d1b30;
-        border: 1px solid rgba(255, 255, 255, .07);
-      }
-
-      .card-header {
-        border-bottom: 1px solid rgba(255, 255, 255, .07);
-      }
-
-      .card-header-title {
-        color: #f1f5f9;
-      }
-
-      .card-content {
-        color: #cbd5e1;
-      }
-
-      /* Forms: input, select, textarea */
-      .input, .textarea, .select select {
-        background-color: rgba(255, 255, 255, .04) !important;
-        border-color: #1e3048 !important;
-        color: #f1f5f9 !important;
-        border-radius: 7px;
-      }
-
-      .input::placeholder, .textarea::placeholder {
-        color: #475569 !important;
-      }
-
-      .input:focus, .textarea:focus, .select select:focus {
-        border-color: #38bdf8 !important;
-        box-shadow: 0 0 0 3px rgba(56, 189, 248, .1) !important;
-      }
-
-      .label {
-        color: #64748b;
-        font-size: .8rem;
-        font-weight: 600;
-        letter-spacing: .04em;
-        text-transform: uppercase;
-      }
-
-      .help.is-danger { color: #f87171; }
-      .help { color: #475569; }
-
-      .select::after { border-color: #475569; }
-      .select select option { background-color: #0d1b30; color: #f1f5f9; }
-
-      /* Buttons */
-      .button {
-        background-color: #142035;
-        border-color: #1e3048;
-        color: #cbd5e1;
-        border-radius: 7px;
-        transition: background-color .15s, border-color .15s, color .15s;
-      }
-
-      .button:hover {
-        background-color: #1e3048;
-        border-color: #334155;
-        color: #f1f5f9;
-      }
-
-      .button.is-primary {
-        background-color: #38bdf8;
-        border-color: #38bdf8;
-        color: #060d1a;
-        font-weight: 600;
-      }
-
-      .button.is-primary:hover {
-        background-color: #7dd3fc;
-        border-color: #7dd3fc;
-        color: #060d1a;
-      }
-
-      .button.is-danger {
-        background-color: rgba(239, 68, 68, .16) !important;
-        border-color: rgba(239, 68, 68, .38) !important;
-        color: #fca5a5 !important;
-      }
-
-      .button.is-danger:hover {
-        background-color: #ef4444 !important;
-        border-color: #ef4444 !important;
-        color: #ffffff !important;
-      }
-
-      .button.is-warning {
-        background-color: rgba(251, 191, 36, .15) !important;
-        border-color: rgba(251, 191, 36, .35) !important;
-        color: #fde68a !important;
-      }
-
-      .button.is-warning:hover {
-        background-color: #f59e0b !important;
-        border-color: #f59e0b !important;
-        color: #1c1917 !important;
-      }
-
-      /* Notifications */
-      .notification.is-info {
-        background-color: rgba(14, 165, 233, .12);
-        border: 1px solid rgba(14, 165, 233, .25);
-        color: #7dd3fc;
-      }
-
-      .notification.is-danger {
-        background-color: rgba(248, 113, 113, .12);
-        border: 1px solid rgba(248, 113, 113, .25);
-        color: #fca5a5;
-      }
-
-      .notification.is-success {
-        background-color: rgba(74, 222, 128, .12);
-        border: 1px solid rgba(74, 222, 128, .25);
-        color: #86efac;
-      }
-
-      .notification .delete {
-        background-color: rgba(255, 255, 255, .1);
-      }
-
-      /* Titles and text */
-      .title { color: #f1f5f9 !important; }
-      .subtitle { color: #94a3b8 !important; }
-
-      h1, h2, h3, h4, h5, h6 { color: #f1f5f9; }
-
-      .level-item p { color: #94a3b8; }
-
-      hr { background-color: rgba(255, 255, 255, .07); }
-
-      /* Modal */
-      .modal-card-head, .modal-card-foot {
-        background-color: #0d1b30;
-        border-color: rgba(255, 255, 255, .07);
-      }
-
-      .modal-card-body {
-        background-color: #0d1b30;
-        color: #cbd5e1;
-      }
-
-      .modal-card-title { color: #f1f5f9; }
-
-      /* Flash squeeze */
-      .flash-squeeze { margin-bottom: 1.25rem; }
-
-      /* Sticky footer — always at viewport bottom */
-      body {
-        min-height: 100vh;
-        display: flex;
-        flex-direction: column;
-      }
-
-      #app {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-      }
-
-      #app > footer.footer {
-        margin-top: auto;
-      }
-
-      /* Footer */
-      footer.footer {
-        background-color: #060d1a;
-        border-top: 1px solid rgba(255, 255, 255, .05);
-        color: #475569;
-      }
-
-      footer.footer a { color: #64748b; }
-      footer.footer a:hover { color: #94a3b8; }
-      footer.footer strong { color: #64748b; }
-
-      /* VPN status indicator in sidebar */
-      .has-text-success { color: #4ade80 !important; }
-      .has-text-danger  { color: #f87171 !important; }
-      .has-text-warning { color: #fbbf24 !important; }
-
-      /* Tag/badge */
-      .tag {
-        background-color: #1e3048;
-        color: #94a3b8;
-        border-radius: 5px;
-      }
-
-      .tag.is-success { background-color: rgba(74, 222, 128, .15); color: #4ade80; }
-      .tag.is-danger  { background-color: rgba(248, 113, 113, .15); color: #f87171; }
-      .tag.is-info    { background-color: rgba(56, 189, 248, .15); color: #38bdf8; }
-      .tag.is-warning { background-color: rgba(251, 191, 36, .15); color: #fbbf24; }
-
-      /* Scrollbar (WebKit) */
-      ::-webkit-scrollbar { width: 6px; height: 6px; }
-      ::-webkit-scrollbar-track { background: #060d1a; }
-      ::-webkit-scrollbar-thumb { background: #1e3048; border-radius: 3px; }
-      ::-webkit-scrollbar-thumb:hover { background: #334155; }
-    </style>
   </head>
   <body>
     <div id="app">
@@ -400,7 +53,7 @@
             ) %>
             <a
               target="_blank"
-              href="https://github.com/0xphuong/NexGuard"
+              href="https://docs.firezone.dev/?utm_source=product"
               title="Documentation"
               class="navbar-item has-divider is-desktop-icon-only"
             >
@@ -417,7 +70,7 @@
             <a
               id="web-ui-connect-error"
               href="#"
-              title="Secure websocket not connected! Check github.com/0xPhuong/NexGuard for help."
+              title="Secure websocket not connected! Check docs.firezone.dev/administer/troubleshoot for help."
               class="is-hidden navbar-item has-divider is-desktop-icon-only"
             >
               <span class="icon has-text-danger"><i class="mdi mdi-wifi-off"></i></span>
@@ -433,7 +86,28 @@
           <div class="level">
             <div class="level-left">
               <div class="level-item">
-                © 2026 NexGuard &mdash; Open-source WireGuard VPN &amp; firewall management.
+                ⚠️
+                &nbsp;
+                <strong>
+                  Firezone 0.7 has reached EOL status.
+                </strong>
+                <a href="https://github.com/firezone/firezone/blob/main/README.md">
+                  See our README for more information about upgrading to 1.x.
+                </a>
+              </div>
+            </div>
+            <div class="level-right">
+              <div class="level-item">
+                <a href={"https://github.com/firezone/firezone/tree/refs/tags/#{application_version()}"}>
+                  Version <%= application_version() %>
+                </a>
+              </div>
+              <div class="level-item">
+                <div class="logo">
+                  <a href="https://www.firezone.dev?utm_source=product">
+                    <img src={static_path("/images/logo.svg")} alt="firezone.dev" />
+                  </a>
+                </div>
               </div>
             </div>
           </div>

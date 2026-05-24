@@ -150,8 +150,8 @@ defmodule FzHttp.Config.Definitions do
 
   Must be a valid and public FQDN for ACME SSL issuance to function.
 
-  You can add a path suffix if you want to serve NexGuard from a non-root path,
-  eg: `https://nexguard.mycorp.com/vpn/`.
+  You can add a path suffix if you want to serve firezone from a non-root path,
+  eg: `https://firezone.mycorp.com/vpn/`.
   """
   defconfig(:external_url, :string,
     changeset: fn changeset, key ->
@@ -239,7 +239,7 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Name of the PostgreSQL database.
   """
-  defconfig(:database_name, :string, default: "nexguard")
+  defconfig(:database_name, :string, default: "firezone")
 
   @doc """
   User that will be used to access the PostgreSQL database.
@@ -289,7 +289,7 @@ defmodule FzHttp.Config.Definitions do
   )
 
   defconfig(:database_parameters, :map,
-    default: %{application_name: "nexguard-#{Application.spec(:fz_http, :vsn)}"},
+    default: %{application_name: "firezone-#{Application.spec(:fz_http, :vsn)}"},
     dump: &Dumper.keyword/1
   )
 
@@ -532,14 +532,14 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Entity ID for SAML authentication.
   """
-  defconfig(:saml_entity_id, :string, default: "urn:nexguard:nexguard-app")
+  defconfig(:saml_entity_id, :string, default: "urn:firezone.dev:firezone-app")
 
   @doc """
   Path to the SAML keyfile inside the container. Should be either a PEM or DER-encoded private key,
   with file extension `.pem` or `.key`.
   """
   defconfig(:saml_keyfile_path, :string,
-    default: "/var/nexguard/saml.key",
+    default: "/var/firezone/saml.key",
     changeset: &FzHttp.Validator.validate_file(&1, &2, extensions: ~w[.pem .key])
   )
 
@@ -548,7 +548,7 @@ defmodule FzHttp.Config.Definitions do
   with file extension `.crt` or `.pem`.
   """
   defconfig(:saml_certfile_path, :string,
-    default: "/var/nexguard/saml.crt",
+    default: "/var/firezone/saml.crt",
     changeset: &FzHttp.Validator.validate_file(&1, &2, extensions: ~w[.crt .pem])
   )
 
@@ -701,13 +701,13 @@ defmodule FzHttp.Config.Definitions do
   )
 
   defconfig(:wireguard_private_key_path, :string,
-    default: "/var/nexguard/private_key"
+    default: "/var/firezone/private_key"
     # We don't check if the file exists, because it is generated on
     # the first boot.
     # changeset: &FzHttp.Validator.validate_file(&1, &2)
   )
 
-  defconfig(:wireguard_interface_name, :string, default: "wg-nexguard")
+  defconfig(:wireguard_interface_name, :string, default: "wg-firezone")
 
   defconfig(:gateway_egress_interface, :string,
     legacy_keys: [{:env, "EGRESS_INTERFACE", "0.8"}],
@@ -735,7 +735,7 @@ defmodule FzHttp.Config.Definitions do
   defconfig(:outbound_email_from, :string,
     default: fn ->
       external_uri = URI.parse(compile_config!(:external_url))
-      "nexguard@#{external_uri.host}"
+      "firezone@#{external_uri.host}"
     end,
     sensitive: true,
     changeset: fn changeset, key ->

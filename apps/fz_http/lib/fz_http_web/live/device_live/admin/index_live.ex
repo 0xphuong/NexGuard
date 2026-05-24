@@ -7,7 +7,7 @@ defmodule FzHttpWeb.DeviceLive.Admin.Index do
 
   @page_title "All Devices"
   @page_subtitle """
-  Each device corresponds to a WireGuard configuration for connecting to this NexGuard server.
+  Each device corresponds to a WireGuard configuration for connecting to this Firezone server.
   """
 
   @impl Phoenix.LiveView

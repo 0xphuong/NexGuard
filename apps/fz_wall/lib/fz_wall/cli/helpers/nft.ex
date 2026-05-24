@@ -4,7 +4,7 @@ defmodule FzWall.CLI.Helpers.Nft do
   """
   import FzWall.Shell
   require Logger
-  @table_name "nexguard"
+  @table_name "firezone"
   @main_chain "forward"
 
   @doc """
@@ -91,14 +91,14 @@ defmodule FzWall.CLI.Helpers.Nft do
   end
 
   @doc """
-  Sets up nexguard table.
+  Sets up firezone table.
   """
   def setup_table do
     exec!("#{nft()} create table inet #{@table_name}")
   end
 
   @doc """
-  Sets up nexguard chains.
+  Sets up firezone chains.
   """
   def setup_chains do
     exec!(

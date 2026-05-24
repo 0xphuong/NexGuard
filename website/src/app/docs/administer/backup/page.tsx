@@ -3,7 +3,7 @@ import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Administer • Firezone Docs",
-  description: "NexGuard Documentation",
+  description: "Firezone Documentation",
 };
 
 export default function Page() {

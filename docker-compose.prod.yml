@@ -38,32 +38,23 @@ services:
     deploy:
       <<: *default-deploy
 
-  nexguard:
+  firezone:
     ulimits:
       nofile:
         soft: 65536
         hard: 65536
-    build:
-      context: .
-      dockerfile: Dockerfile.prod
-      # args:
-      #   DATABASE_HOST: postgres
-      #   DATABASE_PORT: 5432
-      #   DATABASE_NAME: nexguard
-      #   DATABASE_USER: postgres
-      #   DATABASE_PASSWORD: postgres
-    # image: binhphuong/nexguard:local
+    image: firezone/firezone:${VERSION:-latest}
     ports:
       - ${WIREGUARD_PORT:-51820}:${WIREGUARD_PORT:-51820}/udp
     env_file:
-      # This should contain a list of env vars for configuring NexGuard.
+      # This should contain a list of env vars for configuring Firezone.
       # See https://www.firezone.dev/docs/reference/env-vars for more info.
       - ${FZ_INSTALL_DIR:-.}/.env
     volumes:
       # IMPORTANT: Persists WireGuard private key and other data. If
-      # /var/nexguard/private_key exists when NexGuard starts, it is
-      # used as the WireGuard private key. Otherwise, one is generated.
-      - ${FZ_INSTALL_DIR:-.}/nexguard:/var/nexguard
+      # /var/firezone/private_key exists when Firezone starts, it is
+      # used as the WireGuard private. Otherwise, one is generated.
+      - ${FZ_INSTALL_DIR:-.}/firezone:/var/firezone
     cap_add:
       # Needed for WireGuard and firewall support.
       - NET_ADMIN
@@ -76,7 +67,7 @@ services:
     depends_on:
       - postgres
     networks:
-      nexguard-network:
+      firezone-network:
         ipv4_address: 172.25.0.100
         ipv6_address: fcff:3990:3990::99
 
@@ -88,11 +79,11 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${DATABASE_NAME:-nexguard}
+      POSTGRES_DB: ${DATABASE_NAME:-firezone}
       POSTGRES_USER: ${DATABASE_USER:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?err}
     networks:
-      - nexguard-network
+      - firezone-network
     deploy:
       <<: *default-deploy
       update_config:
@@ -103,7 +94,7 @@ volumes:
   postgres-data:
 
 networks:
-  nexguard-network:
+  firezone-network:
     enable_ipv6: true
     driver: bridge
     ipam:

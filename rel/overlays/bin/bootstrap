@@ -47,8 +47,8 @@ add_routes()
 }
 
 setup_telemetry() {
-  [ -f /var/nexguard/.tid ] || cat /proc/sys/kernel/random/uuid > /var/nexguard/.tid
-  export TELEMETRY_ID=$(cat /var/nexguard/.tid)
+  [ -f /var/firezone/.tid ] || cat /proc/sys/kernel/random/uuid > /var/firezone/.tid
+  export TELEMETRY_ID=$(cat /var/firezone/.tid)
 }
 
 gen_cert() {
@@ -58,13 +58,13 @@ gen_cert() {
     -nodes \
     -days 365 \
     -newkey rsa:2048 \
-    -keyout /var/nexguard/saml.key \
-    -out /var/nexguard/saml.crt \
+    -keyout /var/firezone/saml.key \
+    -out /var/firezone/saml.crt \
     -subj "/C=US/ST=Denial/L=Firezone/O=Dis/CN=www.example.com"
 }
 
 setup_saml() {
-  ([ -f /var/nexguard/saml.key ] && [ -f /var/nexguard/saml.crt ]) || gen_cert
+  ([ -f /var/firezone/saml.key ] && [ -f /var/firezone/saml.crt ]) || gen_cert
 }
 
 setup_interface

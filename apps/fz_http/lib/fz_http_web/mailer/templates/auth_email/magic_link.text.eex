@@ -1,6 +1,6 @@
 Magic sign-in link
 
-Dear NexGuard user,
+Dear Firezone user,
 
 Here is the magic sign-in link: <%= @link %> ,
 please copy this link and open it in your browser.

@@ -22,7 +22,7 @@ dockerCheck () {
   $dc version | grep -q "v2"
   if [ $? -ne 0 ]; then
     echo "Error: Automatic installation is only supported with Docker Compose version 2 or higher."
-    echo "Please upgrade Docker Compose or use the manual installation method: https://nexguard.binhphuong.io.vn"
+    echo "Please upgrade Docker Compose or use the manual installation method: https://docs.firezone.dev/deploy/docker"
     exit 1
   fi
   set -e
@@ -87,7 +87,7 @@ promptEmail() {
 }
 
 promptContact() {
-  read -p "Could we email you to ask for product feedback? NexGuard depends heavily on input from users like you to steer development. (Y/n): " contact
+  read -p "Could we email you to ask for product feedback? Firezone depends heavily on input from users like you to steer development. (Y/n): " contact
   case $contact in
     n|N)
       ;;
@@ -98,7 +98,7 @@ promptContact() {
 }
 
 promptTelemetry() {
-  read -p "NexGuard collects crash and performance logs to help us improve the product. Would you like to disable this? (N/y): " telem
+  read -p "Firezone collects crash and performance logs to help us improve the product. Would you like to disable this? (N/y): " telem
   case $telem in
     y|Y)
       telemEnabled="false"
@@ -123,10 +123,9 @@ firezoneSetup() {
         ;;
     esac
     curl -fsSL https://raw.githubusercontent.com/firezone/firezone/legacy/$file -o $installDir/docker-compose.yml
-    # Note: upstream URL kept intentionally; replace with your own compose file if needed
   fi
   db_pass=$(od -vN "8" -An -tx1 /dev/urandom | tr -d " \n" ; echo)
-  docker run --rm binhphuong/nexguard bin/gen-env > "$installDir/.env"
+  docker run --rm firezone/firezone bin/gen-env > "$installDir/.env"
   sed -i.bak "s/DEFAULT_ADMIN_EMAIL=.*/DEFAULT_ADMIN_EMAIL=$1/" "$installDir/.env"
   sed -i.bak "s~EXTERNAL_URL=.*~EXTERNAL_URL=$2~" "$installDir/.env"
   sed -i.bak "s/DATABASE_PASSWORD=.*/DATABASE_PASSWORD=$db_pass/" "$installDir/.env"
@@ -145,13 +144,13 @@ firezoneSetup() {
   sleep 5
   $dc -f $installDir/docker-compose.yml logs postgres
   echo "Resetting DB password..."
-  $dc -f $installDir/docker-compose.yml exec postgres psql -p 5432 -U postgres -d nexguard -h 127.0.0.1 -c "ALTER ROLE postgres WITH PASSWORD '${db_pass}'"
+  $dc -f $installDir/docker-compose.yml exec postgres psql -p 5432 -U postgres -d firezone -h 127.0.0.1 -c "ALTER ROLE postgres WITH PASSWORD '${db_pass}'"
   echo "Migrating DB..."
-  $dc -f $installDir/docker-compose.yml run -e TELEMETRY_ID="${tid}" --rm nexguard bin/migrate
+  $dc -f $installDir/docker-compose.yml run -e TELEMETRY_ID="${tid}" --rm firezone bin/migrate
   echo "Creating admin..."
-  $dc -f $installDir/docker-compose.yml run -e TELEMETRY_ID="${tid}" --rm nexguard bin/create-or-reset-admin
-  echo "Upping NexGuard services..."
-  $dc -f $installDir/docker-compose.yml up -d nexguard caddy
+  $dc -f $installDir/docker-compose.yml run -e TELEMETRY_ID="${tid}" --rm firezone bin/create-or-reset-admin
+  echo "Upping firezone services..."
+  $dc -f $installDir/docker-compose.yml up -d firezone caddy
 
   displayLogo
 
@@ -202,8 +201,8 @@ main() {
   defaultExternalUrl="https://$(hostname)"
   adminUser=""
   externalUrl=""
-  defaultInstallDir="$HOME/.nexguard"
-  promptEmail "Enter the administrator email you'd like to use for logging into this NexGuard instance: "
+  defaultInstallDir="$HOME/.firezone"
+  promptEmail "Enter the administrator email you'd like to use for logging into this Firezone instance: "
   promptInstallDir "Enter the desired installation directory ($defaultInstallDir): "
   promptExternalUrl "Enter the external URL that will be used to access this instance. ($defaultExternalUrl): "
   promptContact

@@ -76,9 +76,9 @@ services:
       - ${FZ_INSTALL_DIR:-.}/.env
     volumes:
       # IMPORTANT: Persists WireGuard private key and other data. If
-      # /var/nexguard/private_key exists when Firezone starts, it is
+      # /var/firezone/private_key exists when Firezone starts, it is
       # used as the WireGuard private. Otherwise, one is generated.
-      - ${FZ_INSTALL_DIR:-.}/firezone:/var/nexguard
+      - ${FZ_INSTALL_DIR:-.}/firezone:/var/firezone
     cap_add:
       # Needed for WireGuard and firewall support.
       - NET_ADMIN
@@ -175,9 +175,9 @@ services:
       - 51820:51820/udp
     volumes:
       # IMPORTANT: Persists WireGuard private key and other data. If
-      # /var/nexguard/private_key exists when Firezone starts, it is
+      # /var/firezone/private_key exists when Firezone starts, it is
       # used as the WireGuard private. Otherwise, one is generated.
-      - ${HOME}/.firezone/firezone:/var/nexguard
+      - ${HOME}/.firezone/firezone:/var/firezone
     environment:
       EXTERNAL_URL: ${EXTERNAL_URL:?err}
       DEFAULT_ADMIN_EMAIL: ${DEFAULT_ADMIN_EMAIL:?err}
