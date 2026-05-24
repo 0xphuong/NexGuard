@@ -1,0 +1,9 @@
+- name: Create nexguard network
+  community.docker.docker_network:
+    name: nexguard-network
+    driver: bridge
+    enable_ipv6: true
+    ipam_options:
+      - subnet: 172.25.0.0/16
+      - subnet: fcff:3990:3990::/64
+        gateway: fcff:3990:3990::1

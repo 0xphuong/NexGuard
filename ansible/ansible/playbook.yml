@@ -1,0 +1,10 @@
+- name: Deploy NexGuard Stack
+  hosts: all
+  become: true
+  vars_files:
+    - group_vars/all.yml
+  roles:
+    - network
+    - postgres
+    - nexguard
+    - caddy 

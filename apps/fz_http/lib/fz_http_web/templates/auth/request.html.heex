@@ -1,0 +1,41 @@
+<%= link("← Back", to: ~p"/", class: "ng-back") %>
+
+<h1 class="ng-auth-title">Welcome back</h1>
+<p class="ng-auth-subtitle">Enter your credentials to continue</p>
+
+<%= form_tag @callback_path, method: "post" do %>
+  <div class="ng-field">
+    <label for="email" class="ng-label">Email address</label>
+    <input
+      class="ng-input"
+      type="email"
+      name="email"
+      id="email"
+      required
+      autocomplete="email"
+      placeholder="you@example.com"
+      value={@conn.params["email"]}
+    />
+  </div>
+
+  <div class="ng-field">
+    <label for="password" class="ng-label">Password</label>
+    <input
+      class="ng-input"
+      type="password"
+      name="password"
+      id="password"
+      required
+      autocomplete="current-password"
+      placeholder="••••••••"
+    />
+  </div>
+
+  <div class="ng-form-actions">
+    <%= submit("Sign In", class: "ng-btn ng-btn-primary") %>
+    <%= link("Forgot password?",
+      to: ~p"/auth/reset_password",
+      class: "ng-link"
+    ) %>
+  </div>
+<% end %>

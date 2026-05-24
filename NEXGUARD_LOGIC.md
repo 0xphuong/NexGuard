@@ -1,0 +1,904 @@
+# NexGuard — Tổng hợp Logic & Kiến trúc
+
+> Cập nhật: 2026-05-23  
+> Image production: `binhphuong/nexguard:0.7.40`  
+> URL production: `https://nexguard.binhphuong.io.vn`
+
+---
+
+## 1. Tổng quan
+
+**NexGuard** (tên nội bộ: *NexGuard*) là VPN server tự host + Linux firewall dựa trên **WireGuard**, xây dựng bằng **Elixir/Phoenix** (phiên bản legacy 0.7.x). Hệ thống cung cấp:
+
+- Tunnel VPN encrypted qua WireGuard (UDP 51820)
+- Web admin UI (Phoenix LiveView, port 13000)
+- Per-user egress firewall dùng nftables
+- SSO/OIDC/SAML integration
+- Multi-deployment: Docker Compose, Ansible, Kubernetes
+
+---
+
+## 2. Kiến trúc tổng thể
+
+```
+Internet
+    │
+    ▼
+[Caddy :443] ─── reverse proxy ──► [NexGuard :13000] (Phoenix Web + API)
+    │                                       │
+    │                               ┌───────┼────────────┐
+    │                               │       │            │
+    │                          [fz_http] [fz_vpn]   [fz_wall]
+    │                          Web/API  WireGuard   nftables
+    │                                       │
+    │                               [wg-nexguard]
+    │                               WireGuard iface
+    │                               IPv4: 10.0.55.0/24
+    │                               IPv6: fd00::/106
+    │
+    ▼
+[WireGuard Client] ──UDP:51820──► Tunnel ──► [Internal Networks]
+                                              10.0.0.0/8
+                                              10.2.0.0/16
+                                              10.8.0.0/16
+                                              ...
+
+[PostgreSQL :5432] ─── data ──► NexGuard (users, peers, rules)
+```
+
+---
+
+## 3. Elixir Application Structure
+
+Dự án là **Elixir umbrella** với 3 app con:
+
+---
+
+### `apps/fz_http` — Phoenix Web Application
+
+#### 3.1 Supervisor Tree (`application.ex`)
+
+Khởi động theo 3 mode:
+- **full** — toàn bộ services (production)
+- **test** — có Ecto sandbox
+- **database** — chỉ Repo (migration jobs)
+
+#### 3.2 Domain Contexts
+
+Mỗi context có cấu trúc chuẩn: `context.ex` + `schema.ex` + `changeset.ex` + `query.ex` + `authorizer.ex`
+
+**Users (`lib/fz_http/users/`)**
+- Schema: `email`, `password_hash` (Argon2), `role` (admin/unprivileged), `disabled_at`
+- Operations: create, update, disable (set `disabled_at`), delete
+- Auth: email+password qua Argon2; OIDC qua `oidc/connection`
+
+**Devices (`lib/fz_http/devices/`)**
+- Schema: `user_id`, `name`, `public_key`, `preshared_key`, `ipv4`, `ipv6`, `description`, `use_site_to_site_vpn`, `allowed_ips`, `dns`, `mtu`, `endpoint`, `persistent_keepalive`, `rx_bytes`, `tx_bytes`, `latest_handshake`
+- IP allocation: dùng **PostgreSQL advisory locks** để tránh race condition khi cấp IP từ pool `WIREGUARD_IPV4_NETWORK` / `WIREGUARD_IPV6_NETWORK`
+- Stats updater: tách `rx_bytes`, `tx_bytes`, `latest_handshake` từ WireGuard dump
+
+**Rules (`lib/fz_http/rules/`)**
+- Schema: `user_id` (null = global), `destination` (CIDR/IP), `action` (accept/drop), `port_range`, `port_type` (tcp/udp/any)
+- Áp dụng per-user hoặc global (null user_id)
+
+**API Tokens (`lib/fz_http/api_tokens/`)**
+- Tối đa 25 tokens/user
+- Schema: `token` (hashed), `expires_at`, `name`
+- Dùng cho REST API authentication
+
+**Configuration (`lib/fz_http/config/`)**
+- Precedence: **env vars > database > defaults**
+- Type casting: boolean, integer, array, JSON
+- Embedded schemas: `OpenIDConnectProvider`, `SAMLIdentityProvider`
+- DB-backed: logo upload, OIDC providers, SAML providers, email config
+- Env-backed: secrets, WireGuard network, database DSN
+
+**Connectivity Checks (`lib/fz_http/connectivity_checks/`)**
+- GenServer poller kiểm tra kết nối Internet định kỳ
+- Kết quả lưu DB, hiển thị trên admin UI
+
+#### 3.3 Authentication Stack
+
+```
+Request
+  │
+  ├── HTML pipeline ──► Guardian (JWT cookie) ──► LiveAuth hook
+  │                          │
+  │                    MFA hook (TOTP check)
+  │
+  └── JSON pipeline ──► Guardian (Bearer token / API token)
+
+Auth methods:
+  1. Email + Password (Argon2)
+  2. OIDC (Ueberauth) — Google, Okta, Azure AD...
+  3. SAML (Samly) — enterprise IdP
+  4. MFA (NimbleTOTP) — TOTP second factor
+```
+
+**OIDC Refresh Manager** (`oidc/refresh_manager.ex`):
+- GenServer chạy mỗi **10 phút**
+- Refresh access tokens cho tất cả OIDC connections
+- Nếu refresh thất bại → revoke session → force re-login
+
+**SAML** (`auth/saml/start_proxy.ex`):
+- Cấu hình Samly provider từ DB config
+- Redirect về IdP, nhận assertion, map về user
+
+#### 3.4 Authorization Model
+
+```elixir
+# Mỗi resource có authorizer riêng
+defmodule FzHttp.Users.Authorizer do
+  # Admin: full CRUD
+  # Unprivileged: chỉ edit own profile
+end
+
+# Check trong controller/live view:
+FzHttp.Auth.authorize!(subject, :manage, %Device{})
+```
+
+Permissions được collect từ tất cả authorizers vào `Roles` module khi boot.
+
+#### 3.5 Server GenServer (`lib/fz_http/server.ex`)
+
+Bridge giữa fz_http và fz_vpn/fz_wall:
+
+| Call | Hướng | Mục đích |
+|---|---|---|
+| `:load_peers` | http → vpn | Tải danh sách peers khởi động |
+| `:load_settings` | http → wall | Tải users/devices/rules khởi động |
+| `:update_device_stats` | vpn → http | Push stats WireGuard lên DB |
+
+#### 3.6 VPN Session Scheduler
+
+- Kiểm tra các VPN sessions đã expired
+- Đồng bộ device list với fz_vpn
+
+#### 3.7 Web Layer (`lib/fz_http_web/`)
+
+**Router pipelines:**
+```
+:browser        ─► session + CSRF + LiveView flash
+:api            ─► JSON, Bearer token auth
+:require_auth   ─► redirect to login if unauthenticated
+:require_admin  ─► 403 if not admin role
+```
+
+**Live Views chính:**
+| Live View | Path | Chức năng |
+|---|---|---|
+| `DeviceLive.Index` | `/devices` | List/add devices (admin view all, user view own) |
+| `DeviceLive.Show` | `/devices/:id` | Chi tiết device, download WireGuard config |
+| `UserLive.Index` | `/users` | User management (admin only) |
+| `UserLive.Show` | `/users/:id` | User profile + devices |
+| `RuleLive.Index` | `/rules` | Firewall rule management |
+| `SettingLive.Account` | `/settings/account` | Email, password, MFA |
+| `SettingLive.Security` | `/settings/security` | OIDC/SAML config |
+| `SettingLive.Defaults` | `/settings/client` | Default WireGuard client config |
+| `ConnectivityChecks` | `/settings/connectivity` | Internet connectivity status |
+
+**Live Hooks:**
+- `LiveAuth` — kiểm tra Guardian token, redirect nếu hết hạn
+- `LiveMFA` — bắt buộc TOTP nếu user bật MFA
+- `LiveNav` — set breadcrumbs, flash messages
+
+**JSON API** (`/v0/`):
+```
+GET/POST   /v0/users
+GET/PATCH  /v0/users/:id
+GET/POST   /v0/devices
+GET/PATCH  /v0/devices/:id
+GET/POST   /v0/rules
+GET/POST   /v0/configuration
+```
+
+**WireGuard config download** (`WireguardConfigView`):
+- Render file `.conf` cho client
+- Gồm: `[Interface]` (private key, addr, DNS) + `[Peer]` (server public key, endpoint, allowed_ips)
+
+#### 3.8 Encryption
+
+| Data | Encryption |
+|---|---|
+| Password | Argon2 hash |
+| PSK, private key | Cloak AES-256-GCM (field-level) |
+| OIDC tokens | Cloak AES-256-GCM |
+| DB transport | TLS (configurable) |
+| Cookie | Phoenix encrypted cookie |
+
+#### 3.9 Database Migrations (39 migrations)
+
+Trình tự tạo:
+1. `users` — email, role, password_hash
+2. `devices` — WireGuard peers, IP allocation
+3. `rules` — egress firewall rules
+4. `configurations` — system config
+5. `oidc_connections` — linked IdP accounts
+6. `mfa_methods` — TOTP secrets
+7. `api_tokens` — REST API auth
+8. `connectivity_checks` — Internet check logs
+9. Index optimizations, UUID migrations, datetime fixes
+
+---
+
+### `apps/fz_vpn` — WireGuard VPN Module
+
+#### 3.10 Supervisor Tree
+
+```
+FzVpn.Application (one_for_one)
+├── FzVpn.Server         (GenServer, name: :fz_vpn_server)
+└── FzVpn.StatsPushService (GenServer)
+```
+
+#### 3.11 Adapter Pattern
+
+```
+config :fz_vpn, :wg_adapter, FzVpn.Interface.WgAdapter.Live    # production
+config :fz_vpn, :wg_adapter, FzVpn.Interface.WgAdapter.Sandbox  # dev/test
+```
+
+**Live adapter** → delegates đến thư viện `Wireguardex` (NIF gọi kernel WireGuard API)
+**Sandbox adapter** → GenServer lưu in-memory Map, dùng trong tests
+
+#### 3.12 Keypair Management (`lib/fz_vpn/keypair.ex`)
+
+```
+Boot
+ │
+ ├── File /var/nexguard/private_key tồn tại?
+ │     YES → đọc private key
+ │     NO  → generate mới, lưu với chmod 0600
+ │
+ └── Derive public key qua Wireguardex.get_public_key/1
+     Cache vào module attribute
+```
+
+#### 3.13 Server GenServer (`lib/fz_vpn/server.ex`)
+
+**State:** map các peers hiện tại `%{public_key => peer_config}`
+
+**Init sequence:**
+1. Load/generate keypair
+2. Setup WireGuard interface `wg-nexguard`
+3. Gọi `:load_peers` trên fz_http server → nhận danh sách devices
+4. Áp dụng peer config
+
+**Key operations:**
+
+```elixir
+# Diff-based config update
+def apply_config_diff(old_peers, new_peers) do
+  # 1. Remove peers không còn trong new_peers
+  # 2. Update peers thay đổi config
+  # 3. Add peers mới
+  # → Tối thiểu hóa WireGuard disruption
+end
+
+# Remove single peer (khi user delete device)
+handle_call({:remove_peer, public_key}, ...)
+
+# Full reconfiguration (khi settings thay đổi)
+handle_call({:set_config, peers}, ...)
+```
+
+#### 3.14 Interface Module (`lib/fz_vpn/interface.ex`)
+
+Wraps `WgAdapter` với:
+- CIDR normalization cho allowed_ips
+- Handshake timestamp formatting
+- Error logging cho mỗi operation
+- `dump/1` → trả về `%{public_key => %{rx_bytes, tx_bytes, latest_handshake, endpoint}}`
+
+#### 3.15 Stats Push Service (`lib/fz_vpn/stats_push_service.ex`)
+
+```
+Mỗi 60 giây:
+ Interface.dump("wg-nexguard")
+    └─► FzHttp.Server.update_device_stats/1
+           └─► UPDATE devices SET rx_bytes, tx_bytes, latest_handshake
+```
+
+---
+
+### `apps/fz_wall` — nftables Firewall Module
+
+#### 3.16 Supervisor Tree
+
+```
+FzWall.Application (one_for_one)
+└── FzWall.Server (GenServer, name: :fz_wall_server)
+```
+
+#### 3.17 Adapter Pattern
+
+```
+config :fz_wall, :cli, FzWall.CLI.Live     # production
+config :fz_wall, :cli, FzWall.CLI.Sandbox  # dev/test
+```
+
+**Sandbox** → tất cả operations trả về `""` (no-op), không chạy nft
+
+#### 3.18 Server GenServer (`lib/fz_wall/server.ex`)
+
+**State:**
+```elixir
+%{
+  users:   MapSet.t(),   # user IDs
+  devices: MapSet.t(),   # device structs
+  rules:   MapSet.t()    # rule structs
+}
+```
+
+**Init sequence:**
+1. Gọi `cli().setup_firewall()` — xóa table cũ, tạo mới
+2. Gọi `:load_settings` trên fz_http server
+3. Gọi `cli().restore(settings)` — rebuild toàn bộ nftables state
+
+**Operations (tất cả là synchronous GenServer calls):**
+
+| Call | Hành động |
+|---|---|
+| `{:add_user, user_id}` | Tạo sets + chain + jump rules cho user |
+| `{:delete_user, user_id}` | Xóa toàn bộ sets + chain của user |
+| `{:add_device, device}` | Thêm device IP vào `user_ip_devices` set |
+| `{:delete_device, device}` | Xóa device IP khỏi set |
+| `{:add_rule, rule}` | Thêm destination vào accept/drop set |
+| `{:delete_rule, rule}` | Xóa destination khỏi set |
+| `{:set_rules, settings}` | Full restore (rebuild từ đầu) |
+
+#### 3.19 CLI Live Adapter (`lib/fz_wall/cli/live.ex`)
+
+**`setup_firewall/0`:**
+```bash
+# 1. Xóa bảng cũ nếu tồn tại
+nft delete table inet nexguard
+
+# 2. Tạo bảng mới
+nft add table inet nexguard
+
+# 3. Tạo chain forward (filter)
+nft add chain inet nexguard forward { type filter hook forward priority filter; policy accept; }
+
+# 4. Tạo chain postrouting (NAT)
+nft add chain inet nexguard postrouting { type nat hook postrouting priority srcnat; policy accept; }
+
+# 5. Setup masquerade (tất cả ifaces trừ lo và wg*)
+nft add rule inet nexguard postrouting oifname != "lo" oifname != "wg*" masquerade
+```
+
+**`add_user/1` — tạo đầy đủ sets + rules cho 1 user:**
+```
+1. Tạo device sets:    user{id}_ip_devices, user{id}_ip6_devices
+2. Tạo filter sets:    user{id}_ip_{drop,accept}
+                       user{id}_ip6_{drop,accept}
+                       user{id}_ip_{drop,accept}_layer4   (nếu có port rules)
+                       user{id}_ip6_{drop,accept}_layer4
+3. Tạo user chain:     chain user{id}
+4. Thêm filter rules vào user chain (L4 trước, IP sau):
+   - ip daddr . proto . dport @user{id}_ip_accept_layer4  accept
+   - ip daddr . proto . dport @user{id}_ip_drop_layer4    drop
+   - ip daddr @user{id}_ip_accept                         accept
+   - ip daddr @user{id}_ip_drop                           drop
+   (tương tự cho IPv6)
+5. Thêm jump rule vào chain forward:
+   - ip saddr @user{id}_ip_devices  jump user{id}
+   - ip6 saddr @user{id}_ip6_devices jump user{id}
+```
+
+**`add_device/1`:**
+```bash
+# Xác định IPv4 hay IPv6 từ địa chỉ
+nft add element inet nexguard user{id}_ip_devices { <ipv4> }
+nft add element inet nexguard user{id}_ip6_devices { <ipv6> }
+```
+
+**`add_rule/1`:**
+```bash
+# Rule IP-only
+nft add element inet nexguard user{id}_ip_accept { 10.0.0.0/8 }
+
+# Rule với port
+nft add element inet nexguard user{id}_ip_accept_layer4 { 10.0.0.0/8 . tcp . 443 }
+```
+
+**`restore/1` — rebuild toàn bộ state:**
+```
+For each user:  add_user(user_id)
+For each device: add_device(device)
+For each rule:   add_rule(rule)
+```
+
+#### 3.20 Set Naming Convention (`lib/fz_wall/cli/helpers/sets.ex`)
+
+```
+Device sets:
+  user{uuid}_ip_devices        # IPv4 WireGuard IPs của user
+  user{uuid}_ip6_devices       # IPv6 WireGuard IPs
+
+Per-user filter sets:
+  user{uuid}_ip_drop            # IPv4 drop destinations
+  user{uuid}_ip_accept          # IPv4 accept destinations
+  user{uuid}_ip_drop_layer4     # IPv4 drop với IP+proto+port
+  user{uuid}_ip_accept_layer4   # IPv4 accept với IP+proto+port
+  (tương tự ip6_*)
+
+Global filter sets (user_id = nil):
+  ip_drop, ip_accept
+  ip_drop_layer4, ip_accept_layer4
+  ip6_drop, ip6_accept
+  ip6_drop_layer4, ip6_accept_layer4
+```
+
+#### 3.21 Shell Execution (`lib/fz_wall/shell.ex`)
+
+```elixir
+# Mọi lệnh nft đều chạy qua:
+Shell.exec!("nft add rule ...")   # raises nếu exit_code != 0
+Shell.exec("nft list ...")        # suppress errors, log warning
+```
+
+---
+
+### 3.22 Luồng dữ liệu giữa 3 apps
+
+```
+User tạo Device qua Web UI
+         │
+         ▼
+  fz_http.Devices.create_device()
+         │
+         ├──► INSERT INTO devices (ip allocation với advisory lock)
+         │
+         ├──► FzVpn.Server.set_config(new_peers)
+         │         └──► WireGuard kernel: add peer
+         │
+         └──► FzWall.Server.add_device(device)
+                   └──► nft add element ...ip_devices { device_ip }
+
+User xóa Device
+         │
+         ├──► FzVpn.Server.remove_peer(public_key)
+         │         └──► WireGuard kernel: remove peer
+         │
+         ├──► FzWall.Server.delete_device(device)
+         │         └──► nft delete element ...
+         │
+         └──► DELETE FROM devices
+
+Mỗi 60 giây (StatsPushService):
+  FzVpn.Interface.dump("wg-nexguard")
+         └──► FzHttp.Server.update_device_stats()
+                   └──► UPDATE devices SET rx_bytes, tx_bytes, latest_handshake
+
+System boot:
+  fz_wall boots → fz_http.load_settings → restore nftables
+  fz_vpn boots  → fz_http.load_peers   → configure WireGuard
+```
+
+---
+
+## 4. Environment Variables (`.env`)
+
+| Variable | Giá trị (production) | Mục đích |
+|---|---|---|
+| `VERSION` | `0.7.36` | App version |
+| `EXTERNAL_URL` | `https://nexguard.binhphuong.io.vn` | Public URL cho Caddy + cookies |
+| `DEFAULT_ADMIN_EMAIL` | `binhphuong.pcsr@gmail.com` | Admin account khởi tạo |
+| `DEFAULT_ADMIN_PASSWORD` | *(set in .env)* | Admin password |
+| `GUARDIAN_SECRET_KEY` | *(secret)* | JWT signing |
+| `SECRET_KEY_BASE` | *(secret)* | Phoenix session encryption |
+| `LIVE_VIEW_SIGNING_SALT` | *(secret)* | LiveView token |
+| `COOKIE_SIGNING_SALT` | *(secret)* | Cookie signing |
+| `COOKIE_ENCRYPTION_SALT` | *(secret)* | Cookie encryption |
+| `DATABASE_ENCRYPTION_KEY` | *(secret)* | Cloak AES key cho DB |
+| `DATABASE_PASSWORD` | *(secret)* | PostgreSQL password |
+| `WIREGUARD_IPV4_NETWORK` | `10.0.55.0/24` | WireGuard IPv4 pool |
+| `WIREGUARD_IPV4_ADDRESS` | `10.0.55.254` | WireGuard server IPv4 |
+| `WIREGUARD_IPV6_NETWORK` | `fd00::/106` | WireGuard IPv6 pool |
+| `WIREGUARD_IPV6_ADDRESS` | `fd00::1` | WireGuard server IPv6 |
+| `TELEMETRY_ENABLED` | `false` | Tắt PostHog analytics |
+| `TID` | `9e56556fe18c646b` | Telemetry ID |
+
+---
+
+## 5. Docker Compose — Production (`docker-compose.prod.yml`)
+
+### Services
+
+| Service | Image | Port | Network IP |
+|---|---|---|---|
+| `caddy` | `caddy:2` | 80, 443 (host network) | host |
+| `nexguard` | `binhphuong/nexguard:0.7.40` | `51820/udp` (WireGuard) | `172.25.0.100` |
+| `postgres` | `postgres:15` | internal | nexguard-network |
+
+### Network `nexguard-network`
+```
+IPv4: 172.25.0.0/16
+IPv6: fcff:3990:3990::/64  (gateway: fcff:3990:3990::1)
+NexGuard IP: 172.25.0.100 / fcff:3990:3990::99
+```
+
+### Caddy Config (inline trong compose)
+```
+${EXTERNAL_URL} {
+  log
+  reverse_proxy * 172.25.0.100:13000
+}
+```
+
+### NexGuard Container Capabilities
+```yaml
+cap_add:
+  - NET_ADMIN    # WireGuard interface management
+  - SYS_MODULE   # Kernel module loading
+sysctls:
+  net.ipv4.ip_forward: 1
+  net.ipv6.conf.all.forwarding: 1
+  net.ipv6.conf.all.disable_ipv6: 0
+ulimits:
+  nofile: 65536
+```
+
+### Restart Policy
+```yaml
+condition: unless-stopped
+delay: 5s
+window: 120s
+update_config:
+  order: start-first  # (stop-first cho postgres)
+```
+
+---
+
+## 6. Docker Compose — Development (`docker-compose.yml`)
+
+Thêm các service phụ cho dev:
+
+| Service | Image | Mục đích |
+|---|---|---|
+| `caddy` | `caddy:2` | Reverse proxy |
+| `nexguard` | built từ `Dockerfile.dev` | App server |
+| `postgres` | `postgres:15` | Database |
+| `vault` | `vault` (port 8200) | Secrets management |
+| `saml-idp` | custom (port 8400/8443) | SAML test IdP |
+| `client` | custom | WireGuard test client |
+
+**Network dev:**
+```
+IPv4: 172.28.0.0/16
+IPv6: fcff:3990:3990::/64
+```
+
+**Dev start script (`scripts/dev_start.sh`):**
+```sh
+ip link add dev wg-nexguard type wireguard
+ip address replace dev wg-nexguard 100.64.0.1/10
+ip -6 address replace dev wg-nexguard fd00::1/106
+ip link set mtu 1280 up dev wg-nexguard
+mix start
+```
+
+---
+
+## 7. Dockerfile
+
+### `Dockerfile.dev`
+- Base: `nexguard/elixir:1.14.3-otp-25.2.1`
+- Cài: yarn, build-base, git, python3, net-tools, iproute2, nftables, nodejs
+- Compile Elixir deps + Node.js assets
+- Tạo self-signed certs
+- CMD: `/var/app/dev_start.sh`
+- EXPOSE: `51820/udp`
+
+### `Dockerfile.prod` (multi-stage)
+- **Stage 1 (builder):** Compile Elixir release + Node.js assets
+- **Stage 2 (runner):** Alpine với nftables, libstdc++, OpenSSL
+- Artifact: mix release tại `/app`
+- CMD: `/app/bin/server`
+
+---
+
+## 8. nftables Firewall Logic
+
+### Cấu trúc table `inet nexguard`
+
+```
+table inet nexguard
+├── chain forward          (filter hook, priority 0, policy accept)
+├── chain postrouting      (nat hook, priority srcnat, policy accept)
+└── chain user<UUID>       (per-user chains)
+```
+
+### Per-user Sets (mỗi user có bộ set riêng)
+
+| Set | Type | Mục đích |
+|---|---|---|
+| `user<UUID>_ip_devices` | `ipv4_addr` | Danh sách WireGuard IPs của user |
+| `user<UUID>_ip6_devices` | `ipv6_addr` | WireGuard IPv6 IPs |
+| `user<UUID>_ip_accept` | `ipv4_addr` interval | Subnets được phép truy cập |
+| `user<UUID>_ip_drop` | `ipv4_addr` interval | Subnets bị chặn |
+| `user<UUID>_ip_accept_layer4` | `ipv4_addr . proto . port` | Accept theo IP+proto+port |
+| `user<UUID>_ip_drop_layer4` | `ipv4_addr . proto . port` | Drop theo IP+proto+port |
+| *(tương tự cho IPv6)* | | |
+
+### Global Sets
+
+| Set | Elements | Mục đích |
+|---|---|---|
+| `ip_drop` | `0.0.0.0-255.255.255.255` | Default deny all |
+| `ip_accept` | `10.5.67.0/24`, `34.160.111.145` | Global whitelist |
+| `ip_accept_layer4` | `10.0.235.0/24:tcp:443`, NodePort ranges | Layer4 whitelist |
+
+### Chain `forward` — Logic xử lý
+
+```
+1. Match ip saddr theo ip_devices của từng user → jump user<UUID> chain
+2. Global layer4 rules (accept/drop từ wg-nexguard)
+3. Global IP rules (accept/drop từ wg-nexguard)
+```
+
+### Per-user chain logic (ưu tiên từ trên xuống)
+
+```
+1. ip daddr . proto . dport @ip_accept_layer4  → accept  (L4 whitelist)
+2. ip daddr . proto . dport @ip_drop_layer4    → drop    (L4 blacklist)
+3. ip daddr @ip_accept                         → accept  (IP whitelist)
+4. ip daddr @ip_drop                           → drop    (IP blacklist)
+(fall-through → tiếp tục global rules)
+```
+
+### Chain `postrouting` — NAT/Masquerade
+
+```nft
+chain postrouting {
+    type nat hook postrouting priority srcnat; policy accept;
+    oifname "eth0" meta nfproto ipv4 masquerade persistent
+    oifname "eth0" meta nfproto ipv6 masquerade persistent
+}
+```
+
+### Script `nft-firezone.sh` — Lịch sử cấu hình NAT
+
+**Phiên bản hiện tại (UPDATE 20250704) — Logic NAT với exception:**
+
+```bash
+# Xóa chain cũ
+nft delete chain inet nexguard postrouting
+
+# Tạo lại chain
+nft add chain inet nexguard postrouting { type nat hook postrouting priority srcnat; policy accept; }
+
+# NGOẠI LỆ: Forward không NAT cho các internal subnets (đặt TRƯỚC rule mặc định)
+nft add rule inet nexguard postrouting ip daddr 10.0.0.0/16 oifname "eth0" meta nfproto ipv4 return
+nft add rule inet nexguard postrouting ip daddr 10.2.0.0/16 oifname "eth0" meta nfproto ipv4 return
+nft add rule inet nexguard postrouting ip daddr 10.8.0.0/16 oifname "eth0" meta nfproto ipv4 return
+
+# MẶC ĐỊNH: Masquerade tất cả IPv4/IPv6 còn lại
+nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv4 masquerade persistent
+nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv6 masquerade persistent
+```
+
+**MSS Clamping (chống MTU fragmentation):**
+```bash
+nft add table inet filter
+nft add chain inet filter forward { type filter hook forward priority 0; policy accept; }
+nft add rule inet filter forward tcp flags syn tcp option maxseg size set 1410
+nft add rule inet filter output  tcp flags syn tcp option maxseg size set 1410
+```
+
+**Route thêm cho WireGuard subnet:**
+```bash
+ip route add 10.0.22.0/24 via 172.25.0.100 dev br-<bridge-id>
+```
+
+---
+
+## 9. Ansible Deployment (`ansible/ansible/`)
+
+### Playbook
+```yaml
+- name: Deploy ZeroTrust Stack
+  hosts: all
+  become: true
+  roles:
+    - network    # (main.yml tại roles/network/main.yml)
+    - postgres
+    - nexguard
+    - caddy
+```
+
+### Variables (`group_vars/all.yml`)
+
+| Var | Giá trị Ansible |
+|---|---|
+| `version` | `0.7.36` |
+| `external_url` | `https://zerotrust.local.vn` |
+| `wireguard_ipv4_network` | `10.0.22.0/24` |
+| `wireguard_ipv4_address` | `10.0.22.254` |
+| `fz_install_dir` | `/opt/nexguard` |
+
+### Role: `postgres`
+- Tạo dir `/opt/nexguard/postgres/data` (owner 999:999)
+- Chạy `postgres:15` container trong `nexguard-network`
+- Healthcheck: `pg_isready -U postgres` mỗi 30s
+
+### Role: `nexguard`
+1. Tạo dir `/opt/nexguard/nexguard`
+2. Copy `.env` file (mode 0600)
+3. Tạo Docker network `nexguard-network` (172.25.0.0/16 + fcff:3990:3990::/64)
+4. Chạy container `binhphuong/nexguard:0.7.40`
+   - Port: `51820/udp`, `13000`
+   - IP: `172.25.0.100` / `fcff:3990:3990::99`
+   - caps: NET_ADMIN, SYS_MODULE
+5. Đợi container `running` (retry 10 lần × 3s)
+6. Setup nftables trong container:
+   - Xóa chain cũ → tạo lại
+   - RETURN rules cho 10.0.0.0/16, 10.2.0.0/16, 10.8.0.0/16
+   - Masquerade IPv4/IPv6 mặc định
+
+### Role: `caddy`
+1. Tạo dir `/opt/nexguard/caddy`
+2. Copy SSL certs (`certificate.crt`, `private.key`)
+3. Tạo Caddyfile:
+   ```
+   https://zerotrust.local.vn {
+     log
+     tls /data/caddy/certs/certificate.crt /data/caddy/certs/private.key
+     reverse_proxy * 172.25.0.100:13000
+   }
+   ```
+4. Chạy `caddy:2` với `network_mode: host`
+
+---
+
+## 10. Kubernetes Ingress (`k8s-ingress-zerotrust.yaml`)
+
+```yaml
+# Service trỏ đến NexGuard host (external endpoint)
+Service: zerotrust (namespace: systems, port: 13000)
+Endpoint: 10.0.235.9:13000
+
+# Ingress
+Host: zerotrust.sevensystem.vn
+TLS: secret star-sevensystem-vn-tls
+Ingress class: external-nginx
+Proxy buffer: 32k × 8
+Path: / → zerotrust:13000
+```
+
+---
+
+## 11. WireGuard Configuration
+
+### Interface `wg-nexguard`
+```
+IPv4: 10.0.55.254/24  (production .env)
+       10.0.22.254/24  (ansible)
+       100.64.0.1/10   (dev mode)
+IPv6: fd00::1/106
+MTU:  1280
+```
+
+### Peer Assignment
+- Mỗi device được cấp 1 IP trong pool (10.0.55.x hoặc 10.0.22.x)
+- IP được track qua `user<UUID>_ip_devices` set trong nftables
+- Private key lưu tại `/var/nexguard/private_key`
+
+### Post-up routing (`scripts/post-up-wg.sh`)
+```bash
+# Policy-based routing table 333444
+ip rule add ...
+ip route add ... table 333444
+ip -6 rule add ...
+ip -6 route add ... table 333444
+```
+
+---
+
+## 12. CI/CD & GitHub Actions
+
+| Workflow | File | Trigger |
+|---|---|---|
+| Docker build | `docker_build.yml` | PR / push |
+| Docker publish | `docker_publish.yml` | Tag release |
+| Omnibus build | `omnibus_build.yml` | PR / push |
+| Omnibus publish | `omnibus_publish.yml` | Tag release |
+| Tests | `test.yml` | PR / push |
+| Static analysis | `static_analysis.yml` | PR / push |
+| PR labeler | `pr_labeler.yml` | PR |
+
+### Functional Test (`.ci/functional_test.sh`)
+1. Install Omnibus package (RPM/DEB)
+2. Disable telemetry + connectivity checks
+3. Bootstrap config
+4. Test: homepage load, WireGuard interface ops, firewall rules, telemetry ID
+
+---
+
+## 13. Code Quality
+
+| Tool | Config | Scope |
+|---|---|---|
+| Credo | `.credo.exs` | Elixir linting (strict) |
+| Dialyzer | `mix.exs` | Elixir type analysis |
+| RuboCop | `.rubocop.yml` | Ruby scripts (Ruby 2.7) |
+| codespell | `.codespellrc` | Spell check |
+| markdownlint | `.markdownlint.json` | Markdown |
+| mix format | `.formatter.exs` | Elixir formatting |
+| pre-commit | `.pre-commit-config.yaml` | All hooks above |
+
+**Pre-commit pipeline:**
+```
+mix-compile → mix-format → mix-lint (credo) → mix-analysis (dialyzer)
+→ codespell → rubocop → yaml-check → trailing-whitespace
+```
+
+---
+
+## 14. Debug / Live nftables State (`phuong-debug/`)
+
+File debug chứa snapshot nftables thực tế đang chạy với:
+
+**Global policies:**
+- `ip_drop`: 0.0.0.0-255.255.255.255 (deny all by default)
+- `ip_accept`: 10.5.67.0/24, 34.160.111.145
+- `ip_accept_layer4`: NodePort ranges trên 10.0.235.0/24, port 443
+
+**Active users và devices:**
+
+| User UUID (prefix) | Devices (VPN IP) | Access |
+|---|---|---|
+| `19cf8e9a` | 100.96.60.28 | 10.0.0.0/8, 45.60.35.234 |
+| `5b73cf06` | 100.65.0.100/101, 100.83.157.99, 100.127.72.72 | 0.0.0.0/0 (full tunnel) |
+| `d3a392c5` | 100.93.6.154, 100.101.23.201 | 10.0.0.0/8 |
+| `d3eec1ae` | 100.86.222.130, 100.95.227.109, ... (5 devices) | 10.0.0.0/8 |
+| `637c90f5` | 100.70.53.180 | 45.60.35.234 + NodePorts |
+| `f940c241` | 100.77.84.141, 100.93.96.147 | 45.60.35.234 + MongoDB 27017, NodePorts |
+| `4258ea6c` | 100.64.164.154 | 45.60.35.234 |
+| `d1ee4a53` | 100.100.245.232 | 45.60.35.234 |
+| `204bf76f` | (no devices) | 45.60.35.234 |
+| `d5e648bc` | (no devices) | (no rules) |
+| `65fe3456` | (no devices) | (no rules) |
+
+---
+
+## 15. Tool Versions
+
+```
+nodejs  18.16.0
+elixir  1.14.3-otp-25
+erlang  25.2.1
+ruby    2.7.6
+python  3.9.13
+```
+
+---
+
+## 16. Luồng triển khai nhanh
+
+### Docker Compose (production Linux)
+```bash
+# 1. Clone repo + setup .env
+cp .env.example .env && vim .env
+
+# 2. Start stack
+docker compose -f docker-compose.prod.yml up -d
+
+# 3. Áp dụng nftables rules (nếu cần)
+bash nft-firezone.sh
+
+# 4. Thêm route cho WireGuard subnet
+ip route add 10.0.22.0/24 via 172.25.0.100 dev <bridge>
+```
+
+### Ansible
+```bash
+cd ansible/ansible
+ansible-playbook -i inventory playbook.yml
+```
+
+### Kubernetes
+```bash
+kubectl apply -f k8s-ingress-zerotrust.yaml
+```

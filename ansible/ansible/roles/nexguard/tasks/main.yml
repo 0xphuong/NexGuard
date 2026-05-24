@@ -1,0 +1,96 @@
+- name: Create NexGuard data directory
+  file:
+    path: "{{ fz_install_dir }}/nexguard"
+    state: directory
+    owner: root
+    group: root
+    mode: '0700'
+
+- name: Copy .env file
+  copy:
+    src: ../../files/.env
+    dest: "{{ fz_install_dir }}/.env"
+    owner: root
+    group: root
+    mode: '0600'
+
+- name: Create nexguard network
+  community.docker.docker_network:
+    name: nexguard-network
+    driver: bridge
+    enable_ipv6: true
+    ipam_options:
+      - subnet: 172.25.0.0/16
+      - subnet: fcff:3990:3990::/64
+        gateway: fcff:3990:3990::1
+
+- name: Run NexGuard container
+  community.docker.docker_container:
+    name: nexguard
+    image: "binhphuong/nexguard:0.7.40"
+    restart_policy: unless-stopped
+    ulimits: nofile:65536:65536
+    ports:
+      - "51820:51820/udp"
+      - "13000:13000"
+    env:
+      VERSION: "{{ version }}"
+      EXTERNAL_URL: "{{ external_url }}"
+      DEFAULT_ADMIN_EMAIL: "{{ default_admin_email }}"
+      DEFAULT_ADMIN_PASSWORD: "{{ default_admin_password }}"
+      GUARDIAN_SECRET_KEY: "{{ guardian_secret_key }}"
+      SECRET_KEY_BASE: "{{ secret_key_base }}"
+      LIVE_VIEW_SIGNING_SALT: "{{ live_view_signing_salt }}"
+      COOKIE_SIGNING_SALT: "{{ cookie_signing_salt }}"
+      COOKIE_ENCRYPTION_SALT: "{{ cookie_encryption_salt }}"
+      DATABASE_ENCRYPTION_KEY: "{{ database_encryption_key }}"
+      DATABASE_PASSWORD: "{{ database_password }}"
+      WIREGUARD_IPV4_NETWORK: "{{ wireguard_ipv4_network }}"
+      WIREGUARD_IPV4_ADDRESS: "{{ wireguard_ipv4_address }}"
+      WIREGUARD_IPV6_NETWORK: "{{ wireguard_ipv6_network }}"
+      WIREGUARD_IPV6_ADDRESS: "{{ wireguard_ipv6_address }}"
+      TELEMETRY_ENABLED: "{{ telemetry_enabled }}"
+      TID: "{{ tid }}"
+    volumes:
+      - "{{ fz_install_dir }}/nexguard:/var/nexguard"
+    cap_add:
+      - NET_ADMIN
+      - SYS_MODULE
+    sysctls:
+      net.ipv6.conf.all.disable_ipv6: 0
+      net.ipv4.ip_forward: 1
+      net.ipv6.conf.all.forwarding: 1
+    networks:
+      - name: nexguard-network
+        ipv4_address: 172.25.0.100
+        ipv6_address: fcff:3990:3990::99
+    depends_on:
+      - postgres
+    purge_networks: yes
+    state: started
+
+- name: Wait for NexGuard container to be healthy
+  community.docker.docker_container_info:
+    name: nexguard
+  register: nexguard_info
+  until: nexguard_info.container.State.Status == "running"
+  retries: 10
+  delay: 3
+
+- name: Setup nftables rules in NexGuard container
+  community.docker.docker_container_exec:
+    container: nexguard
+    command: >-
+      sh -c '
+        nft delete chain inet nexguard postrouting 2>/dev/null || true &&
+        nft add chain inet nexguard postrouting { type nat hook postrouting priority srcnat\; policy accept\; } 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv4 masquerade persistent 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv6 masquerade persistent 2>/dev/null || true &&
+        nft flush chain inet nexguard postrouting 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting ip daddr 10.0.0.0/16 oifname "eth0" meta nfproto ipv4 return 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting ip daddr 10.2.0.0/16 oifname "eth0" meta nfproto ipv4 return 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting ip daddr 10.8.0.0/16 oifname "eth0" meta nfproto ipv4 return 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv4 masquerade persistent 2>/dev/null || true &&
+        nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv6 masquerade persistent 2>/dev/null || true
+      '
+    tty: true
