@@ -532,7 +532,7 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Entity ID for SAML authentication.
   """
-  defconfig(:saml_entity_id, :string, default: "urn:firezone.dev:firezone-app")
+  defconfig(:saml_entity_id, :string, default: "urn:nexguard.dev:firezone-app")
 
   @doc """
   Path to the SAML keyfile inside the container. Should be either a PEM or DER-encoded private key,

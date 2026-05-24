@@ -23,7 +23,7 @@ The following fields should be filled out on this page:
 
 | Setting                | Value                                                                                                                                                                                     |
 | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Audience (EntityID)    | This should be the same as your Firezone `SAML_ENTITY_ID`, defaults to `urn:firezone.dev:firezone-app`.                                                                                   |
+| Audience (EntityID)    | This should be the same as your Firezone `SAML_ENTITY_ID`, defaults to `urn:nexguard.dev:firezone-app`.                                                                                   |
 | Recipient              | This is your Firezone `EXTERNAL_URL/auth/saml/sp/consume/:config_id` (e.g., `https://firezone.company.com/auth/saml/sp/consume/onelogin`).                                                |
 | ACS URL Validator      | This field is regex to ensure OneLogin posts the response to the correct URL. For the sample URL below, we can use `^https:\/\/firezone\.company\.com\/auth\/saml\/sp\/consume\/onelogin` |
 | ACS URL                | This is your Firezone `EXTERNAL_URL/auth/saml/sp/consume/:config_id` (e.g., `https://firezone.company.com/auth/saml/sp/consume/onelogin`).                                                |

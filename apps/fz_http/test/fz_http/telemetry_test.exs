@@ -132,7 +132,7 @@ defmodule FzHttp.TelemetryTest do
     end
 
     test "external hostname" do
-      FzHttp.Config.put_env_override(:fz_http, FzHttp.Repo, hostname: "firezone.dev")
+      FzHttp.Config.put_env_override(:fz_http, FzHttp.Repo, hostname: "nexguard.dev")
 
       ping_data = Telemetry.ping_data()
 

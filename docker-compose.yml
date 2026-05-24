@@ -92,7 +92,7 @@ services:
     # This is a container with this PR merged: https://github.com/kristophjunge/docker-test-saml-idp/pull/27
     image: vihangk1/docker-test-saml-idp:latest
     environment:
-      SIMPLESAMLPHP_SP_ENTITY_ID: 'urn:firezone.dev:firezone-app'
+      SIMPLESAMLPHP_SP_ENTITY_ID: 'urn:nexguard.dev:firezone-app'
       SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:13000/auth/saml/sp/consume/mysamlidp'
       SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:13000/auth/saml/sp/logout/mysamlidp'
       SIMPLESAMLPHP_SP_NAME_ID_FORMAT: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'

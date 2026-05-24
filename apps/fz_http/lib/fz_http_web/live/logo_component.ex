@@ -25,7 +25,7 @@ defmodule FzHttpWeb.LogoComponent do
 
   def render(assigns) do
     ~H"""
-    <img src={~p"/images/logo-text.svg"} alt="firezone.dev" />
+    <img src={~p"/images/logo-text.svg"} alt="nexguard.dev" />
     """
   end
 end

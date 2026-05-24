@@ -60,7 +60,7 @@ config :fz_http,
   }
 
 config :fz_http, FzHttp.SAML,
-  entity_id: "urn:firezone.dev:firezone-app",
+  entity_id: "urn:nexguard.dev:firezone-app",
   certfile_path: Path.expand("../apps/fz_http/priv/cert/saml_selfsigned.pem", __DIR__),
   keyfile_path: Path.expand("../apps/fz_http/priv/cert/saml_selfsigned_key.pem", __DIR__)
 
