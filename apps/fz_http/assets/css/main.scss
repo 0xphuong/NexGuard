@@ -657,6 +657,295 @@ pre {
   margin: 0;
 }
 
+/* ── Secondary Button ────────────────────────────────────────── */
+
+.ng-secondary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  background: #ffffff;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
+
+  .mdi { font-size: 1rem; }
+
+  &:hover {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+    color: #1e293b;
+    text-decoration: none;
+  }
+}
+
+.ng-inline-link {
+  color: #2563eb;
+  text-decoration: none;
+  font-weight: 500;
+  &:hover { color: #1e3a8a; text-decoration: underline; }
+}
+
+/* ── Devices Table ────────────────────────────────────────────── */
+
+.ng-td-mono {
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.8125rem;
+  color: #334155;
+}
+
+.ng-device-icon {
+  color: #94a3b8;
+  margin-right: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.ng-transfer-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8125rem;
+  font-family: 'Fira Mono', monospace;
+
+  .mdi { font-size: 0.875rem; }
+}
+
+.ng-transfer-rx { color: #10b981; }
+.ng-transfer-tx { color: #3b82f6; }
+
+.ng-pubkey {
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: help;
+}
+
+/* ── Info Banner ──────────────────────────────────────────────── */
+
+.ng-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #1d4ed8;
+  margin-bottom: 1.5rem;
+
+  .mdi { font-size: 1.1rem; flex-shrink: 0; margin-top: 0.05rem; }
+}
+
+/* ── Rules Page ───────────────────────────────────────────────── */
+
+.ng-rules-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+
+  @media (max-width: 768px) { grid-template-columns: 1fr; }
+}
+
+.ng-rule-panel {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.ng-rule-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.ng-rule-panel-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  font-size: 1rem;
+  color: #ffffff;
+  flex-shrink: 0;
+
+  &--accept { background: linear-gradient(135deg, #065f46, #10b981); }
+  &--drop   { background: linear-gradient(135deg, #991b1b, #ef4444); }
+}
+
+.ng-rule-panel-title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #1e293b;
+  flex: 1;
+}
+
+.ng-rule-panel-count {
+  background: #e2e8f0;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border-radius: 999px;
+  padding: 0.1rem 0.5rem;
+  min-width: 22px;
+  text-align: center;
+}
+
+.ng-rule-panel-body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ng-rule-form {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.ng-rule-form-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1fr auto;
+  gap: 0.75rem;
+  align-items: end;
+
+  @media (max-width: 1200px) { grid-template-columns: 1fr 1fr; }
+}
+
+.ng-rule-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+
+  &--action { justify-content: flex-end; }
+}
+
+.ng-rule-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.ng-rule-input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  transition: border-color 0.15s, box-shadow 0.15s;
+
+  &::placeholder { color: #94a3b8; }
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  &.is-danger { border-color: #dc2626; }
+}
+
+.ng-rule-select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  font-size: 0.875rem;
+  font-family: inherit;
+  color: #1e293b;
+  width: 100%;
+  appearance: auto;
+  cursor: pointer;
+
+  &:focus { outline: none; border-color: #2563eb; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.ng-rule-add-btn {
+  padding: 0.5rem 1.1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+
+  &--accept { background: #10b981; color: #ffffff; &:hover { background: darken(#10b981, 8%); } }
+  &--drop   { background: #ef4444; color: #ffffff; &:hover { background: darken(#ef4444, 8%); } }
+}
+
+.ng-rule-error {
+  font-size: 0.75rem;
+  color: #dc2626;
+  min-height: 1rem;
+  margin: 0;
+}
+
+.ng-rule-table-wrap {
+  margin-top: 0;
+}
+
+.ng-row-disabled {
+  opacity: 0.5;
+}
+
+.ng-delete-link {
+  color: #94a3b8;
+  font-size: 1.1rem;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover { color: #ef4444; text-decoration: none; }
+}
+
+.ng-rule-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 1.5rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+
+  .mdi { font-size: 1.25rem; }
+}
+
+.ng-rule-warning {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: #d97706;
+  margin-top: 0.5rem;
+
+  .mdi { font-size: 1rem; }
+}
+
 /* ── Dashboard Page ───────────────────────────────────────────── */
 
 .ng-stat-grid {

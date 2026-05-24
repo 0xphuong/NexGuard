@@ -1,35 +1,35 @@
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Egress Rules</h1>
+      <p class="ng-page-subtitle">Firewall rules applied to the kernel's forward chain</p>
+    </div>
+  </div>
+</div>
 
 <section class="section is-main-section">
-  <div class="block">
-    <p>
-      <span class="icon">
-        <i class="mdi mdi-information-outline"></i>
-      </span>
-      Rules apply to all devices by default. User-scoped rules apply only to
-      devices belonging to that particular user.
-    </p>
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <div class="ng-info-banner">
+    <i class="mdi mdi-information-outline"></i>
+    Rules apply to all devices by default. User-scoped rules apply only to devices belonging to that particular user.
   </div>
 
-  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
-  <div class="tile is-ancestor">
-    <div class="tile is-parent">
+  <div class="ng-rules-grid">
+    <div>
       <%= live_component(
         FzHttpWeb.RuleLive.RuleListComponent,
         title: "Allowlist",
-        header_icon: "mdi mdi-arrow-decision-outline",
+        header_icon: "mdi mdi-check-circle-outline",
         id: :allowlist,
         subject: @subject
       ) %>
     </div>
-    <div class="tile is-parent">
+    <div>
       <%= live_component(
         FzHttpWeb.RuleLive.RuleListComponent,
         title: "Denylist",
-        header_icon: "mdi mdi-alert-octagon",
+        header_icon: "mdi mdi-cancel",
         id: :denylist,
         subject: @subject
       ) %>
