@@ -170,6 +170,7 @@ defmodule FzHttpWeb.Router do
       ],
       root_layout: {FzHttpWeb.LayoutView, :admin}
     ) do
+      live "/dashboard", DashboardLive.Index, :index
       live "/users", UserLive.Index, :index
       live "/users/new", UserLive.Index, :new
       live "/users/:id", UserLive.Show, :show

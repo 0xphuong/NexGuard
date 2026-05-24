@@ -11,7 +11,7 @@ defmodule FzHttpWeb.ControllerHelpers do
   end
 
   def root_path_for_user(%User{role: :admin}) do
-    ~p"/users"
+    ~p"/dashboard"
   end
 
   def root_path_for_user(%User{role: :unprivileged}) do

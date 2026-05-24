@@ -2,6 +2,10 @@ defmodule FzHttp.Rules do
   alias FzHttp.{Repo, Auth, Validator, Telemetry}
   alias FzHttp.Rules.{Authorizer, Rule}
 
+  def count do
+    Repo.aggregate(Rule.Query.all(), :count)
+  end
+
   def fetch_count_by_user_id(user_id, %Auth.Subject{} = subject) do
     if Validator.valid_uuid?(user_id) do
       queryable =

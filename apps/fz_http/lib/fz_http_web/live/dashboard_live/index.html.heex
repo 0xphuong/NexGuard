@@ -1,0 +1,88 @@
+<%= render(FzHttpWeb.SharedView, "heading.html",
+  page_title: @page_title,
+  page_subtitle: "Overview of your NexGuard VPN infrastructure"
+) %>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <div class="ng-stat-grid">
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--blue">
+        <i class="mdi mdi-account-group"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= @user_count %></div>
+        <div class="ng-stat-label">Total Users</div>
+      </div>
+      <.link navigate={~p"/users"} class="ng-stat-link">
+        View all <i class="mdi mdi-arrow-right"></i>
+      </.link>
+    </div>
+
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--indigo">
+        <i class="mdi mdi-laptop"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= @device_count %></div>
+        <div class="ng-stat-label">Total Devices</div>
+      </div>
+      <.link navigate={~p"/devices"} class="ng-stat-link">
+        View all <i class="mdi mdi-arrow-right"></i>
+      </.link>
+    </div>
+
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--green">
+        <i class="mdi mdi-vpn"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= @active_device_count %></div>
+        <div class="ng-stat-label">Active VPN Sessions</div>
+      </div>
+      <span class="ng-stat-meta">Last 3 minutes</span>
+    </div>
+
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--amber">
+        <i class="mdi mdi-traffic-light"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= @rule_count %></div>
+        <div class="ng-stat-label">Firewall Rules</div>
+      </div>
+      <.link navigate={~p"/rules"} class="ng-stat-link">
+        Manage <i class="mdi mdi-arrow-right"></i>
+      </.link>
+    </div>
+  </div>
+
+  <div class="ng-section-header">Quick Actions</div>
+  <div class="ng-quick-actions">
+    <.link navigate={~p"/users"} class="ng-action-btn">
+      <i class="mdi mdi-account-group"></i>
+      <span>Manage Users</span>
+    </.link>
+    <.link navigate={~p"/devices"} class="ng-action-btn">
+      <i class="mdi mdi-laptop"></i>
+      <span>Manage Devices</span>
+    </.link>
+    <.link navigate={~p"/rules"} class="ng-action-btn">
+      <i class="mdi mdi-traffic-light"></i>
+      <span>Firewall Rules</span>
+    </.link>
+    <.link navigate={~p"/settings/security"} class="ng-action-btn">
+      <i class="mdi mdi-lock-check"></i>
+      <span>Security Settings</span>
+    </.link>
+    <.link navigate={~p"/settings/customization"} class="ng-action-btn">
+      <i class="mdi mdi-palette"></i>
+      <span>Customization</span>
+    </.link>
+    <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-action-btn">
+      <i class="mdi mdi-access-point"></i>
+      <span>WAN Diagnostics</span>
+    </.link>
+  </div>
+</section>

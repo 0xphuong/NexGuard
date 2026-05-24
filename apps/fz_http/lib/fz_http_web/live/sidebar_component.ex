@@ -9,10 +9,19 @@ defmodule FzHttpWeb.SidebarComponent do
     <aside class="aside is-placed-left is-expanded is-vertically-scrollable ">
       <div class="aside-tools">
         <div class="aside-tools-label">
-          <span>Firezone</span>
+          <span>NexGuard</span>
         </div>
       </div>
       <div class="menu is-menu-main">
+        <p class="menu-label">Main</p>
+        <ul class="menu-list">
+          <li>
+            <%= live_redirect(to: ~p"/dashboard", class: nav_class(@path, "/dashboard")) do %>
+              <span class="icon"><i class="mdi mdi-view-dashboard-outline"></i></span>
+              <span class="menu-item-label">Dashboard</span>
+            <% end %>
+          </li>
+        </ul>
         <p class="menu-label">Configuration</p>
         <ul class="menu-list">
           <li>
