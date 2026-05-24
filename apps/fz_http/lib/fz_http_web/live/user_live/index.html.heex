@@ -12,68 +12,90 @@
   ) %>
 <% end %>
 
-<%= render(FzHttpWeb.SharedView, "heading.html", page_title: @page_title) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Users</h1>
+      <p class="ng-page-subtitle"><%= length(@users) %> user<%= if length(@users) != 1, do: "s" %></p>
+    </div>
+    <.link replace={true} patch={~p"/users/new"} class="ng-primary-btn">
+      <i class="mdi mdi-account-plus"></i> Add User
+    </.link>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="block">
-    <table class="table is-hoverable is-bordered is-striped is-fullwidth">
-      <thead>
-        <tr>
-          <th>Email</th>
-          <th>Devices</th>
-          <th>VPN Connection</th>
-          <th>Last Signed In</th>
-          <th>Last Signed In Method</th>
-          <th>Created</th>
-          <th>Updated</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%= for user <- @users do %>
+  <%= if @users == [] do %>
+    <div class="ng-empty-state">
+      <i class="mdi mdi-account-group ng-empty-state-icon"></i>
+      <p class="ng-empty-state-title">No users yet</p>
+      <p class="ng-empty-state-hint">Add a user to get started.</p>
+    </div>
+  <% else %>
+    <div class="ng-table-wrap">
+      <table class="ng-table">
+        <thead>
           <tr>
-            <td>
-              <.link navigate={~p"/users/#{user}"}>
-                <%= user.email %>
-              </.link>
-            </td>
-            <td id={"user-#{user.id}-device-count"}><%= user.device_count %></td>
-            <td id={"user-#{user.id}-vpn-status"} class="has-text-centered">
-              <FzHttpWeb.UserLive.VPNStatusComponent.status
-                user={user}
-                expired={vpn_expired?(user)}
-              />
-            </td>
-            <td
-              id={"user-#{user.id}-timestamp"}
-              data-timestamp={user.last_signed_in_at}
-              phx-hook="FormatTimestamp"
-            >
-              …
-            </td>
-            <td><%= user.last_signed_in_method %></td>
-            <td
-              id={"user-#{user.id}-inserted-at"}
-              data-timestamp={user.inserted_at}
-              phx-hook="FormatTimestamp"
-            >
-              …
-            </td>
-            <td
-              id={"user-#{user.id}-updated-at"}
-              data-timestamp={user.updated_at}
-              phx-hook="FormatTimestamp"
-            >
-              …
-            </td>
+            <th>User</th>
+            <th class="ng-th-center">Devices</th>
+            <th class="ng-th-center">VPN Status</th>
+            <th>Last Sign In</th>
+            <th>Auth Method</th>
+            <th>Created</th>
           </tr>
-        <% end %>
-      </tbody>
-    </table>
-  </div>
-
-  <.link replace={true} patch={~p"/users/new"} class="button">
-    Add User
-  </.link>
+        </thead>
+        <tbody>
+          <%= for user <- @users do %>
+            <tr>
+              <td>
+                <div class="ng-user-cell">
+                  <div class={"ng-avatar ng-avatar--#{user.role}"}>
+                    <%= user.email |> String.first() |> String.upcase() %>
+                  </div>
+                  <div class="ng-user-info">
+                    <.link navigate={~p"/users/#{user}"} class="ng-user-email">
+                      <%= user.email %>
+                    </.link>
+                    <span class={"ng-role-badge ng-role-badge--#{user.role}"}>
+                      <%= user.role %>
+                    </span>
+                  </div>
+                </div>
+              </td>
+              <td class="ng-td-center" id={"user-#{user.id}-device-count"}>
+                <span class="ng-device-count">
+                  <i class="mdi mdi-laptop"></i> <%= user.device_count %>
+                </span>
+              </td>
+              <td class="ng-td-center" id={"user-#{user.id}-vpn-status"}>
+                <FzHttpWeb.UserLive.VPNStatusComponent.status
+                  user={user}
+                  expired={vpn_expired?(user)}
+                />
+              </td>
+              <td
+                id={"user-#{user.id}-timestamp"}
+                data-timestamp={user.last_signed_in_at}
+                phx-hook="FormatTimestamp"
+                class="ng-td-muted"
+              >
+                …
+              </td>
+              <td class="ng-td-muted"><%= user.last_signed_in_method %></td>
+              <td
+                id={"user-#{user.id}-inserted-at"}
+                data-timestamp={user.inserted_at}
+                phx-hook="FormatTimestamp"
+                class="ng-td-muted"
+              >
+                …
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
 </section>

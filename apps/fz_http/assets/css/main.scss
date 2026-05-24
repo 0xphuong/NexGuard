@@ -334,6 +334,329 @@ pre {
   }
 }
 
+/* ── Modal / Dialog ───────────────────────────────────────────── */
+
+.modal-background {
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(3px);
+}
+
+.modal-card {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 4px 16px rgba(0, 0, 0, 0.1);
+  max-width: 480px;
+  width: calc(100% - 2rem);
+  margin: 0 auto;
+}
+
+.modal-card-head {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.25rem 1.5rem;
+
+  .modal-card-title {
+    font-size: 1.0625rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+}
+
+.modal-card-body {
+  padding: 1.5rem;
+  background: #ffffff;
+
+  .block p {
+    font-size: 0.875rem;
+    color: #64748b;
+  }
+
+  .field {
+    margin-bottom: 1.125rem;
+
+    .label {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: #1e293b;
+      letter-spacing: 0.01em;
+      margin-bottom: 0.375rem;
+    }
+
+    .input, .textarea {
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #fafbfc;
+      color: #1e293b;
+      font-size: 0.9375rem;
+      padding: 0.65rem 0.875rem;
+      box-shadow: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+
+      &::placeholder { color: #94a3b8; }
+
+      &:focus {
+        border-color: #2563eb;
+        background: #ffffff;
+        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+        outline: none;
+      }
+
+      &.is-danger {
+        border-color: #dc2626;
+        &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+      }
+    }
+
+    .help.is-danger {
+      font-size: 0.75rem;
+      color: #dc2626;
+      margin-top: 0.25rem;
+    }
+
+    progress {
+      height: 3px;
+      border-radius: 99px;
+      margin-top: 0.375rem;
+    }
+  }
+}
+
+.modal-card-foot {
+  background: #f8fafc;
+  border-top: 1px solid #e2e8f0;
+  padding: 1rem 1.5rem;
+
+  .button.is-primary {
+    background: #1e3a8a;
+    border-color: #1e3a8a;
+    border-radius: 7px;
+    font-weight: 600;
+    font-size: 0.9375rem;
+    height: auto;
+    padding: 0.6rem 1.5rem;
+    transition: background 0.15s, transform 0.1s;
+
+    &:hover {
+      background: darken(#1e3a8a, 6%);
+      border-color: darken(#1e3a8a, 6%);
+      transform: translateY(-1px);
+    }
+  }
+}
+
+/* ── Shared Admin Page Components ────────────────────────────── */
+
+.ng-page-header {
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  padding: 1.375rem 1.5rem 1.25rem;
+}
+
+.ng-page-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 100%;
+}
+
+.ng-page-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 0.1rem;
+  letter-spacing: -0.01em;
+}
+
+.ng-page-subtitle {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ng-primary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 1.1rem;
+  background: #1e3a8a;
+  color: #ffffff;
+  border: none;
+  border-radius: 7px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  font-family: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, transform 0.1s;
+
+  .mdi { font-size: 1rem; }
+
+  &:hover {
+    background: darken(#1e3a8a, 6%);
+    color: #ffffff;
+    text-decoration: none;
+    transform: translateY(-1px);
+  }
+}
+
+// Generic table
+.ng-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+}
+
+.ng-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+
+  thead tr {
+    background: #f8fafc;
+    border-bottom: 1px solid #e2e8f0;
+  }
+
+  th {
+    padding: 0.75rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #64748b;
+    white-space: nowrap;
+    text-align: left;
+
+    &.ng-th-center { text-align: center; }
+  }
+
+  tbody tr {
+    border-bottom: 1px solid #f1f5f9;
+    transition: background 0.1s;
+
+    &:last-child { border-bottom: none; }
+    &:hover { background: #f8fafc; }
+  }
+
+  td {
+    padding: 0.85rem 1rem;
+    color: #334155;
+    vertical-align: middle;
+
+    &.ng-td-center { text-align: center; }
+    &.ng-td-muted { color: #64748b; font-size: 0.8125rem; }
+  }
+}
+
+// User cell: avatar + email + role
+.ng-user-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.ng-avatar {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: #ffffff;
+
+  &--admin        { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
+  &--unprivileged { background: linear-gradient(135deg, #374151, #6b7280); }
+}
+
+.ng-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.ng-user-email {
+  color: #1e293b;
+  font-weight: 500;
+  text-decoration: none;
+
+  &:hover { color: #2563eb; text-decoration: none; }
+}
+
+.ng-role-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+
+  &--admin        { background: #eff6ff; color: #1d4ed8; }
+  &--unprivileged { background: #f1f5f9; color: #475569; }
+}
+
+.ng-device-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  color: #475569;
+  font-size: 0.875rem;
+
+  .mdi { color: #94a3b8; font-size: 1rem; }
+}
+
+// VPN status badge
+.ng-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+
+  .mdi { font-size: 0.875rem; }
+
+  &--enabled  { background: #f0fdf4; color: #16a34a; }
+  &--disabled { background: #fef2f2; color: #dc2626; }
+  &--expired  { background: #fffbeb; color: #d97706; }
+}
+
+// Empty state
+.ng-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 4rem 2rem;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.ng-empty-state-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  color: #cbd5e1;
+}
+
+.ng-empty-state-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  margin: 0 0 0.25rem;
+}
+
+.ng-empty-state-hint {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
 /* ── Dashboard Page ───────────────────────────────────────────── */
 
 .ng-stat-grid {

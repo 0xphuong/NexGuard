@@ -19,18 +19,18 @@ defmodule FzHttpWeb.UserLive.VPNStatusComponent do
   defp disabled_tag(assigns) do
     ~H"""
     <span
-      class="tag is-danger is-medium"
-      title="This user's VPN connect is disabled by an administrator or OIDC refresh failure"
+      class="ng-status-badge ng-status-badge--disabled"
+      title="This user's VPN connection is disabled by an administrator or OIDC refresh failure"
     >
-      DISABLED
+      <i class="mdi mdi-close-circle-outline"></i> Disabled
     </span>
     """
   end
 
   defp enabled_tag(assigns) do
     ~H"""
-    <span class="tag is-success is-medium" title="This user's VPN connection is enabled">
-      ENABLED
+    <span class="ng-status-badge ng-status-badge--enabled" title="This user's VPN connection is enabled">
+      <i class="mdi mdi-check-circle-outline"></i> Enabled
     </span>
     """
   end
@@ -38,17 +38,19 @@ defmodule FzHttpWeb.UserLive.VPNStatusComponent do
   defp expired_tag_sign_in(assigns) do
     ~H"""
     <span
-      class="tag is-warning is-medium"
+      class="ng-status-badge ng-status-badge--expired"
       title="This user's VPN connection is disabled due to authentication expiration"
     >
-      EXPIRED
+      <i class="mdi mdi-clock-alert-outline"></i> Expired
     </span>
     """
   end
 
   defp expired_tag_auth(assigns) do
     ~H"""
-    <span class="tag is-warning is-medium" title="User must sign in to activate">EXPIRED</span>
+    <span class="ng-status-badge ng-status-badge--expired" title="User must sign in to activate">
+      <i class="mdi mdi-clock-alert-outline"></i> Expired
+    </span>
     """
   end
 end
