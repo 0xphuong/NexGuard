@@ -59,7 +59,7 @@ export default function Page() {
     {
       name: "Jamil Bou Kheir",
       title: "CEO/Founder",
-      imgSrc: gravatar("jamil@firezone.dev", 200),
+      imgSrc: gravatar("jamil@binhphuong.io.vn", 200),
       twitterUrl: "https://twitter.com/jamilbk",
       githubUrl: "https://github.com/jamilbk",
       linkedinUrl: "https://linkedin.com/in/jamilbk",
@@ -82,7 +82,7 @@ export default function Page() {
     {
       name: "Francesca Lovebloom",
       title: "Senior Systems Engineer",
-      imgSrc: gravatar("fran@firezone.dev", 200),
+      imgSrc: gravatar("fran@binhphuong.io.vn", 200),
       twitterUrl: "https://twitter.com/franlovebloom",
       githubUrl: "https://github.com/francesca64",
       linkedinUrl: "https://linkedin.com/in/francesca-lovebloom",

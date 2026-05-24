@@ -35,7 +35,7 @@ const renderConfig = function () {
         `<p>
           Error generating configuration. Could not load private key from
           sessionStorage. Close window and try again. If the issue persists,
-          please contact support@firezone.dev.
+          please contact support@binhphuong.io.vn.
         </p>`
     }
   }

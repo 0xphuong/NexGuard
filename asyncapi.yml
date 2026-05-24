@@ -19,7 +19,7 @@ info:
   contact:
     name: Firezone
     url: https://nexguard.binhphuong.io.vn/
-    email: async-api@firezone.dev
+    email: async-api@binhphuong.io.vn
   description: |
     Realtime API documentation for Firezone's control plane.
 

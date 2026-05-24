@@ -55,7 +55,7 @@ export default function Page() {
                   width={28}
                   height={28}
                   className="w-7 h-7 rounded-full"
-                  src={gravatar("jamil@firezone.dev")}
+                  src={gravatar("jamil@binhphuong.io.vn")}
                   alt="Jamil Bou Kheir avatar"
                 />
                 <span className="font-medium dark:text-white">
@@ -110,7 +110,7 @@ export default function Page() {
                   width={28}
                   height={28}
                   className="w-7 h-7 rounded-full"
-                  src={gravatar("jamil@firezone.dev")}
+                  src={gravatar("jamil@binhphuong.io.vn")}
                   alt="Jamil Bou Kheir avatar"
                 />
                 <span className="font-medium dark:text-white">

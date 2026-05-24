@@ -13,7 +13,7 @@ export default function Page() {
     <Post
       authorName="Jamil Bou Kheir"
       authorTitle="Founder & CEO"
-      authorEmail="jamil@firezone.dev"
+      authorEmail="jamil@binhphuong.io.vn"
       title="Firezone 0.5.0 Released!"
       date="July 25, 2022"
     >

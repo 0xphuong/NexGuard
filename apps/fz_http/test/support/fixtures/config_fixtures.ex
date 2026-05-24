@@ -138,7 +138,7 @@ defmodule FzHttp.ConfigFixtures do
           "l2AxcYnfF8_cSOIOpkDgGavTtGYhhZPi2jZ7kPm6QGkNW5CyfEq5PGB6JOihw-XIFiiMzYgx0" <>
           "52rnzoqALoLheXrI0By4kgHSmcqOOmq7aiOff45rlSbpsR",
       "e" => "AQAB",
-      "kid" => "example@firezone.dev",
+      "kid" => "example@binhphuong.io.vn",
       "kty" => "RSA",
       "n" =>
         "qlKll8no4lPYXNSuTTnacpFHiXwPOv_htCYvIXmiR7CWhiiOHQqj7KWXIW7TGxyoLVIyeRM4mwv" <>

@@ -6,7 +6,7 @@ defmodule FzHttpWeb.LayoutView do
   Generate a random feedback email to avoid spam.
   """
   def feedback_recipient do
-    "feedback@firezone.dev"
+    "feedback@binhphuong.io.vn"
   end
 
   @doc """

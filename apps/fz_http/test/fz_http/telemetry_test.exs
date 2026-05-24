@@ -152,7 +152,7 @@ defmodule FzHttp.TelemetryTest do
     test "outbound set" do
       FzHttp.Config.put_env_override(:fz_http, FzHttpWeb.Mailer,
         adapter: Swoosh.Adapters.NoopAdapter,
-        from_email: "test@firezone.dev"
+        from_email: "test@binhphuong.io.vn"
       )
 
       ping_data = Telemetry.ping_data()
