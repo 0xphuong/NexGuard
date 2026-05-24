@@ -1,39 +1,34 @@
-<h3 class="is-3 title">Sign In</h3>
+<div class="auth-card">
+  <div class="auth-card-header">
+    <div class="auth-icon-badge">
+      <span class="mdi mdi-lock-outline"></span>
+    </div>
+    <h1 class="auth-title">Sign In</h1>
+    <p class="auth-subtitle">Select your authentication method to continue</p>
+  </div>
+  <div class="auth-card-body">
+    <%= for provider <- @openid_connect_providers do %>
+      <%= link to: ~p"/auth/oidc/#{provider.id}", class: "auth-provider-btn" do %>
+        <span class="mdi mdi-shield-account-outline auth-provider-icon"></span>
+        <span>Sign in with <%= provider.label %></span>
+        <span class="mdi mdi-chevron-right auth-provider-arrow"></span>
+      <% end %>
+    <% end %>
 
-<hr />
+    <%= for provider <- @saml_identity_providers do %>
+      <%= link to: "/auth/saml/auth/signin/#{provider.id}/", class: "auth-provider-btn" do %>
+        <span class="mdi mdi-card-account-details-outline auth-provider-icon"></span>
+        <span>Sign in with <%= provider.label %></span>
+        <span class="mdi mdi-chevron-right auth-provider-arrow"></span>
+      <% end %>
+    <% end %>
 
-<div class="content">
-  <p>
-    Please sign in via one of the methods below.
-  </p>
-
-  <%= for provider <- @openid_connect_providers do %>
-    <p>
-      <%= link(
-        "Sign in with #{provider.label}",
-        to: ~p"/auth/oidc/#{provider.id}",
-        class: "button"
-      ) %>
-    </p>
-  <% end %>
-
-  <%= for provider <- @saml_identity_providers do %>
-    <p>
-      <%= link(
-        "Sign in with #{provider.label}",
-        to: "/auth/saml/auth/signin/#{provider.id}/",
-        class: "button"
-      ) %>
-    </p>
-  <% end %>
-
-  <%= if @local_enabled do %>
-    <p>
-      <%= link(
-        "Sign in with email",
-        to: ~p"/auth/identity",
-        class: "button"
-      ) %>
-    </p>
-  <% end %>
+    <%= if @local_enabled do %>
+      <%= link to: ~p"/auth/identity", class: "auth-provider-btn" do %>
+        <span class="mdi mdi-email-outline auth-provider-icon"></span>
+        <span>Sign in with Email</span>
+        <span class="mdi mdi-chevron-right auth-provider-arrow"></span>
+      <% end %>
+    <% end %>
+  </div>
 </div>
