@@ -1,42 +1,68 @@
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">WAN Connectivity</h1>
+      <p class="ng-page-subtitle">Diagnostics — internet reachability checks from this server</p>
+    </div>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="block">
-    <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-      <thead>
-        <tr>
-          <th>Checked At</th>
-          <th>Resolved IP</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        <%= for connectivity_check <- @connectivity_checks do %>
-          <tr>
-            <td
-              id={"connectivity_check-#{connectivity_check.id}"}
-              phx-hook="FormatTimestamp"
-              data-timestamp={connectivity_check.inserted_at}
-            >
-              …
-            </td>
-            <td><%= connectivity_check.response_body %></td>
-            <td>
-              <span
-                data-tooltip={"HTTP Response Code: #{connectivity_check.response_code}"}
-                class={connectivity_check_span_class(connectivity_check.response_code)}
-              >
-                <i class={connectivity_check_icon_class(connectivity_check.response_code)}></i>
-              </span>
-            </td>
-          </tr>
-        <% end %>
-      </tbody>
-    </table>
+  <div class="ng-info-banner">
+    <i class="mdi mdi-information-outline"></i>
+    NexGuard periodically checks for WAN connectivity and logs the result here.
+    The resolved public IP is used to populate the default <strong>Endpoint</strong> field
+    in generated device configurations.
   </div>
+
+  <div class="ng-section-header">
+    Recent Checks
+    <span class="ng-section-badge">last 20</span>
+  </div>
+
+  <%= if Enum.empty?(@connectivity_checks) do %>
+    <div class="ng-settings-card">
+      <div class="ng-empty-state">
+        <i class="mdi mdi-wifi-off ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No checks recorded yet</p>
+        <p class="ng-empty-state-hint">Connectivity checks will appear here once the server runs its first check.</p>
+      </div>
+    </div>
+  <% else %>
+    <div class="ng-table-wrap">
+      <table class="ng-table">
+        <thead>
+          <tr>
+            <th>Checked At</th>
+            <th>Resolved IP</th>
+            <th>HTTP Code</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for check <- @connectivity_checks do %>
+            <tr>
+              <td
+                class="ng-td-muted"
+                id={"connectivity_check-#{check.id}"}
+                phx-hook="FormatTimestamp"
+                data-timestamp={check.inserted_at}
+              >…</td>
+              <td class="ng-td-mono"><%= check.response_body %></td>
+              <td class="ng-td-mono ng-td-muted"><%= check.response_code %></td>
+              <td>
+                <span class={connectivity_check_span_class(check.response_code)}>
+                  <i class={connectivity_check_icon_class(check.response_code)}></i>
+                  <%= if connectivity_check_online?(check.response_code), do: "Online", else: "Offline" %>
+                </span>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+
 </section>

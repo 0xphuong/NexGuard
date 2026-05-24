@@ -21,18 +21,22 @@ defmodule FzHttpWeb.LiveHelpers do
 
   def connectivity_check_span_class(response_code) do
     if http_success?(status_digit(response_code)) do
-      "icon has-text-success"
+      "ng-status-badge ng-status-badge--enabled"
     else
-      "icon has-text-danger"
+      "ng-status-badge ng-status-badge--disabled"
     end
   end
 
   def connectivity_check_icon_class(response_code) do
     if http_success?(status_digit(response_code)) do
-      "mdi mdi-check-circle"
+      "mdi mdi-check-circle-outline"
     else
-      "mdi mdi-alert-circle"
+      "mdi mdi-alert-circle-outline"
     end
+  end
+
+  def connectivity_check_online?(response_code) do
+    http_success?(status_digit(response_code))
   end
 
   def admin_email do
