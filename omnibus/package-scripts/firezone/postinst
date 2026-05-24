@@ -47,7 +47,7 @@ fi
 echo $bold
 echo "Please see our upgrade guide for any version notes that apply:"
 echo
-echo "=> https://docs.firezone.dev/administer/upgrade/?utm_source=product"
+echo "=> https://docs.nexguard.binhphuong.io.vn/administer/upgrade/?utm_source=product"
 echo
 echo
 echo "Heads up! Firezone 0.7.x will be the last release to offer Omnibus packages."

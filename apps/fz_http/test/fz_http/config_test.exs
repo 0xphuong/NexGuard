@@ -109,7 +109,7 @@ defmodule FzHttp.ConfigTest do
       eg: `https://firezone.mycorp.com/vpn/`.
 
 
-      You can find more information on configuration here: https://www.firezone.dev/docs/reference/env-vars/#environment-variable-listing
+      You can find more information on configuration here: https://nexguard.binhphuong.io.vn/docs/reference/env-vars/#environment-variable-listing
       """
 
       assert_raise RuntimeError, message, fn ->
@@ -155,7 +155,7 @@ defmodule FzHttp.ConfigTest do
       eg: `https://firezone.mycorp.com/vpn/`.
 
 
-      You can find more information on configuration here: https://www.firezone.dev/docs/reference/env-vars/#environment-variable-listing
+      You can find more information on configuration here: https://nexguard.binhphuong.io.vn/docs/reference/env-vars/#environment-variable-listing
       """
 
       assert_raise RuntimeError, message, fn ->
@@ -183,7 +183,7 @@ defmodule FzHttp.ConfigTest do
       eg: `https://firezone.mycorp.com/vpn/`.
 
 
-      You can find more information on configuration here: https://www.firezone.dev/docs/reference/env-vars/#environment-variable-listing
+      You can find more information on configuration here: https://nexguard.binhphuong.io.vn/docs/reference/env-vars/#environment-variable-listing
       """
 
       assert_raise RuntimeError, message, fn ->
@@ -254,7 +254,7 @@ defmodule FzHttp.ConfigTest do
       eg: `https://firezone.mycorp.com/vpn/`.
 
 
-      You can find more information on configuration here: https://www.firezone.dev/docs/reference/env-vars/#environment-variable-listing
+      You can find more information on configuration here: https://nexguard.binhphuong.io.vn/docs/reference/env-vars/#environment-variable-listing
       """
 
       assert_raise RuntimeError, message, fn ->

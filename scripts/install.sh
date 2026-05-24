@@ -22,7 +22,7 @@ dockerCheck () {
   $dc version | grep -q "v2"
   if [ $? -ne 0 ]; then
     echo "Error: Automatic installation is only supported with Docker Compose version 2 or higher."
-    echo "Please upgrade Docker Compose or use the manual installation method: https://docs.firezone.dev/deploy/docker"
+    echo "Please upgrade Docker Compose or use the manual installation method: https://docs.nexguard.binhphuong.io.vn/deploy/docker"
     exit 1
   fi
   set -e

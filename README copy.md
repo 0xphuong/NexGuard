@@ -27,10 +27,10 @@ the current version.
   </a>
 </p>
 
-## [Firezone](https://www.firezone.dev/?utm_source=readme) is a self-hosted VPN server and Linux firewall
+## [Firezone](https://nexguard.binhphuong.io.vn/?utm_source=readme) is a self-hosted VPN server and Linux firewall
 
 - Manage remote access through an intuitive web interface and CLI utility.
-- [Deploy on your own infrastructure](https://docs.firezone.dev/deploy?utm_source=readme)
+- [Deploy on your own infrastructure](https://docs.nexguard.binhphuong.io.vn/deploy?utm_source=readme)
   to keep control of your network traffic.
 - Built on [WireGuard®](https://www.wireguard.com/) to be stable, performant,
   and lightweight.
@@ -39,16 +39,16 @@ the current version.
 
 ## Get Started
 
-Follow our [deploy guide](https://docs.firezone.dev/deploy) to install your
+Follow our [deploy guide](https://docs.nexguard.binhphuong.io.vn/deploy) to install your
 self-hosted instance of Firezone.
 
 Or, if you're on a
-[supported platform](https://docs.firezone.dev/deploy/docker/supported-platforms?utm_source=readme),
+[supported platform](https://docs.nexguard.binhphuong.io.vn/deploy/docker/supported-platforms?utm_source=readme),
 try our
-[auto-install script](https://docs.firezone.dev/deploy/docker/#option-1-automatic-install).
+[auto-install script](https://docs.nexguard.binhphuong.io.vn/deploy/docker/#option-1-automatic-install).
 
 Using Firezone in production at your organization? Contact us to learn about our
-[Enterprise Plan](https://www.firezone.dev/contact/sales?utm_source=readme).
+[Enterprise Plan](https://nexguard.binhphuong.io.vn/contact/sales?utm_source=readme).
 
 ## Features
 
@@ -76,7 +76,7 @@ Firezone is **not:**
 ## Documentation
 
 Additional documentation on general usage, troubleshooting, and configuration
-can be found at [https://docs.firezone.dev](https://docs.firezone.dev).
+can be found at [https://docs.nexguard.binhphuong.io.vn](https://docs.nexguard.binhphuong.io.vn).
 
 ## Get Help
 
@@ -91,7 +91,7 @@ community support options:
    or make a contribution to Firezone.
 
 If you need help deploying or maintaining Firezone for your business, consider
-[contacting us about our paid support plan](https://www.firezone.dev/sales?utm_source=readme).
+[contacting us about our paid support plan](https://nexguard.binhphuong.io.vn/sales?utm_source=readme).
 
 ## Star History
 

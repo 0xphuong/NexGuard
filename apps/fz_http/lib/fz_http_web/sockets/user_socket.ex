@@ -5,7 +5,7 @@ defmodule FzHttpWeb.UserSocket do
   @blank_ip_warning """
   Client IP couldn't be determined! Check to ensure your reverse proxy is properly sending the \
   X-Forwarded-For header. Read more in our reverse proxy docs: \
-  https://docs.firezone.dev/deploy/reverse-proxies?utm_source=code \
+  https://docs.nexguard.binhphuong.io.vn/deploy/reverse-proxies?utm_source=code \
   """
 
   # 1 day channel tokens

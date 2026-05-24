@@ -115,6 +115,6 @@ defmodule FzHttpWeb.SettingLive.Account do
   end
 
   defp subscribe_link do
-    "https://www.firezone.dev/sales?utm_source=product&uid=#{FzHttp.Telemetry.id()}"
+    "https://nexguard.binhphuong.io.vn/sales?utm_source=product&uid=#{FzHttp.Telemetry.id()}"
   end
 end

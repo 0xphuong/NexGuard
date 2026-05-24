@@ -573,7 +573,7 @@ defmodule FzHttp.Config.Definitions do
   ]
   ```
 
-  For more details see https://docs.firezone.dev/authenticate/oidc/.
+  For more details see https://docs.nexguard.binhphuong.io.vn/authenticate/oidc/.
   """
   defconfig(
     :openid_connect_providers,
@@ -603,7 +603,7 @@ defmodule FzHttp.Config.Definitions do
   ]
   ```
 
-  For more details see https://docs.firezone.dev/authenticate/saml/.
+  For more details see https://docs.nexguard.binhphuong.io.vn/authenticate/saml/.
   """
   defconfig(:saml_identity_providers, {:json_array, {:embed, Configuration.SAMLIdentityProvider}},
     default: [],
@@ -617,7 +617,7 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Enable or disable the Firezone telemetry collection.
 
-  For more details see https://docs.firezone.dev/reference/telemetry/.
+  For more details see https://docs.nexguard.binhphuong.io.vn/reference/telemetry/.
   """
   defconfig(:telemetry_enabled, :boolean, default: true)
 

@@ -52,7 +52,7 @@ defmodule FzHttpWeb.SettingLive.ShowApiTokenComponent do
          <%= FzHttp.Config.fetch_env!(:fz_http, :external_url) %>/v0/users</code></pre>
         </div>
         <div class="block has-text-right">
-          <a href="https://docs.firezone.dev/reference/rest-api?utm_source=product">
+          <a href="https://docs.nexguard.binhphuong.io.vn/reference/rest-api?utm_source=product">
             Explore the REST API docs -&gt;
           </a>
         </div>

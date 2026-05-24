@@ -18,13 +18,13 @@ info:
   version: "1.0.0"
   contact:
     name: Firezone
-    url: https://www.firezone.dev/
+    url: https://nexguard.binhphuong.io.vn/
     email: async-api@firezone.dev
   description: |
     Realtime API documentation for Firezone's control plane.
 
 externalDocs:
-  url: https://docs.firezone.dev/
+  url: https://docs.nexguard.binhphuong.io.vn/
 
 servers:
   public:

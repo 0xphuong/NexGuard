@@ -5,7 +5,7 @@ export default function SupportOptions() {
       <p>Try asking on one of our community-powered support channels:</p>
       <ul>
         <li>
-          <a href="https://discourse.firez.one/?utm_source=docs.firezone.dev">
+          <a href="https://discourse.firez.one/?utm_source=docs.nexguard.binhphuong.io.vn">
             Discussion Forums
           </a>
           : Ask questions, report bugs, and suggest features.
