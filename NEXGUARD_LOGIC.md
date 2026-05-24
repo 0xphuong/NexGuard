@@ -351,62 +351,103 @@ config :fz_wall, :cli, FzWall.CLI.Sandbox  # dev/test
 
 **`setup_firewall/0`:**
 ```bash
-# 1. Xóa bảng cũ nếu tồn tại
+# 1. Xóa bảng cũ nếu tồn tại (kiểm tra qua `nft list table inet nexguard`)
 nft delete table inet nexguard
 
 # 2. Tạo bảng mới
-nft add table inet nexguard
+nft create table inet nexguard
 
-# 3. Tạo chain forward (filter)
-nft add chain inet nexguard forward { type filter hook forward priority filter; policy accept; }
+# 3. Tạo chain forward (filter hook, priority 0, policy accept)
+nft add chain inet nexguard forward { type filter hook forward priority 0 ; policy accept ; }
 
-# 4. Tạo chain postrouting (NAT)
-nft add chain inet nexguard postrouting { type nat hook postrouting priority srcnat; policy accept; }
+# 4. Tạo chain postrouting (nat hook, priority 100)
+nft add chain inet nexguard postrouting { type nat hook postrouting priority 100 ; }
 
-# 5. Setup masquerade (tất cả ifaces trừ lo và wg*)
-nft add rule inet nexguard postrouting oifname != "lo" oifname != "wg*" masquerade
+# 5. Setup masquerade: enumerate /sys/class/net/, bỏ qua "lo" và wg-nexguard
+#    Với mỗi interface còn lại (vd: eth0):
+nft add rule inet nexguard postrouting oifname eth0 meta nfproto ipv4 masquerade persistent
+nft add rule inet nexguard postrouting oifname eth0 meta nfproto ipv6 masquerade persistent
+# (chỉ thêm rule ipv4 nếu wireguard_ipv4_masquerade=true, tương tự ipv6)
 ```
 
 **`add_user/1` — tạo đầy đủ sets + rules cho 1 user:**
 ```
-1. Tạo device sets:    user{id}_ip_devices, user{id}_ip6_devices
-2. Tạo filter sets:    user{id}_ip_{drop,accept}
-                       user{id}_ip6_{drop,accept}
-                       user{id}_ip_{drop,accept}_layer4   (nếu có port rules)
-                       user{id}_ip6_{drop,accept}_layer4
-3. Tạo user chain:     chain user{id}
-4. Thêm filter rules vào user chain (L4 trước, IP sau):
-   - ip daddr . proto . dport @user{id}_ip_accept_layer4  accept
-   - ip daddr . proto . dport @user{id}_ip_drop_layer4    drop
-   - ip daddr @user{id}_ip_accept                         accept
-   - ip daddr @user{id}_ip_drop                           drop
-   (tương tự cho IPv6)
-5. Thêm jump rule vào chain forward:
-   - ip saddr @user{id}_ip_devices  jump user{id}
-   - ip6 saddr @user{id}_ip6_devices jump user{id}
+1. Tạo device sets (type ipv4_addr / ipv6_addr, flags interval):
+     user{uuid}_ip_devices, user{uuid}_ip6_devices
+
+2. Tạo filter sets (tuỳ port_based_rules_supported config):
+     IP-only:  user{uuid}_ip_drop, user{uuid}_ip_accept
+               user{uuid}_ip6_drop, user{uuid}_ip6_accept
+     L4:       user{uuid}_ip_drop_layer4, user{uuid}_ip_accept_layer4
+               user{uuid}_ip6_drop_layer4, user{uuid}_ip6_accept_layer4
+     (type: ipv4_addr / ipv6_addr . inet_proto . inet_service)
+
+3. Tạo user chain (regular chain, không có hook):
+     nft add chain inet nexguard user{uuid}
+
+4. Thêm filter rules vào user chain (dùng insert_rule → rule mới đứng đầu):
+   # Filter rules có thêm "meta iifname wg-nexguard" (chỉ áp dụng cho WG traffic)
+   - ip6 daddr . meta l4proto . th dport @user{uuid}_ip6_accept_layer4 meta iifname wg-nexguard accept
+   - ip6 daddr . meta l4proto . th dport @user{uuid}_ip6_drop_layer4   meta iifname wg-nexguard drop
+   - ip6 daddr @user{uuid}_ip6_accept                                   meta iifname wg-nexguard accept
+   - ip6 daddr @user{uuid}_ip6_drop                                     meta iifname wg-nexguard drop
+   - ip  daddr . meta l4proto . th dport @user{uuid}_ip_accept_layer4  meta iifname wg-nexguard accept
+   - ip  daddr . meta l4proto . th dport @user{uuid}_ip_drop_layer4    meta iifname wg-nexguard drop
+   - ip  daddr @user{uuid}_ip_accept                                    meta iifname wg-nexguard accept
+   - ip  daddr @user{uuid}_ip_drop                                      meta iifname wg-nexguard drop
+
+5. Thêm jump rules vào chain forward:
+   - ip  saddr @user{uuid}_ip_devices  jump user{uuid}
+   - ip6 saddr @user{uuid}_ip6_devices jump user{uuid}
 ```
 
 **`add_device/1`:**
 ```bash
-# Xác định IPv4 hay IPv6 từ địa chỉ
-nft add element inet nexguard user{id}_ip_devices { <ipv4> }
-nft add element inet nexguard user{id}_ip6_devices { <ipv6> }
+# IP được normalize trước khi thêm (standardized_inet):
+#   - CIDR: normalize qua CIDR.parse/1 (vd: 10.0.0.1/24 → 10.0.0.0/24)
+#   - Single IP: parse qua :inet.parse_address → :inet.ntoa (chuẩn hóa format)
+nft add element inet nexguard user{uuid}_ip_devices  { <ipv4_normalized> }
+nft add element inet nexguard user{uuid}_ip6_devices { <ipv6_normalized> }
+# Chỉ thêm element nếu device có IP tương ứng (bỏ qua nếu nil)
 ```
 
 **`add_rule/1`:**
 ```bash
-# Rule IP-only
-nft add element inet nexguard user{id}_ip_accept { 10.0.0.0/8 }
+# Xác định ip_type từ rule.destination (IPv4 tuple size 4, IPv6 tuple size 8)
+# Xác định set từ: ip_type × action × layer4
 
-# Rule với port
-nft add element inet nexguard user{id}_ip_accept_layer4 { 10.0.0.0/8 . tcp . 443 }
+# Rule IP-only (port_type = nil):
+nft add element inet nexguard user{uuid}_ip_accept { 10.0.0.0/8 }
+
+# Rule với port (port_type = tcp/udp, port_range = "443"):
+nft add element inet nexguard user{uuid}_ip_accept_layer4 { 10.0.0.0/8 . tcp . 443 }
 ```
 
-**`restore/1` — rebuild toàn bộ state:**
+**`delete_rule/1` — xóa rule khỏi set (giống add nhưng dùng delete element)**
+
+**`delete_user/1` — cleanup theo thứ tự:**
 ```
-For each user:  add_user(user_id)
-For each device: add_device(device)
-For each rule:   add_rule(rule)
+1. delete_jump_rules (xóa các jump rule trong chain forward, dùng handle-based deletion)
+2. delete_user_set   (xóa ip_devices sets)
+3. delete_chain      (xóa chain user{uuid})
+4. delete_filter_sets (xóa các accept/drop sets)
+```
+
+**Handle-based rule deletion (`delete_rule_matching`):**
+```elixir
+# Không thể xóa rule theo nội dung trực tiếp → phải tìm handle:
+rules = exec!("nft -a list table inet nexguard")  # -a = show handles
+# Regex scan để lấy handle number:
+# /^\s*<rule_str>.*# handle (?<num>\d+)/m
+# Sau đó xóa theo handle (re-scan mỗi lần vì handle thay đổi sau mỗi lần xóa)
+exec!("nft delete rule inet nexguard forward handle <num>")
+```
+
+**`restore/1` — rebuild toàn bộ state (gọi khi boot):**
+```
+For each user_id in users:   add_user(user_id)
+For each device in devices:  add_device(device)
+For each rule in rules:      add_rule(rule)
 ```
 
 #### 3.20 Set Naming Convention (`lib/fz_wall/cli/helpers/sets.ex`)
