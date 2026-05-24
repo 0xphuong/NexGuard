@@ -95,7 +95,7 @@ jobs:
           sudo mkdir -p /opt/firezone
           sudo chown -R $USER /opt/firezone
           bin/omnibus build firezone
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v7
         with:
           name: firezone-${{ matrix.platform }}
           path: |
