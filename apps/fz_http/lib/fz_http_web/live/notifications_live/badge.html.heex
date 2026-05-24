@@ -1,12 +1,17 @@
 <%= live_redirect(
-      to: ~p"/notifications",
-      title: @title,
-      class: "navbar-item has-divider is-desktop-icon-only",
-      style: "height: 100%"
-    ) do %>
+  to: ~p"/notifications",
+  title: @title,
+  class: "navbar-item has-divider is-desktop-icon-only",
+  style: "height: 100%"
+) do %>
   <%= if @count == 0 do %>
-    <span class="icon has-text-grey-dark"><i class="mdi mdi-circle-outline"></i></span>
+    <span class="ng-notif-badge">
+      <i class="mdi mdi-bell-outline"></i>
+    </span>
   <% else %>
-    <span class="icon has-text-danger"><i class="mdi mdi-circle"></i><%= @count %></span>
+    <span class="ng-notif-badge ng-notif-badge--active">
+      <i class="mdi mdi-bell-ring"></i>
+      <span class="ng-notif-count"><%= @count %></span>
+    </span>
   <% end %>
 <% end %>

@@ -41,8 +41,8 @@ defmodule FzHttpWeb.NotificationsLive.Index do
 
   defp icon(:error, assigns) do
     ~H"""
-    <span class="icon has-text-danger">
-      <i class="mdi mdi-24px mdi-alert-circle"></i>
+    <span class="ng-notif-icon ng-notif-icon--error">
+      <i class="mdi mdi-alert-circle-outline"></i>
     </span>
     """
   end

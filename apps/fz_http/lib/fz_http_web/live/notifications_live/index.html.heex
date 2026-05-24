@@ -1,53 +1,70 @@
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Notifications</h1>
+      <p class="ng-page-subtitle">System events and alerts requiring your attention</p>
+    </div>
+    <%= if Enum.any?(@notifications) do %>
+      <span class="ng-notif-page-count">
+        <i class="mdi mdi-bell-ring-outline"></i>
+        <%= length(@notifications) %> active
+      </span>
+    <% end %>
+  </div>
+</div>
 
 <section class="section is-main-section">
-  <div class="block">
-    <%= if Enum.any?(@notifications) do %>
-      <table class="table is-hoverable is-bordered is-striped is-fullwidth">
+
+  <%= if Enum.any?(@notifications) do %>
+    <div class="ng-table-wrap">
+      <table class="ng-table">
         <thead>
           <tr>
-            <th></th>
+            <th style="width: 2.75rem;"></th>
             <th>Time</th>
             <th>User</th>
-            <th>Notification</th>
-            <th>Clear</th>
+            <th>Message</th>
+            <th style="width: 3rem;"></th>
           </tr>
         </thead>
         <tbody>
           <%= for {notification, index} <- Enum.with_index(@notifications) do %>
             <tr>
-              <td class="has-text-centered is-vcentered">
+              <td class="ng-td-center">
                 <%= icon(notification.type, assigns) %>
               </td>
               <td
-                class="has-text-centered is-vcentered"
-                style="width: 15%"
+                class="ng-td-muted"
+                style="white-space: nowrap;"
                 id={"notification-time-#{index}"}
                 phx-hook="FormatTimestamp"
                 data-timestamp={notification.timestamp}
-              >
-                ...
-              </td>
-              <td class="has-text-centered is-vcentered"><%= notification.user %></td>
-              <td class="is-vcentered"><%= notification.message %></td>
-              <td class="has-text-centered is-vcentered">
+              >…</td>
+              <td class="ng-td-muted"><%= notification.user %></td>
+              <td><%= notification.message %></td>
+              <td class="ng-td-center">
                 <button
-                  title="Dismiss notification"
-                  class="delete is-medium"
+                  title="Dismiss"
+                  class="ng-dismiss-btn"
                   phx-click="clear_notification"
                   phx-value-index={index}
                 >
+                  <i class="mdi mdi-close"></i>
                 </button>
               </td>
             </tr>
           <% end %>
         </tbody>
       </table>
-    <% else %>
-      No notifications to display.
-    <% end %>
-  </div>
+    </div>
+  <% else %>
+    <div class="ng-settings-card">
+      <div class="ng-empty-state">
+        <i class="mdi mdi-bell-check-outline ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">All clear</p>
+        <p class="ng-empty-state-hint">No notifications to display. You're up to date.</p>
+      </div>
+    </div>
+  <% end %>
+
 </section>
