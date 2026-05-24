@@ -25,75 +25,84 @@
   ) %>
 <% end %>
 
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Security</h1>
+      <p class="ng-page-subtitle">Authentication methods and Single Sign-On configuration</p>
+    </div>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <h4 class="title is-4">Authentication</h4>
+  <%# ── Authentication ─────────────────────────────────────── %>
+  <div class="ng-section-header">Authentication</div>
 
-  <div class="block">
+  <div class="ng-settings-card">
+
+    <%# VPN Session Duration %>
     <% vpn_session_duration = Map.fetch!(@configs, :vpn_session_duration) %>
-    <.form
-      :let={f}
-      for={@configuration_changeset}
-      phx-change="change"
-      phx-submit="save_configuration"
-    >
-      <div class="field">
-        <%= label(f, :vpn_session_duration, "Require Authentication For VPN Sessions",
-          class: "label"
-        ) %>
-        <div class="field has-addons">
-          <p class="control">
-            <span class="select">
-              <%= select(f, :vpn_session_duration, session_duration_options(vpn_session_duration),
-                class: "input",
-                disabled: config_has_override?(vpn_session_duration),
-                selected: config_value(vpn_session_duration)
-              ) %>
-            </span>
-          </p>
-          <p class="control">
-            <%= submit("Save",
-              disabled: !(@form_changed and !config_has_override?(vpn_session_duration)),
-              phx_disable_with: "Saving...",
-              class: "button is-primary"
-            ) %>
-          </p>
-        </div>
-        <p class="help">
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Require Auth for VPN Sessions</span>
           <%= if config_has_override?(vpn_session_duration) do %>
-            This field was overridden using <%= config_override_source(vpn_session_duration) %>; you cannot change it.
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(vpn_session_duration) %>
+            </span>
+          <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          <%= if config_has_override?(vpn_session_duration) do %>
+            This field is overridden and cannot be changed here.
           <% else %>
-            Optionally require users to periodically authenticate to the Firezone
-            web UI in order to keep their VPN sessions active.
+            Require users to periodically re-authenticate to keep VPN sessions active.
           <% end %>
         </p>
       </div>
-    </.form>
-  </div>
+      <div class="ng-setting-control">
+        <.form
+          :let={f}
+          for={@configuration_changeset}
+          phx-change="change"
+          phx-submit="save_configuration"
+          class="ng-inline-form"
+        >
+          <%= select(f, :vpn_session_duration,
+            session_duration_options(vpn_session_duration),
+            class: "ng-setting-input",
+            disabled: config_has_override?(vpn_session_duration),
+            selected: config_value(vpn_session_duration)
+          ) %>
+          <%= submit "Save",
+            disabled: !(@form_changed and !config_has_override?(vpn_session_duration)),
+            phx_disable_with: "Saving…",
+            class: "ng-save-inline-btn" %>
+        </.form>
+      </div>
+    </div>
 
-  <div class="block">
+    <%# Local Auth toggle %>
     <% local_auth_enabled = Map.fetch!(@configs, :local_auth_enabled) %>
-    <strong>Local Auth</strong>
-
-    <div class="level">
-      <div class="level-left">
-        <p>
-          Enable or disable authentication with email and password.
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Local Authentication</span>
           <%= if config_has_override?(local_auth_enabled) do %>
-            <br />
-            <i>
-              This value is overridden using <%= config_override_source(local_auth_enabled) %>; you cannot change it.
-            </i>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(local_auth_enabled) %>
+            </span>
           <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Enable or disable sign-in with email and password.
         </p>
       </div>
-      <div class="level-right">
+      <div class="ng-setting-control ng-setting-control--toggle">
         <label class="switch is-medium">
           <input
             type="checkbox"
@@ -108,28 +117,26 @@
         </label>
       </div>
     </div>
-  </div>
 
-  <div class="block">
+    <%# Unprivileged device management %>
     <% allow_unprivileged_device_management =
       Map.fetch!(@configs, :allow_unprivileged_device_management) %>
-    <strong>Allow unprivileged device management</strong>
-
-    <div class="level">
-      <div class="level-left">
-        <p>
-          Enable or disable management of devices on unprivileged accounts.
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Unprivileged Device Management</span>
           <%= if config_has_override?(allow_unprivileged_device_management) do %>
-            <br />
-            <i>
-              This value is overridden using <%= config_override_source(
-                allow_unprivileged_device_management
-              ) %>; you cannot change it.
-            </i>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(allow_unprivileged_device_management) %>
+            </span>
           <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Allow unprivileged users to add and remove their own devices.
         </p>
       </div>
-      <div class="level-right">
+      <div class="ng-setting-control ng-setting-control--toggle">
         <label class="switch is-medium">
           <input
             type="checkbox"
@@ -144,28 +151,26 @@
         </label>
       </div>
     </div>
-  </div>
 
-  <div class="block">
+    <%# Unprivileged device configuration %>
     <% allow_unprivileged_device_configuration =
       Map.fetch!(@configs, :allow_unprivileged_device_configuration) %>
-    <strong>Allow unprivileged device configuration</strong>
-
-    <div class="level">
-      <div class="level-left">
-        <p>
-          Enable or disable configuration of device network settings for unprivileged users.
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Unprivileged Device Configuration</span>
           <%= if config_has_override?(allow_unprivileged_device_configuration) do %>
-            <br />
-            <i>
-              This value is overridden using <%= config_override_source(
-                allow_unprivileged_device_configuration
-              ) %>; you cannot change it.
-            </i>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(allow_unprivileged_device_configuration) %>
+            </span>
           <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Allow unprivileged users to modify their own device network settings.
         </p>
       </div>
-      <div class="level-right">
+      <div class="ng-setting-control ng-setting-control--toggle">
         <label class="switch is-medium">
           <input
             type="checkbox"
@@ -180,33 +185,30 @@
         </label>
       </div>
     </div>
+
   </div>
 
-  <h4 class="title is-4">Single Sign-On</h4>
+  <%# ── Single Sign-On ─────────────────────────────────────── %>
+  <div class="ng-section-header ng-section-header--spaced">Single Sign-On</div>
 
-  <div class="block">
-    <p>
-      Configure OIDC or SAML Single Sign-On below. See the
-      <a href="https://docs.nexguard.binhphuong.io.vn/authenticate/">Firezone documentation</a>
-      for more details.
-    </p>
-  </div>
-
-  <div class="block">
+  <div class="ng-settings-card" style="margin-bottom: 1.5rem;">
     <% disable_vpn_on_oidc_error = Map.fetch!(@configs, :disable_vpn_on_oidc_error) %>
-    <strong>Auto disable VPN</strong>
-
-    <div class="level">
-      <div class="level-left">
-        <p>Enable or disable auto disabling VPN connection on OIDC refresh error.</p>
-        <%= if config_has_override?(disable_vpn_on_oidc_error) do %>
-          <br />
-          <i>
-            This value is overridden using <%= config_override_source(disable_vpn_on_oidc_error) %>; you cannot change it.
-          </i>
-        <% end %>
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Auto-disable VPN on OIDC Error</span>
+          <%= if config_has_override?(disable_vpn_on_oidc_error) do %>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(disable_vpn_on_oidc_error) %>
+            </span>
+          <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Automatically disable a user's VPN connection when their OIDC token refresh fails.
+        </p>
       </div>
-      <div class="level-right">
+      <div class="ng-setting-control ng-setting-control--toggle">
         <label class="switch is-medium">
           <input
             type="checkbox"
@@ -223,129 +225,158 @@
     </div>
   </div>
 
-  <label class="label">OpenID Connect providers configuration</label>
-
-  <%= if config_has_override?(openid_connect_providers) do %>
-    <i>
-      <p>
-        You cannot add new change providers because this value is overridden using <%= config_override_source(
-          openid_connect_providers
-        ) %>.
-      </p>
-    </i>
-  <% end %>
-
-  <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-    <thead>
-      <tr>
-        <th>Config ID</th>
-        <th>Label</th>
-        <th>Client ID</th>
-        <th>Discovery URI</th>
-        <th>Scope</th>
-        <%= unless config_has_override?(openid_connect_providers) do %>
-          <th></th>
+  <%# OIDC Providers %>
+  <div class="ng-provider-section">
+    <div class="ng-provider-section-header">
+      <div class="ng-provider-section-title-wrap">
+        <span class="ng-provider-section-icon ng-provider-section-icon--oidc">
+          <i class="mdi mdi-shield-account-outline"></i>
+        </span>
+        <span class="ng-provider-section-title">OpenID Connect Providers</span>
+        <%= if config_has_override?(openid_connect_providers) do %>
+          <span class="ng-override-badge">
+            <i class="mdi mdi-lock-outline"></i>
+            <%= config_override_source(openid_connect_providers) %>
+          </span>
         <% end %>
-      </tr>
-    </thead>
-    <tbody>
-      <%= for provider <- config_value(openid_connect_providers) do %>
-        <tr>
-          <td><%= provider.id %></td>
-          <td><%= provider.label %></td>
-          <td><%= provider.client_id %></td>
-          <td><%= provider.discovery_document_uri %></td>
-          <td><%= provider.scope %></td>
-          <%= unless config_has_override?(openid_connect_providers) do %>
-            <td>
-              <%= live_patch(to: ~p"/settings/security/oidc/#{provider.id}/edit",
-              class: "button") do %>
-                Edit
-              <% end %>
-              <button
-                class="button is-danger"
-                phx-click="delete"
-                phx-value-key={provider.id}
-                phx-value-type="openid_connect_providers"
-                disabled={config_has_override?(openid_connect_providers)}
-                data-confirm={"Are you sure about deleting OIDC config #{provider.label}?"}
-              >
-                Delete
-              </button>
-            </td>
-          <% end %>
-        </tr>
-      <% end %>
-    </tbody>
-  </table>
-
-  <%= unless config_has_override?(openid_connect_providers) do %>
-    <%= live_patch(
-      to: ~p"/settings/security/oidc/#{rand_string(8)}/edit",
-      class: "button mb-4") do %>
-      Add OpenID Connect Provider
-    <% end %>
-  <% end %>
-
-  <label class="label">SAML identity providers configuration</label>
-
-  <%= if config_has_override?(saml_identity_providers) do %>
-    <p>
-      <i>
-        You cannot add new change providers because this value is overridden using <%= config_override_source(
-          saml_identity_providers
-        ) %>.
-      </i>
-    </p>
-  <% end %>
-
-  <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-    <thead>
-      <tr>
-        <th>Config ID</th>
-        <th>label</th>
-        <th>Metadata</th>
-        <%= unless config_has_override?(saml_identity_providers) do %>
-          <th></th>
+      </div>
+      <%= unless config_has_override?(openid_connect_providers) do %>
+        <%= live_patch to: ~p"/settings/security/oidc/#{rand_string(8)}/edit",
+          class: "ng-primary-btn" do %>
+          <i class="mdi mdi-plus"></i> Add Provider
         <% end %>
-      </tr>
-    </thead>
-    <tbody>
-      <%= for provider <- config_value(saml_identity_providers) do %>
-        <tr>
-          <td><%= provider.id %></td>
-          <td><%= provider.label %></td>
-          <td>
-            <div class="line-clamp"><%= provider.metadata %></div>
-          </td>
-          <%= unless config_has_override?(saml_identity_providers) do %>
-            <td>
-              <%= live_patch(to: ~p"/settings/security/saml/#{provider.id}/edit",
-              class: "button") do %>
-                Edit
-              <% end %>
-              <button
-                class="button is-danger"
-                phx-click="delete"
-                phx-value-key={provider.id}
-                phx-value-type="saml_identity_providers"
-                disabled={config_has_override?(saml_identity_providers)}
-                data-confirm={"Are you sure about deleting SAML config #{provider.label}?"}
-              >
-                Delete
-              </button>
-            </td>
-          <% end %>
-        </tr>
       <% end %>
-    </tbody>
-  </table>
+    </div>
 
-  <%= unless config_has_override?(saml_identity_providers) do %>
-    <%= live_patch(
-      to: ~p"/settings/security/saml/#{rand_string(8)}/edit",
-      class: "button mb-4") do %>
-      Add SAML Identity Provider
+    <%= if Enum.empty?(config_value(openid_connect_providers)) do %>
+      <div class="ng-provider-empty">
+        <i class="mdi mdi-shield-off-outline"></i>
+        No OIDC providers configured
+      </div>
+    <% else %>
+      <div class="ng-table-wrap">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>Config ID</th>
+              <th>Label</th>
+              <th>Client ID</th>
+              <th>Discovery URI</th>
+              <th>Scope</th>
+              <%= unless config_has_override?(openid_connect_providers) do %>
+                <th></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for provider <- config_value(openid_connect_providers) do %>
+              <tr>
+                <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
+                <td style="font-weight: 500;"><%= provider.label %></td>
+                <td class="ng-td-mono ng-td-muted"><%= provider.client_id %></td>
+                <td class="ng-td-muted"><%= provider.discovery_document_uri %></td>
+                <td class="ng-td-muted"><%= provider.scope %></td>
+                <%= unless config_has_override?(openid_connect_providers) do %>
+                  <td>
+                    <div class="ng-row-actions">
+                      <%= live_patch to: ~p"/settings/security/oidc/#{provider.id}/edit",
+                        class: "ng-action-link" do %>
+                        <i class="mdi mdi-pencil-outline"></i> Edit
+                      <% end %>
+                      <button
+                        class="ng-danger-link"
+                        phx-click="delete"
+                        phx-value-key={provider.id}
+                        phx-value-type="openid_connect_providers"
+                        data-confirm={"Delete OIDC provider \"#{provider.label}\"?"}
+                      >
+                        <i class="mdi mdi-trash-can-outline"></i> Delete
+                      </button>
+                    </div>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
     <% end %>
-  <% end %>
+  </div>
+
+  <%# SAML Providers %>
+  <div class="ng-provider-section">
+    <div class="ng-provider-section-header">
+      <div class="ng-provider-section-title-wrap">
+        <span class="ng-provider-section-icon ng-provider-section-icon--saml">
+          <i class="mdi mdi-card-account-details-outline"></i>
+        </span>
+        <span class="ng-provider-section-title">SAML Identity Providers</span>
+        <%= if config_has_override?(saml_identity_providers) do %>
+          <span class="ng-override-badge">
+            <i class="mdi mdi-lock-outline"></i>
+            <%= config_override_source(saml_identity_providers) %>
+          </span>
+        <% end %>
+      </div>
+      <%= unless config_has_override?(saml_identity_providers) do %>
+        <%= live_patch to: ~p"/settings/security/saml/#{rand_string(8)}/edit",
+          class: "ng-primary-btn" do %>
+          <i class="mdi mdi-plus"></i> Add Provider
+        <% end %>
+      <% end %>
+    </div>
+
+    <%= if Enum.empty?(config_value(saml_identity_providers)) do %>
+      <div class="ng-provider-empty">
+        <i class="mdi mdi-shield-off-outline"></i>
+        No SAML providers configured
+      </div>
+    <% else %>
+      <div class="ng-table-wrap">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>Config ID</th>
+              <th>Label</th>
+              <th>Metadata</th>
+              <%= unless config_has_override?(saml_identity_providers) do %>
+                <th></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for provider <- config_value(saml_identity_providers) do %>
+              <tr>
+                <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
+                <td style="font-weight: 500;"><%= provider.label %></td>
+                <td class="ng-td-muted">
+                  <div class="ng-metadata-preview"><%= provider.metadata %></div>
+                </td>
+                <%= unless config_has_override?(saml_identity_providers) do %>
+                  <td>
+                    <div class="ng-row-actions">
+                      <%= live_patch to: ~p"/settings/security/saml/#{provider.id}/edit",
+                        class: "ng-action-link" do %>
+                        <i class="mdi mdi-pencil-outline"></i> Edit
+                      <% end %>
+                      <button
+                        class="ng-danger-link"
+                        phx-click="delete"
+                        phx-value-key={provider.id}
+                        phx-value-type="saml_identity_providers"
+                        data-confirm={"Delete SAML provider \"#{provider.label}\"?"}
+                      >
+                        <i class="mdi mdi-trash-can-outline"></i> Delete
+                      </button>
+                    </div>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+
 </section>
