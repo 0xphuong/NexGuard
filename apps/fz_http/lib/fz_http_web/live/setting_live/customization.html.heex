@@ -1,94 +1,121 @@
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Customization</h1>
+      <p class="ng-page-subtitle">Customize the look and feel of your NexGuard portal</p>
+    </div>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <h4 class="title is-4">Logo</h4>
+  <%# ── Logo ────────────────────────────────────────────────────── %>
+  <div class="ng-section-header">Branding</div>
 
-  <div class="block">
-    <p>
-      Use a logo at least 300px wide with a 7:2 ratio for best results. GIF, JPEG, PNG, SVG, TIFF,
-      WebP and AVIF images are supported.
-    </p>
-    <%= if has_override?(@logo_source) do %>
-      <p>
-        The logo was overridden by the <code>LOGO</code>
-        environment variable; you cannot change it.
-      </p>
-    <% end %>
-  </div>
-
-  <div class="block">
-    <%= unless has_override?(@logo_source) do %>
-      <div class="field">
-        <div class="control">
-          <%= for type <- FzHttp.Config.Logo.__types__() do %>
-            <label class="radio">
-              <input
-                type="radio"
-                name="logo"
-                value={type}
-                checked={type == @logo_type}
-                phx-click={JS.push("choose", value: %{type: type})}
-              />
-              <span><%= type %></span>
-            </label>
+  <div class="ng-settings-card">
+    <div class="ng-setting-row ng-setting-row--logo">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Portal Logo</span>
+          <%= if has_override?(@logo_source) do %>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              LOGO env var
+            </span>
           <% end %>
         </div>
+        <p class="ng-setting-desc">
+          Use a logo at least 300px wide with a 7:2 ratio for best results.
+          GIF, JPEG, PNG, SVG, TIFF, WebP, and AVIF images are supported.
+          Maximum file size: 1 MB.
+        </p>
+        <%= if has_override?(@logo_source) do %>
+          <p class="ng-setting-desc" style="margin-top: 0.5rem;">
+            <i class="mdi mdi-information-outline" style="color: #7c3aed;"></i>
+            Logo is set via the <code>LOGO</code> environment variable and cannot be changed here.
+          </p>
+        <% end %>
       </div>
-    <% end %>
 
-    <div class="column p-0 is-two-thirds-tablet is-half-desktop is-one-third-widescreen">
-      <%= if @logo_type == "Default" do %>
-        <%= FzHttpWeb.LogoComponent.render(nil) %>
-      <% else %>
-        <%= FzHttpWeb.LogoComponent.render(@logo) %>
-      <% end %>
-    </div>
+      <div class="ng-setting-control">
 
-    <%= unless has_override?(@logo_source) do %>
-      <%= if @logo_type == "Default" do %>
-        <form id="default-form" phx-submit="save">
-          <input type="hidden" name="default" value="true" />
-          <button class="button" type="submit">Save</button>
-        </form>
-      <% end %>
-
-      <%= if @logo_type == "URL" do %>
-        <form id="url-form" phx-submit="save">
-          <div class="field has-addons">
-            <div class="control">
-              <input
-                class="input"
-                type="url"
-                name="url"
-                placeholder="https://my.logo.com/logo.jpg"
-                required
-              />
-            </div>
-            <div class="control">
-              <button class="button" type="submit">Save</button>
-            </div>
-          </div>
-        </form>
-      <% end %>
-
-      <%= if @logo_type == "Upload" do %>
-        <form id="upload-form" phx-submit="save" phx-change="validate">
-          <%= for entry <- @uploads.logo.entries do %>
-            <%= for err <- upload_errors(@uploads.logo, entry) do %>
-              <p class="notification is-warning"><%= error_to_string(err) %></p>
+        <%# ── Type tabs ──────────────────────────────── %>
+        <%= unless has_override?(@logo_source) do %>
+          <div class="ng-logo-tabs">
+            <%= for type <- FzHttp.Config.Logo.__types__() do %>
+              <label class={"ng-logo-tab#{if type == @logo_type, do: " ng-logo-tab--active"}"}>
+                <input
+                  type="radio"
+                  name="logo"
+                  value={type}
+                  checked={type == @logo_type}
+                  phx-click={JS.push("choose", value: %{type: type})}
+                  class="ng-logo-tab-radio"
+                />
+                <%= type %>
+              </label>
             <% end %>
+          </div>
+        <% end %>
+
+        <%# ── Logo preview ───────────────────────────── %>
+        <div class="ng-logo-preview">
+          <%= if @logo_type == "Default" do %>
+            <%= FzHttpWeb.LogoComponent.render(nil) %>
+          <% else %>
+            <%= FzHttpWeb.LogoComponent.render(@logo) %>
+          <% end %>
+        </div>
+
+        <%# ── Forms per type ─────────────────────────── %>
+        <%= unless has_override?(@logo_source) do %>
+          <%= if @logo_type == "Default" do %>
+            <form id="default-form" phx-submit="save">
+              <input type="hidden" name="default" value="true" />
+              <button class="ng-primary-btn" type="submit">
+                <i class="mdi mdi-content-save-outline"></i> Save Default
+              </button>
+            </form>
           <% end %>
 
-          <%= live_file_input(@uploads.logo, class: "button", required: true) %>
+          <%= if @logo_type == "URL" do %>
+            <form id="url-form" phx-submit="save" class="ng-logo-url-form">
+              <input
+                class="ng-setting-input"
+                type="url"
+                name="url"
+                placeholder="https://example.com/logo.png"
+                required
+              />
+              <button class="ng-primary-btn" type="submit">
+                <i class="mdi mdi-content-save-outline"></i> Save URL
+              </button>
+            </form>
+          <% end %>
 
-          <button class="button" type="submit">Upload</button>
-        </form>
-      <% end %>
-    <% end %>
+          <%= if @logo_type == "Upload" do %>
+            <form id="upload-form" phx-submit="save" phx-change="validate" class="ng-logo-upload-form">
+              <%= for entry <- @uploads.logo.entries do %>
+                <%= for err <- upload_errors(@uploads.logo, entry) do %>
+                  <p class="ng-upload-error">
+                    <i class="mdi mdi-alert-circle-outline"></i>
+                    <%= error_to_string(err) %>
+                  </p>
+                <% end %>
+              <% end %>
+              <div class="ng-upload-row">
+                <%= live_file_input(@uploads.logo, class: "ng-file-input", required: true) %>
+                <button class="ng-primary-btn" type="submit">
+                  <i class="mdi mdi-upload-outline"></i> Upload
+                </button>
+              </div>
+            </form>
+          <% end %>
+        <% end %>
+
+      </div>
+    </div>
   </div>
+
 </section>
