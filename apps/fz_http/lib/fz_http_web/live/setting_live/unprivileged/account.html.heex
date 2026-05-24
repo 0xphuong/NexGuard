@@ -1,8 +1,9 @@
+<%# ── Modal triggers ──────────────────────────────────────────────── %>
 <%= if @live_action == :change_password do %>
   <%= live_modal(
     FzHttpWeb.SettingLive.Unprivileged.AccountFormComponent,
     return_to: ~p"/user_account",
-    title: "Change password",
+    title: "Change Password",
     id: "account-form-component",
     current_user: @current_user,
     subject: @subject,
@@ -19,57 +20,45 @@
   />
 <% end %>
 
-<.link navigate={~p"/user_devices"}>
-  &lt;- Back to devices
-</.link>
-
-<%= render(FzHttpWeb.SharedView, "heading.html", page_title: @page_title) %>
-
-<section class="section is-main-section">
-  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
-
-  <div class="block">
-    <%= @page_subtitle %>
-  </div>
-
-  <div class="level">
-    <div class="level-left">
-      <h4 class="title is-4">Details</h4>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">My Account</h1>
+      <p class="ng-page-subtitle">Manage your profile and security settings</p>
     </div>
-
-    <div class="level-right">
+    <div style="display: flex; gap: 0.75rem; align-items: center;">
+      <.link navigate={~p"/user_devices"} class="ng-secondary-btn">
+        <i class="mdi mdi-arrow-left"></i> My Devices
+      </.link>
       <%= if @local_auth_enabled do %>
-        <.link replace={true} patch={~p"/user_account/change_password"} class="button">
-          <span class="icon is-small">
-            <i class="mdi mdi-pencil"></i>
-          </span>
-          <span>Change Password</span>
+        <.link replace={true} patch={~p"/user_account/change_password"} class="ng-primary-btn">
+          <i class="mdi mdi-lock-reset"></i> Change Password
         </.link>
       <% end %>
     </div>
   </div>
-
-  <%= render(FzHttpWeb.SharedView, "user_details.html",
-    user: @current_user,
-    rules_path: nil,
-    subject: @subject
-  ) %>
-</section>
+</div>
 
 <section class="section is-main-section">
-  <h4 class="title is-4">
-    Active Sessions
-  </h4>
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="block">
-    <p>
-      Your active Firezone web sessions. Each row corresponds to an open browser
-      tab connected to Firezone.
-    </p>
+  <%# ── Profile ─────────────────────────────────────────────────── %>
+  <div class="ng-section-header">Profile</div>
+  <div class="ng-settings-card ng-account-profile">
+    <%= render(FzHttpWeb.SharedView, "user_details.html",
+      user: @current_user,
+      rules_path: nil,
+      subject: @subject
+    ) %>
   </div>
 
-  <div class="block">
-    <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+  <%# ── Active Sessions ──────────────────────────────────────────── %>
+  <div class="ng-section-header ng-section-header--spaced">Active Sessions</div>
+  <p class="ng-section-desc">
+    Your active NexGuard web sessions. Each row corresponds to an open browser tab.
+  </p>
+  <div class="ng-table-wrap ng-section-table">
+    <table class="ng-table">
       <thead>
         <tr>
           <th>Came Online</th>
@@ -85,48 +74,42 @@
               data-timestamp={meta.online_at}
               phx-hook="FormatTimestamp"
               id={"meta-#{index}-online-at"}
-            >
-              …
-            </td>
+            >…</td>
             <td
               data-timestamp={meta.last_signed_in_at}
               phx-hook="FormatTimestamp"
               id={"meta-#{index}-last-signed-in-at"}
-            >
-              …
-            </td>
-            <td><%= meta.remote_ip || "-" %></td>
-            <td><%= meta.user_agent %></td>
+            >…</td>
+            <td class="ng-td-mono ng-td-muted"><%= meta.remote_ip || "—" %></td>
+            <td class="ng-td-muted"><%= meta.user_agent %></td>
           </tr>
         <% end %>
       </tbody>
     </table>
   </div>
-</section>
 
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    Multi Factor Authentication
-  </h4>
+  <%# ── Multi-Factor Authentication ─────────────────────────────── %>
+  <div class="ng-provider-section">
+    <div class="ng-provider-section-header">
+      <div class="ng-provider-section-title-wrap">
+        <span class="ng-provider-section-icon ng-provider-section-icon--mfa">
+          <i class="mdi mdi-shield-lock-outline"></i>
+        </span>
+        <span class="ng-provider-section-title">Multi-Factor Authentication</span>
+      </div>
+      <.link replace={true} patch={~p"/user_account/register_mfa"} class="ng-primary-btn">
+        <i class="mdi mdi-plus"></i> Add Method
+      </.link>
+    </div>
 
-  <div class="block">
-    <p>
-      Your MFA methods are invoked when you login with email and password.
-    </p>
-  </div>
-
-  <div class="block">
     <%= if length(@methods) > 0 do %>
       <%= render(FzHttpWeb.SharedView, "mfa_methods_table.html", methods: @methods) %>
     <% else %>
-      <div>No MFA methods added.</div>
+      <div class="ng-provider-empty">
+        <i class="mdi mdi-shield-off-outline"></i>
+        No MFA methods configured
+      </div>
     <% end %>
   </div>
 
-  <.link replace={true} patch={~p"/user_account/register_mfa"} class="button">
-    <span class="icon is-small">
-      <i class="mdi mdi-plus"></i>
-    </span>
-    <span>Add MFA Method</span>
-  </.link>
 </section>

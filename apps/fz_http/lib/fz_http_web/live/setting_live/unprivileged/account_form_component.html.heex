@@ -7,9 +7,7 @@
     phx-target={@myself}
     phx-submit="save"
   >
-    <div class="block">
-      <p>Enter new password below.</p>
-    </div>
+    <p class="ng-modal-form-hint">Enter a new password below.</p>
 
     <%= render(
       FzHttpWeb.SharedView,
@@ -17,7 +15,7 @@
       context: f,
       field: :password,
       autocomplete: "new-password",
-      label: "Password"
+      label: "New Password"
     ) %>
 
     <%= render(
@@ -26,7 +24,7 @@
       context: f,
       field: :password_confirmation,
       autocomplete: "new-password",
-      label: "Password Confirmation"
+      label: "Confirm Password"
     ) %>
   </.form>
 </div>

@@ -1,62 +1,61 @@
-<table class="table is-bordered is-hoverable is-striped is-fullwidth">
-  <tbody>
-    <tr>
-      <td><strong>Email</strong></td>
-      <td><%= @user.email %></td>
-    </tr>
+<dl class="ng-details-list">
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Email</dt>
+    <dd class="ng-details-value"><%= @user.email %></dd>
+  </div>
 
-    <tr>
-      <td><strong>Role</strong></td>
-      <td><%= @user.role %></td>
-    </tr>
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Role</dt>
+    <dd class="ng-details-value">
+      <span class={"ng-role-badge ng-role-badge--#{@user.role}"}>
+        <%= @user.role %>
+      </span>
+    </dd>
+  </div>
 
-    <tr>
-      <td><strong>Last Signed In</strong></td>
-      <td
-        id="last-signed-in-at"
-        data-timestamp={@user.last_signed_in_at}
-        phx-hook="FormatTimestamp"
-      >
-        …
-      </td>
-    </tr>
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Last Signed In</dt>
+    <dd
+      class="ng-details-value ng-td-muted"
+      id="last-signed-in-at"
+      data-timestamp={@user.last_signed_in_at}
+      phx-hook="FormatTimestamp"
+    >…</dd>
+  </div>
 
-    <tr>
-      <td><strong>Created</strong></td>
-      <td
-        id={"user-#{@user.id}-created-at"}
-        data-timestamp={@user.inserted_at}
-        phx-hook="FormatTimestamp"
-      >
-        …
-      </td>
-    </tr>
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Created</dt>
+    <dd
+      class="ng-details-value ng-td-muted"
+      id={"user-#{@user.id}-created-at"}
+      data-timestamp={@user.inserted_at}
+      phx-hook="FormatTimestamp"
+    >…</dd>
+  </div>
 
-    <tr>
-      <td><strong>Updated</strong></td>
-      <td
-        id={"user-#{@user.id}-updated-at"}
-        data-timestamp={@user.updated_at}
-        phx-hook="FormatTimestamp"
-      >
-        …
-      </td>
-    </tr>
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Updated</dt>
+    <dd
+      class="ng-details-value ng-td-muted"
+      id={"user-#{@user.id}-updated-at"}
+      data-timestamp={@user.updated_at}
+      phx-hook="FormatTimestamp"
+    >…</dd>
+  </div>
 
-    <tr>
-      <td><strong>Number of Devices</strong></td>
-      <td><%= FzHttp.Devices.count_by_user_id(@user.id) %></td>
-    </tr>
+  <div class="ng-details-row">
+    <dt class="ng-details-label">Devices</dt>
+    <dd class="ng-details-value"><%= FzHttp.Devices.count_by_user_id(@user.id) %></dd>
+  </div>
 
-    <%= if @rules_path do %>
-      <%= with {:ok, rules_count} <- FzHttp.Rules.fetch_count_by_user_id(@user.id, @subject) do %>
-        <tr>
-          <td><strong>Number of Rules</strong></td>
-          <td>
-            <a href={"#{@rules_path}"}><%= rules_count %></a>
-          </td>
-        </tr>
-      <% end %>
+  <%= if @rules_path do %>
+    <%= with {:ok, rules_count} <- FzHttp.Rules.fetch_count_by_user_id(@user.id, @subject) do %>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Firewall Rules</dt>
+        <dd class="ng-details-value">
+          <a href={"#{@rules_path}"} class="ng-action-link"><%= rules_count %></a>
+        </dd>
+      </div>
     <% end %>
-  </tbody>
-</table>
+  <% end %>
+</dl>

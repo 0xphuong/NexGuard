@@ -7,19 +7,17 @@
     phx-submit="save"
     x-autocomplete="off"
   >
-    <div class="block">
-      <p>Change email or enter new password below.</p>
-    </div>
+    <p class="ng-modal-form-hint">
+      Change your email address or set a new password below.
+    </p>
 
-    <div class="field">
-      <%= label(f, :email, class: "label") %>
-
-      <div class="control">
-        <%= text_input(f, :email, class: "input #{input_error_class(f, :email)}") %>
-      </div>
-      <p class="help is-danger">
-        <%= error_tag(f, :email) %>
-      </p>
+    <div class="ng-form-field">
+      <%= label(f, :email, "Email", class: "ng-form-label") %>
+      <%= text_input(f, :email,
+        class: "ng-setting-input #{input_error_class(f, :email)}",
+        placeholder: "you@example.com"
+      ) %>
+      <p class="ng-setting-error"><%= error_tag(f, :email) %></p>
     </div>
 
     <%= render(
@@ -28,7 +26,7 @@
       context: f,
       field: :password,
       autocomplete: "new-password",
-      label: "Password"
+      label: "New Password"
     ) %>
 
     <%= render(
@@ -37,7 +35,7 @@
       context: f,
       field: :password_confirmation,
       autocomplete: "new-password",
-      label: "Password Confirmation"
+      label: "Confirm Password"
     ) %>
   </.form>
 </div>

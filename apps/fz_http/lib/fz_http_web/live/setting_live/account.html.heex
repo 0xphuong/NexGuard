@@ -1,3 +1,4 @@
+<%# ── Modal triggers ──────────────────────────────────────────────── %>
 <%= if @live_action == :edit do %>
   <%= live_modal(
     FzHttpWeb.SettingLive.AccountFormComponent,
@@ -47,50 +48,38 @@
   />
 <% end %>
 
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_subtitle: @page_subtitle,
-  page_title: @page_title
-) %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Account Settings</h1>
+      <p class="ng-page-subtitle">Manage your profile, sessions, API tokens, and MFA</p>
+    </div>
+    <.link replace={true} patch={~p"/settings/account/edit"} class="ng-primary-btn">
+      <i class="mdi mdi-pencil-outline"></i> Edit Account
+    </.link>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="level">
-    <div class="level-left">
-      <h4 class="title is-4">Details</h4>
-    </div>
-
-    <div class="level-right">
-      <.link replace={true} patch={~p"/settings/account/edit"} class="button">
-        <span class="icon is-small">
-          <i class="mdi mdi-pencil"></i>
-        </span>
-        <span>Change Email or Password</span>
-      </.link>
-    </div>
+  <%# ── Profile ─────────────────────────────────────────────────── %>
+  <div class="ng-section-header">Profile</div>
+  <div class="ng-settings-card ng-account-profile">
+    <%= render(FzHttpWeb.SharedView, "user_details.html",
+      user: @current_user,
+      rules_path: @rules_path,
+      subject: @subject
+    ) %>
   </div>
 
-  <%= render(FzHttpWeb.SharedView, "user_details.html",
-    user: @current_user,
-    rules_path: @rules_path,
-    subject: @subject
-  ) %>
-</section>
-
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    Active Sessions
-  </h4>
-
-  <div class="block">
-    <p>
-      Your active Firezone web sessions. Each row corresponds to an open browser
-      tab connected to Firezone.
-    </p>
-  </div>
-
-  <div class="block">
-    <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+  <%# ── Active Sessions ──────────────────────────────────────────── %>
+  <div class="ng-section-header ng-section-header--spaced">Active Sessions</div>
+  <p class="ng-section-desc">
+    Your active NexGuard web sessions. Each row corresponds to an open browser tab.
+  </p>
+  <div class="ng-table-wrap ng-section-table">
+    <table class="ng-table">
       <thead>
         <tr>
           <th>Came Online</th>
@@ -106,165 +95,160 @@
               data-timestamp={meta.online_at}
               phx-hook="FormatTimestamp"
               id={"meta-#{index}-online-at"}
-            >
-              …
-            </td>
+            >…</td>
             <td
               data-timestamp={meta.last_signed_in_at}
               phx-hook="FormatTimestamp"
               id={"meta-#{index}-last-signed-in-at"}
-            >
-              …
-            </td>
-            <td><%= meta.remote_ip || "-" %></td>
-            <td><%= meta.user_agent %></td>
+            >…</td>
+            <td class="ng-td-mono ng-td-muted"><%= meta.remote_ip || "—" %></td>
+            <td class="ng-td-muted"><%= meta.user_agent %></td>
           </tr>
         <% end %>
       </tbody>
     </table>
   </div>
-</section>
 
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    API Tokens
-  </h4>
+  <%# ── API Tokens ───────────────────────────────────────────────── %>
+  <div class="ng-provider-section">
+    <div class="ng-provider-section-header">
+      <div class="ng-provider-section-title-wrap">
+        <span class="ng-provider-section-icon ng-provider-section-icon--token">
+          <i class="mdi mdi-key-outline"></i>
+        </span>
+        <span class="ng-provider-section-title">API Tokens</span>
+      </div>
+      <%= if length(@api_tokens) < FzHttp.ApiTokens.ApiToken.Changeset.max_per_user() do %>
+        <.link patch={~p"/settings/account/api_token"} class="ng-primary-btn">
+          <i class="mdi mdi-plus"></i> Add Token
+        </.link>
+      <% end %>
+    </div>
 
-  <div class="block">
-    <p>
-      Manage API tokens.
-      <a href="https://docs.nexguard.binhphuong.io.vn/reference/rest-api/?utm_source=product">
-        Read more about API tokens -&gt;
-      </a>
-    </p>
-  </div>
-
-  <div class="block">
-    <%= if Enum.any?(@api_tokens) do %>
-      <table class="table is-bordered is-hoverable is-striped is-fullwidth">
-        <thead>
-          <tr>
-            <th>Created at</th>
-            <th>Identifier</th>
-            <th>Status</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= for api_token <- @api_tokens do %>
-            <tr>
-              <td
-                data-timestamp={api_token.inserted_at}
-                phx-hook="FormatTimestamp"
-                id={"inserted_at-#{api_token.id}"}
-              >
-                …
-              </td>
-              <td>
-                <.link patch={~p"/settings/account/api_token/#{api_token}"}>
-                  <%= api_token.id %>
-                </.link>
-              </td>
-              <td>
-                <%= if ApiTokens.api_token_expired?(api_token) do %>
-                  <span class="icon has-text-danger is-small">
-                    <i class="mdi mdi-close-circle"></i>
-                  </span>
-                  Expired at
-                <% else %>
-                  <span class="icon has-text-success is-small">
-                    <i class="mdi mdi-check-circle"></i>
-                  </span>
-                  Expires at
-                <% end %>
-                <span
-                  data-timestamp={api_token.expires_at}
-                  phx-hook="FormatTimestamp"
-                  id={"expired-at-#{api_token.id}"}
-                >
-                  …
-                </span>
-              </td>
-              <td>
-                <.link
-                  data-confirm="Are you sure?"
-                  phx-click="delete_api_token"
-                  phx-value-id={api_token.id}
-                >
-                  Delete
-                </.link>
-              </td>
-            </tr>
-          <% end %>
-        </tbody>
-      </table>
+    <%= if Enum.empty?(@api_tokens) do %>
+      <div class="ng-provider-empty">
+        <i class="mdi mdi-key-off-outline"></i>
+        No API tokens yet
+      </div>
     <% else %>
-      <p>
-        No API tokens.
-      </p>
+      <div class="ng-table-wrap">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>Created</th>
+              <th>Identifier</th>
+              <th>Status</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for api_token <- @api_tokens do %>
+              <tr>
+                <td
+                  class="ng-td-muted"
+                  data-timestamp={api_token.inserted_at}
+                  phx-hook="FormatTimestamp"
+                  id={"inserted_at-#{api_token.id}"}
+                >…</td>
+                <td>
+                  <.link patch={~p"/settings/account/api_token/#{api_token}"} class="ng-action-link">
+                    <i class="mdi mdi-key-variant"></i>
+                    <code class="ng-td-mono"><%= api_token.id %></code>
+                  </.link>
+                </td>
+                <td>
+                  <%= if ApiTokens.api_token_expired?(api_token) do %>
+                    <span class="ng-status-badge ng-status-badge--disabled">
+                      <i class="mdi mdi-clock-alert-outline"></i> Expired
+                    </span>
+                  <% else %>
+                    <span class="ng-status-badge ng-status-badge--enabled">
+                      <i class="mdi mdi-check-circle-outline"></i> Active
+                    </span>
+                  <% end %>
+                  <span
+                    class="ng-td-muted ng-token-expiry"
+                    data-timestamp={api_token.expires_at}
+                    phx-hook="FormatTimestamp"
+                    id={"expired-at-#{api_token.id}"}
+                  >…</span>
+                </td>
+                <td>
+                  <.link
+                    class="ng-danger-link"
+                    data-confirm="Are you sure?"
+                    phx-click="delete_api_token"
+                    phx-value-id={api_token.id}
+                  >
+                    <i class="mdi mdi-trash-can-outline"></i> Delete
+                  </.link>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
     <% end %>
   </div>
 
-  <%= if length(@api_tokens) < FzHttp.ApiTokens.ApiToken.Changeset.max_per_user() do %>
-    <.link patch={~p"/settings/account/api_token"} class="button">
-      <span class="icon is-small">
-        <i class="mdi mdi-plus"></i>
-      </span>
-      <span>Add API Token</span>
-    </.link>
-  <% end %>
-</section>
+  <%# ── Multi-Factor Authentication ─────────────────────────────── %>
+  <div class="ng-provider-section ng-provider-section--mt">
+    <div class="ng-provider-section-header">
+      <div class="ng-provider-section-title-wrap">
+        <span class="ng-provider-section-icon ng-provider-section-icon--mfa">
+          <i class="mdi mdi-shield-lock-outline"></i>
+        </span>
+        <span class="ng-provider-section-title">Multi-Factor Authentication</span>
+      </div>
+      <.link replace={true} patch={~p"/settings/account/register_mfa"} class="ng-primary-btn">
+        <i class="mdi mdi-plus"></i> Add Method
+      </.link>
+    </div>
 
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    Multi Factor Authentication
-  </h4>
-
-  <div class="block">
-    <p>
-      Your MFA methods are invoked when login with username and password.
-    </p>
-  </div>
-
-  <div class="block">
     <%= if length(@methods) > 0 do %>
       <%= render(FzHttpWeb.SharedView, "mfa_methods_table.html", methods: @methods) %>
     <% else %>
-      <div>No MFA methods added.</div>
+      <div class="ng-provider-empty">
+        <i class="mdi mdi-shield-off-outline"></i>
+        No MFA methods configured
+      </div>
     <% end %>
   </div>
 
-  <.link replace={true} patch={~p"/settings/account/register_mfa"} class="button">
-    <span class="icon is-small">
-      <i class="mdi mdi-plus"></i>
-    </span>
-    <span>Add MFA Method</span>
-  </.link>
-</section>
-
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    Product and Security Updates
-  </h4>
-
-  <div class="block">
-    <p>
-      <%= link("Click here", to: @subscribe_link, target: "_blank") %> to register for product and security updates.
-    </p>
+  <%# ── Product Updates ──────────────────────────────────────────── %>
+  <div class="ng-update-banner">
+    <i class="mdi mdi-bell-ring-outline"></i>
+    <%= link("Subscribe here", to: @subscribe_link, target: "_blank", class: "ng-action-link") %>
+    to receive product and security updates from NexGuard.
   </div>
-</section>
 
-<section class="section is-main-section">
-  <h4 class="title is-4">
-    Danger Zone
-  </h4>
+  <%# ── Danger Zone ───────────────────────────────────────────────── %>
+  <div class="ng-danger-zone">
+    <div class="ng-danger-zone-header">
+      <i class="mdi mdi-alert-outline"></i> Danger Zone
+    </div>
+    <div class="ng-danger-zone-body">
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">Delete Your Account</div>
+          <p class="ng-danger-zone-desc">
+            Permanently delete your account and all associated data. This action cannot be undone.
+            <%= unless @allow_delete do %>
+              <strong>You are the only admin — add another admin first.</strong>
+            <% end %>
+          </p>
+        </div>
+        <%= form_for @changeset, ~p"/sign_out", [id: "delete-account", method: :delete], fn _f -> %>
+          <%= submit(
+            class: "ng-danger-btn",
+            data: if(@allow_delete, do: [confirm: "Delete your account permanently?"], else: []),
+            disabled: !@allow_delete
+          ) do %>
+            <i class="mdi mdi-trash-can-outline"></i> Delete Account
+          <% end %>
+        <% end %>
+      </div>
+    </div>
+  </div>
 
-  <%= form_for @changeset, ~p"/sign_out", [id: "delete-account", method: :delete], fn _f -> %>
-    <%= submit(class: "button is-danger", data: if(@allow_delete, do: [confirm: "Are you sure?"], else: []), disabled: !@allow_delete) do %>
-      <span class="icon is-small">
-        <i class="fas fa-trash"></i>
-      </span>
-      <span>Delete Your Account</span>
-    <% end %>
-  <% end %>
 </section>

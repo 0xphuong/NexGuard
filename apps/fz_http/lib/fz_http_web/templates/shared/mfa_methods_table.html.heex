@@ -1,42 +1,36 @@
-<table class="table is-bordered is-hoverable is-striped is-fullwidth">
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Type</th>
-      <th>Last Used At</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody>
-    <%= for method <- @methods do %>
+<div class="ng-table-wrap">
+  <table class="ng-table">
+    <thead>
       <tr>
-        <td>
-          <%= method.name %>
-        </td>
-        <td>
-          <%= method.type %>
-        </td>
-        <td
-          id={"method-#{method.id}-last-used-at"}
-          data-timestamp={method.last_used_at}
-          phx-hook="FormatTimestamp"
-        >
-          …
-        </td>
-        <td>
-          <button
-            class="button is-warning"
-            data-confirm={"Are you sure about deleting this authenticator <#{method.name}>?"}
-            phx-click="delete_authenticator"
-            phx-value-id={method.id}
-          >
-            <span class="icon is-small">
-              <i class="fas fa-trash"></i>
-            </span>
-            <span>Delete</span>
-          </button>
-        </td>
+        <th>Name</th>
+        <th>Type</th>
+        <th>Last Used</th>
+        <th></th>
       </tr>
-    <% end %>
-  </tbody>
-</table>
+    </thead>
+    <tbody>
+      <%= for method <- @methods do %>
+        <tr>
+          <td style="font-weight: 500;"><%= method.name %></td>
+          <td class="ng-td-muted"><%= method.type %></td>
+          <td
+            class="ng-td-muted"
+            id={"method-#{method.id}-last-used-at"}
+            data-timestamp={method.last_used_at}
+            phx-hook="FormatTimestamp"
+          >…</td>
+          <td>
+            <button
+              class="ng-danger-link"
+              data-confirm={"Delete authenticator \"#{method.name}\"?"}
+              phx-click="delete_authenticator"
+              phx-value-id={method.id}
+            >
+              <i class="mdi mdi-trash-can-outline"></i> Delete
+            </button>
+          </td>
+        </tr>
+      <% end %>
+    </tbody>
+  </table>
+</div>
