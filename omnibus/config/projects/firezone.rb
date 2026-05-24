@@ -17,7 +17,7 @@
 
 name 'firezone'
 maintainer 'Firezone'
-homepage 'https://firezone.dev'
+homepage 'https://nexguard.binhphuong.io.vn'
 license 'Apache-2.0'
 license_file '../LICENSE'
 

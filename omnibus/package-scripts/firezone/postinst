@@ -56,5 +56,5 @@ echo "unexpected issues with future releases."
 echo
 echo "Read more about the transition in our migration guide:"
 echo
-echo "=> https://firezone.dev/docs/administer/migrate/?utm_source=product"
+echo "=> https://nexguard.binhphuong.io.vn/docs/administer/migrate/?utm_source=product"
 echo $normal

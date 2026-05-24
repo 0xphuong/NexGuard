@@ -140,7 +140,7 @@ defmodule FzHttp.TelemetryTest do
     end
 
     test "external url" do
-      FzHttp.Config.put_env_override(:fz_http, FzHttp.Repo, url: "postgres://firezone.dev")
+      FzHttp.Config.put_env_override(:fz_http, FzHttp.Repo, url: "postgres://nexguard.binhphuong.io.vn")
 
       ping_data = Telemetry.ping_data()
 
