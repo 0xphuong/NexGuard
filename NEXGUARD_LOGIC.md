@@ -654,85 +654,249 @@ mix start
 
 ## 8. nftables Firewall Logic
 
-### Cấu trúc table `inet nexguard`
+> Source: `apps/fz_wall/lib/fz_wall/cli/live.ex`, `helpers/nft.ex`, `helpers/sets.ex`
+
+### Cấu trúc tổng thể
 
 ```
 table inet nexguard
-├── chain forward          (filter hook, priority 0, policy accept)
-├── chain postrouting      (nat hook, priority srcnat, policy accept)
-└── chain user<UUID>       (per-user chains)
+├── chain forward       (filter hook, priority 0, policy accept)
+│   ├── ip  saddr @user<UUID>_ip_devices  → jump user<UUID>   ← per-user jump (đứng đầu)
+│   ├── ip6 saddr @user<UUID>_ip6_devices → jump user<UUID>
+│   ├── ip6 daddr . proto . port @ip6_accept_layer4 → accept  ← global L4 rules
+│   ├── ip6 daddr . proto . port @ip6_drop_layer4   → drop
+│   ├── ip  daddr . proto . port @ip_accept_layer4  → accept
+│   ├── ip  daddr . proto . port @ip_drop_layer4    → drop
+│   ├── ip6 daddr @ip6_accept → accept                        ← global IP rules
+│   ├── ip6 daddr @ip6_drop   → drop
+│   ├── ip  daddr @ip_accept  → accept
+│   └── ip  daddr @ip_drop    → drop
+│
+├── chain postrouting   (nat hook, priority 100)
+│   └── oifname eth0 meta nfproto ipv4/ipv6 masquerade persistent
+│
+└── chain user<UUID>    (regular chain, per-user, không có hook)
+    ├── ip6 daddr . proto . port @user<UUID>_ip6_accept_layer4 → accept
+    ├── ip6 daddr . proto . port @user<UUID>_ip6_drop_layer4   → drop
+    ├── ip  daddr . proto . port @user<UUID>_ip_accept_layer4  → accept
+    ├── ip  daddr . proto . port @user<UUID>_ip_drop_layer4    → drop
+    ├── ip6 daddr @user<UUID>_ip6_accept → accept
+    ├── ip6 daddr @user<UUID>_ip6_drop   → drop
+    ├── ip  daddr @user<UUID>_ip_accept  → accept
+    └── ip  daddr @user<UUID>_ip_drop    → drop
+        └── fall-through → quay lại chain forward → global rules
 ```
 
-### Per-user Sets (mỗi user có bộ set riêng)
+**Lưu ý thứ tự:** code dùng `insert rule` (prepend), nên rule insert **sau** đứng **trên**. L4 rules có ưu tiên cao hơn IP-only; accept có ưu tiên cao hơn drop trong cùng loại.
 
-| Set | Type | Mục đích |
-|---|---|---|
-| `user<UUID>_ip_devices` | `ipv4_addr` | Danh sách WireGuard IPs của user |
-| `user<UUID>_ip6_devices` | `ipv6_addr` | WireGuard IPv6 IPs |
-| `user<UUID>_ip_accept` | `ipv4_addr` interval | Subnets được phép truy cập |
-| `user<UUID>_ip_drop` | `ipv4_addr` interval | Subnets bị chặn |
-| `user<UUID>_ip_accept_layer4` | `ipv4_addr . proto . port` | Accept theo IP+proto+port |
-| `user<UUID>_ip_drop_layer4` | `ipv4_addr . proto . port` | Drop theo IP+proto+port |
-| *(tương tự cho IPv6)* | | |
+---
 
-### Global Sets
-
-| Set | Elements | Mục đích |
-|---|---|---|
-| `ip_drop` | `0.0.0.0-255.255.255.255` | Default deny all |
-| `ip_accept` | `10.5.67.0/24`, `34.160.111.145` | Global whitelist |
-| `ip_accept_layer4` | `10.0.235.0/24:tcp:443`, NodePort ranges | Layer4 whitelist |
-
-### Chain `forward` — Logic xử lý
-
-```
-1. Match ip saddr theo ip_devices của từng user → jump user<UUID> chain
-2. Global layer4 rules (accept/drop từ wg-nexguard)
-3. Global IP rules (accept/drop từ wg-nexguard)
-```
-
-### Per-user chain logic (ưu tiên từ trên xuống)
-
-```
-1. ip daddr . proto . dport @ip_accept_layer4  → accept  (L4 whitelist)
-2. ip daddr . proto . dport @ip_drop_layer4    → drop    (L4 blacklist)
-3. ip daddr @ip_accept                         → accept  (IP whitelist)
-4. ip daddr @ip_drop                           → drop    (IP blacklist)
-(fall-through → tiếp tục global rules)
-```
-
-### Chain `postrouting` — NAT/Masquerade
-
-```nft
-chain postrouting {
-    type nat hook postrouting priority srcnat; policy accept;
-    oifname "eth0" meta nfproto ipv4 masquerade persistent
-    oifname "eth0" meta nfproto ipv6 masquerade persistent
-}
-```
-
-### Script `nft-firezone.sh` — Lịch sử cấu hình NAT
-
-**Phiên bản hiện tại (UPDATE 20250704) — Logic NAT với exception:**
+### Bước 1 — Boot: `setup_firewall()`
 
 ```bash
-# Xóa chain cũ
-nft delete chain inet nexguard postrouting
+# Kiểm tra và xóa table cũ
+nft list table inet nexguard          # exit 0 → tồn tại
+nft delete table inet nexguard
 
-# Tạo lại chain
+# Tạo table mới
+nft create table inet nexguard
+
+# Tạo 2 base chains
+nft 'add chain inet nexguard forward { type filter hook forward priority 0 ; policy accept ; }'
+nft 'add chain inet nexguard postrouting { type nat hook postrouting priority 100 ; }'
+
+# Masquerade — đọc /sys/class/net/, bỏ qua "lo" và "wg-nexguard"
+# Với mỗi interface còn lại (vd eth0), nếu WIREGUARD_IPVx_MASQUERADE=true:
+nft 'add rule inet nexguard postrouting oifname eth0 meta nfproto ipv4 masquerade persistent'
+nft 'add rule inet nexguard postrouting oifname eth0 meta nfproto ipv6 masquerade persistent'
+```
+
+---
+
+### Bước 2 — Boot tiếp: `setup_rules(nil)` — global sets + rules
+
+```bash
+# Global filter sets (IP-only, luôn tạo)
+nft 'add set inet nexguard ip_drop    { type ipv4_addr ; flags interval ; }'
+nft 'add set inet nexguard ip_accept  { type ipv4_addr ; flags interval ; }'
+nft 'add set inet nexguard ip6_drop   { type ipv6_addr ; flags interval ; }'
+nft 'add set inet nexguard ip6_accept { type ipv6_addr ; flags interval ; }'
+
+# Global filter sets (L4 — chỉ tạo nếu port_based_rules_supported=true)
+nft 'add set inet nexguard ip_drop_layer4    { type ipv4_addr . inet_proto . inet_service ; flags interval ; }'
+nft 'add set inet nexguard ip_accept_layer4  { type ipv4_addr . inet_proto . inet_service ; flags interval ; }'
+nft 'add set inet nexguard ip6_drop_layer4   { type ipv6_addr . inet_proto . inet_service ; flags interval ; }'
+nft 'add set inet nexguard ip6_accept_layer4 { type ipv6_addr . inet_proto . inet_service ; flags interval ; }'
+
+# Global filter rules — insert (prepend) vào chain forward
+# Thứ tự insert: ip_drop → ip_accept → ip6_drop → ip6_accept → (layer4 tương tự)
+# → rule insert cuối cùng đứng trên cùng sau khi xong
+nft 'insert rule inet nexguard forward ip  daddr @ip_drop   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard forward ip  daddr @ip_accept meta iifname wg-nexguard accept'
+nft 'insert rule inet nexguard forward ip6 daddr @ip6_drop   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard forward ip6 daddr @ip6_accept meta iifname wg-nexguard accept'
+nft 'insert rule inet nexguard forward ip  daddr . meta l4proto . th dport @ip_drop_layer4   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard forward ip  daddr . meta l4proto . th dport @ip_accept_layer4 meta iifname wg-nexguard accept'
+nft 'insert rule inet nexguard forward ip6 daddr . meta l4proto . th dport @ip6_drop_layer4   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard forward ip6 daddr . meta l4proto . th dport @ip6_accept_layer4 meta iifname wg-nexguard accept'
+```
+
+---
+
+### Bước 3 — User được tạo: `add_user(user_id)`
+
+```bash
+# 1. Device sets (lưu WireGuard IPs của user)
+nft 'add set inet nexguard user<UUID>_ip_devices  { type ipv4_addr ; flags interval ; }'
+nft 'add set inet nexguard user<UUID>_ip6_devices { type ipv6_addr ; flags interval ; }'
+
+# 2. Chain riêng cho user (regular, không hook)
+nft 'add chain inet nexguard user<UUID>'
+
+# 3. Jump rules vào chain forward (insert → đứng trước global rules)
+nft 'insert rule inet nexguard forward ip  saddr @user<UUID>_ip_devices  jump user<UUID>'
+nft 'insert rule inet nexguard forward ip6 saddr @user<UUID>_ip6_devices jump user<UUID>'
+
+# 4. Per-user filter sets (giống global, prefix user<UUID>_)
+nft 'add set inet nexguard user<UUID>_ip_drop    { type ipv4_addr ; flags interval ; }'
+nft 'add set inet nexguard user<UUID>_ip_accept  { type ipv4_addr ; flags interval ; }'
+nft 'add set inet nexguard user<UUID>_ip6_drop   { type ipv6_addr ; flags interval ; }'
+nft 'add set inet nexguard user<UUID>_ip6_accept { type ipv6_addr ; flags interval ; }'
+# + 4 layer4 sets nếu port_based_rules_supported=true (tương tự global)
+
+# 5. Per-user filter rules — insert vào chain user<UUID>
+nft 'insert rule inet nexguard user<UUID> ip  daddr @user<UUID>_ip_drop   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard user<UUID> ip  daddr @user<UUID>_ip_accept meta iifname wg-nexguard accept'
+nft 'insert rule inet nexguard user<UUID> ip6 daddr @user<UUID>_ip6_drop   meta iifname wg-nexguard drop'
+nft 'insert rule inet nexguard user<UUID> ip6 daddr @user<UUID>_ip6_accept meta iifname wg-nexguard accept'
+# + 4 layer4 rules nếu enabled
+```
+
+---
+
+### Bước 4 — Device được thêm: `add_device(device)`
+
+```bash
+# IP normalize trước: CIDR → CIDR.parse(), single IP → :inet.ntoa()
+nft 'add element inet nexguard user<UUID>_ip_devices  { 10.0.55.x }'  # bỏ qua nếu nil
+nft 'add element inet nexguard user<UUID>_ip6_devices { fd00::x }'    # bỏ qua nếu nil
+```
+
+---
+
+### Bước 5 — Rule được tạo: `add_rule(rule)`
+
+```bash
+# Rule IP-only (port_type = nil):
+nft 'add element inet nexguard user<UUID>_ip_accept { 10.0.0.0/8 }'    # user rule accept
+nft 'add element inet nexguard ip_drop { 0.0.0.0/0 }'                  # global rule drop (user_id=nil)
+
+# Rule có port (port_type = tcp/udp):
+nft 'add element inet nexguard user<UUID>_ip_accept_layer4 { 10.0.235.0/24 . tcp . 443 }'
+nft 'add element inet nexguard ip_accept_layer4 { 10.0.235.0/24 . tcp . 8000-9000 }'
+```
+
+---
+
+### Bước 6 — Packet từ WireGuard client: luồng xử lý thực tế
+
+```
+Packet: 10.0.55.x → 10.0.0.1 (TCP 443)
+         │
+         ▼ chain forward
+         ├─ ip saddr @user<UUID>_ip_devices → jump user<UUID>  ✓ MATCH
+         │         │
+         │         ▼ chain user<UUID>
+         │         ├─ ip daddr . tcp . 443 @user<UUID>_ip_accept_layer4 → accept  ← nếu có rule này
+         │         ├─ ip daddr . tcp . 443 @user<UUID>_ip_drop_layer4   → drop    ← hoặc rule này
+         │         ├─ ip daddr @user<UUID>_ip_accept → accept  ← 10.0.0.0/8 → ACCEPT
+         │         ├─ ip daddr @user<UUID>_ip_drop   → drop
+         │         └─ fall-through → quay lại chain forward
+         │
+         ├─ (fall-through) ip6_accept_layer4, ip6_drop_layer4, ip_accept_layer4, ip_drop_layer4
+         └─ (fall-through) ip6_accept, ip6_drop, ip_accept, ip_drop
+```
+
+---
+
+### Bước 7 — Xóa device: `delete_device(device)`
+
+```bash
+nft 'delete element inet nexguard user<UUID>_ip_devices  { 10.0.55.x }'
+nft 'delete element inet nexguard user<UUID>_ip6_devices { fd00::x }'
+```
+
+---
+
+### Bước 8 — Xóa rule: `delete_rule(rule)`
+
+```bash
+nft 'delete element inet nexguard user<UUID>_ip_accept { 10.0.0.0/8 }'
+# L4 rule:
+nft 'delete element inet nexguard user<UUID>_ip_accept_layer4 { 10.0.235.0/24 . tcp . 443 }'
+```
+
+---
+
+### Bước 9 — Xóa user: `delete_user(user_id)`
+
+```bash
+# 1. Xóa jump rules — phải tìm handle (không thể xóa theo nội dung)
+nft -a list table inet nexguard
+# regex: /^\s*ip saddr @user<UUID>_ip_devices jump user<UUID>.*# handle (\d+)/
+nft delete rule inet nexguard forward handle <num>
+# re-scan lại (handle tái đánh số sau mỗi lần xóa), xóa tiếp rule ip6
+
+# 2. Xóa device sets
+nft 'delete set inet nexguard user<UUID>_ip_devices'
+nft 'delete set inet nexguard user<UUID>_ip6_devices'
+
+# 3. Xóa chain (tự xóa luôn tất cả rules bên trong)
+nft 'delete chain inet nexguard user<UUID>'
+
+# 4. Xóa filter sets
+nft 'delete set inet nexguard user<UUID>_ip_drop'
+nft 'delete set inet nexguard user<UUID>_ip_accept'
+nft 'delete set inet nexguard user<UUID>_ip6_drop'
+nft 'delete set inet nexguard user<UUID>_ip6_accept'
+# + 4 layer4 sets nếu enabled
+```
+
+---
+
+### Điểm quan trọng
+
+| Điểm | Chi tiết |
+|---|---|
+| `insert rule` = prepend | Rule insert **sau** đứng **trên** → thứ tự ưu tiên ngược với thứ tự code |
+| Per-user jump rules | Luôn đứng **trước** global rules trong chain forward |
+| `meta iifname wg-nexguard` | Có trong mọi filter rule → chỉ áp dụng cho WireGuard traffic |
+| Handle-based deletion | `nft -a list` rồi regex lấy handle; re-scan sau mỗi lần xóa |
+| IP normalization | CIDR: `CIDR.parse()` → chuẩn hóa; single IP: `:inet.ntoa()` |
+| `port_based_rules_supported` | Config flag bật/tắt L4 sets — nếu tắt chỉ có 4 sets/user thay vì 8 |
+
+---
+
+### Script `nft-firezone.sh` — NAT override thủ công (production)
+
+Dùng khi cần forward không NAT cho các internal subnets:
+
+```bash
+# Rebuild chain postrouting với exception
+nft delete chain inet nexguard postrouting
 nft add chain inet nexguard postrouting { type nat hook postrouting priority srcnat; policy accept; }
 
-# NGOẠI LỆ: Forward không NAT cho các internal subnets (đặt TRƯỚC rule mặc định)
+# RETURN (không NAT) cho internal subnets — đặt TRƯỚC rule masquerade
 nft add rule inet nexguard postrouting ip daddr 10.0.0.0/16 oifname "eth0" meta nfproto ipv4 return
 nft add rule inet nexguard postrouting ip daddr 10.2.0.0/16 oifname "eth0" meta nfproto ipv4 return
 nft add rule inet nexguard postrouting ip daddr 10.8.0.0/16 oifname "eth0" meta nfproto ipv4 return
 
-# MẶC ĐỊNH: Masquerade tất cả IPv4/IPv6 còn lại
+# Masquerade tất cả còn lại
 nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv4 masquerade persistent
 nft add rule inet nexguard postrouting oifname "eth0" meta nfproto ipv6 masquerade persistent
 ```
 
-**MSS Clamping (chống MTU fragmentation):**
+**MSS Clamping** (chống MTU fragmentation, chạy song song):
 ```bash
 nft add table inet filter
 nft add chain inet filter forward { type filter hook forward priority 0; policy accept; }

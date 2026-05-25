@@ -129,6 +129,8 @@ defmodule FzWall.CLI.Helpers.Nft do
   end
 
   defp setup_masquerade do
+    setup_no_masquerade_rules()
+
     if masquerade_ipv4?() do
       setup_masquerade(:ipv4)
     end
@@ -136,6 +138,28 @@ defmodule FzWall.CLI.Helpers.Nft do
     if masquerade_ipv6?() do
       setup_masquerade(:ipv6)
     end
+  end
+
+  defp setup_no_masquerade_rules do
+    Application.fetch_env!(:fz_wall, :no_masquerade_cidrs)
+    |> parse_cidrs()
+    |> Enum.each(fn cidr ->
+      proto = if String.contains?(cidr, ":"), do: "ip6", else: "ip"
+
+      exec!(
+        "#{nft()} 'add rule inet #{@table_name} postrouting #{proto} daddr #{cidr} return'"
+      )
+    end)
+  end
+
+  defp parse_cidrs(nil), do: []
+  defp parse_cidrs(""), do: []
+
+  defp parse_cidrs(str) do
+    str
+    |> String.split(",", trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
   end
 
   defp setup_masquerade(proto) do

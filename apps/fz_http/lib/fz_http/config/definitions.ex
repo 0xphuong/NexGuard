@@ -121,7 +121,8 @@ defmodule FzHttp.Config.Definitions do
          :wireguard_private_key_path,
          :wireguard_interface_name,
          :gateway_egress_interface,
-         :gateway_nft_path
+         :gateway_nft_path,
+         :gateway_no_masquerade_cidrs
        ]},
       {"Outbound Emails",
        [
@@ -721,6 +722,13 @@ defmodule FzHttp.Config.Definitions do
   )
 
   defconfig(:gateway_nft_path, :string, default: "nft", legacy_keys: [{:env, "NFT_PATH", "0.8"}])
+
+  @doc """
+  List of CIDR subnets that should NOT be NATed in the postrouting chain.
+  Traffic to these destinations will be forwarded as-is, preserving the VPN client's real IP.
+  Comma-separated, e.g. GATEWAY_NO_MASQUERADE_CIDRS=10.0.0.0/16,10.10.0.0/24
+  """
+  defconfig(:gateway_no_masquerade_cidrs, :string, default: "")
 
   ##############################################
   ## HTTP Client Settings
