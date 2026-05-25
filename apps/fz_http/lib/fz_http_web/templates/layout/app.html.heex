@@ -1,21 +1,19 @@
-<%= if !is_nil(Phoenix.Flash.get(@flash, :info)) or !is_nil(Phoenix.Flash.get(@flash, :error)) do %>
-  <div class="block flash-squeeze">
-    <%= if Phoenix.Flash.get(@flash, :info) do %>
-      <div class="notification is-info">
-        <button title="Dismiss notification" class="delete"></button>
-        <div class="flash-info">
-          <%= Phoenix.Flash.get(@flash, :info) %>
-        </div>
-      </div>
-    <% end %>
-    <%= if Phoenix.Flash.get(@flash, :error) do %>
-      <div class="notification is-danger">
-        <button class="delete"></button>
-        <div class="flash-error">
-          <%= Phoenix.Flash.get(@flash, :error) %>
-        </div>
-      </div>
-    <% end %>
+<%= if Phoenix.Flash.get(@flash, :error) do %>
+  <div class="ng-auth-alert ng-auth-alert--error">
+    <i class="mdi mdi-alert-circle-outline"></i>
+    <span><%= Phoenix.Flash.get(@flash, :error) %></span>
+  </div>
+<% end %>
+<%= if Phoenix.Flash.get(@flash, :info) do %>
+  <div class="ng-auth-alert ng-auth-alert--info">
+    <i class="mdi mdi-check-circle-outline"></i>
+    <span><%= Phoenix.Flash.get(@flash, :info) %></span>
+  </div>
+<% end %>
+<%= if Phoenix.Flash.get(@flash, :warning) do %>
+  <div class="ng-auth-alert ng-auth-alert--warning">
+    <i class="mdi mdi-alert-outline"></i>
+    <span><%= Phoenix.Flash.get(@flash, :warning) %></span>
   </div>
 <% end %>
 <div>
