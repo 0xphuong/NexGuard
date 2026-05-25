@@ -1,4 +1,4 @@
-# Firezone Code of Conduct
+# NexGuard Code of Conduct
 
 ## Our Pledge
 

@@ -1,6 +1,6 @@
 {
   "id": "a22cc33d-5ad3-452d-a022-b4f1a1745af3",
-  "realm": "firezone",
+  "realm": "nexguard",
   "displayName": "",
   "displayNameHtml": "",
   "notBefore": 0,
@@ -67,7 +67,7 @@
       },
       {
         "id": "a57d0e46-7bf5-409b-8a25-9ca52ac40a08",
-        "name": "default-roles-firezone",
+        "name": "default-roles-nexguard",
         "description": "${role_default-roles}",
         "composite": true,
         "composites": {
@@ -82,7 +82,7 @@
       }
     ],
     "client": {
-      "firezone-saml": [],
+      "nexguard-saml": [],
       "realm-management": [
         {
           "id": "3af52d56-dc2b-4acd-90ff-1d5d0c358820",
@@ -295,7 +295,7 @@
           "attributes": {}
         }
       ],
-      "firezone-client": [],
+      "nexguard-client": [],
       "security-admin-console": [],
       "admin-cli": [],
       "account-console": [],
@@ -334,7 +334,7 @@
   ],
   "defaultRole": {
     "id": "a57d0e46-7bf5-409b-8a25-9ca52ac40a08",
-    "name": "default-roles-firezone",
+    "name": "default-roles-nexguard",
     "description": "${role_default-roles}",
     "composite": true,
     "clientRole": false,
@@ -401,13 +401,13 @@
       "clientId": "account",
       "name": "${client_account}",
       "rootUrl": "${authBaseUrl}",
-      "baseUrl": "/realms/firezone/account/",
+      "baseUrl": "/realms/nexguard/account/",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "/realms/firezone/account/*"
+        "/realms/nexguard/account/*"
       ],
       "webOrigins": [],
       "notBefore": 0,
@@ -445,13 +445,13 @@
       "clientId": "account-console",
       "name": "${client_account-console}",
       "rootUrl": "${authBaseUrl}",
-      "baseUrl": "/realms/firezone/account/",
+      "baseUrl": "/realms/nexguard/account/",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "/realms/firezone/account/*"
+        "/realms/nexguard/account/*"
       ],
       "webOrigins": [],
       "notBefore": 0,
@@ -577,7 +577,7 @@
     },
     {
       "id": "bd3e5795-d514-44c1-9ad9-7b50c745b25d",
-      "clientId": "firezone-client",
+      "clientId": "nexguard-client",
       "name": "",
       "description": "",
       "rootUrl": "",
@@ -631,7 +631,7 @@
     },
     {
       "id": "325df7cb-baac-4733-b601-b4a0baed099a",
-      "clientId": "firezone-saml",
+      "clientId": "nexguard-saml",
       "name": "",
       "description": "",
       "rootUrl": "",
@@ -729,13 +729,13 @@
       "clientId": "security-admin-console",
       "name": "${client_security-admin-console}",
       "rootUrl": "${authAdminUrl}",
-      "baseUrl": "/admin/firezone/console/",
+      "baseUrl": "/admin/nexguard/console/",
       "surrogateAuthRequired": false,
       "enabled": true,
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
-        "/admin/firezone/console/*"
+        "/admin/nexguard/console/*"
       ],
       "webOrigins": [
         "+"

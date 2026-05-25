@@ -63,7 +63,7 @@ defmodule FzHttpWeb.SettingLive.OIDCFormComponent do
           <p class="help">
             Space-delimited list of OpenID scopes. <code>openid</code>
             and <code>email</code>
-            are required in order for Firezone to work.
+            are required in order for NexGuard to work.
           </p>
         </div>
 

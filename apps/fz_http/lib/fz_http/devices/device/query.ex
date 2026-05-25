@@ -137,7 +137,7 @@ defmodule FzHttp.Devices.Device.Query do
   # This way is chosen because IPv6 cannot be cast to bigint, so by using it directly
   # we won't be able to increment/decrement it while building a sequence.
   #
-  # At the same time offset will fit to bigint even for largest CIDR ranges that Firezone supports.
+  # At the same time offset will fit to bigint even for largest CIDR ranges that NexGuard supports.
   #
   # XXX: We can make this code prettier once https://github.com/elixir-ecto/ecto/commit/8f7bb2665bce30dfab18cfed01585c96495575a6 is released.
   defp series_from_offset_inclusive_to_end_of_cidr(network_cidr, offset) do

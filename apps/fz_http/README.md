@@ -1,3 +1,3 @@
 # FzHttp
 
-Phoenix app for managing Firezone.
+Phoenix app for managing NexGuard.

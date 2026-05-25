@@ -1,4 +1,4 @@
-const firezoneColors = {
+const nexguardColors = {
   // See our brand palette in Figma.
   // These have been reversed to match Tailwind's default order.
 
@@ -59,18 +59,18 @@ module.exports = {
         DEFAULT: {
           css: {
             a: {
-              color: firezoneColors["electric-violet"][500],
+              color: nexguardColors["electric-violet"][500],
               "&:hover": {
-                color: firezoneColors["electric-violet"][600],
+                color: nexguardColors["electric-violet"][600],
               },
             },
           },
         },
       },
       colors: {
-        primary: firezoneColors["heat-wave"],
-        accent: firezoneColors["electric-violet"],
-        neutral: firezoneColors["night-rider"],
+        primary: nexguardColors["heat-wave"],
+        accent: nexguardColors["electric-violet"],
+        neutral: nexguardColors["night-rider"],
       },
     },
   },

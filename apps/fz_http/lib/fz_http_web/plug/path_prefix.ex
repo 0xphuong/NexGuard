@@ -1,6 +1,6 @@
 defmodule FzHttpWeb.Plug.PathPrefix do
   @moduledoc """
-  This Plug removes prefix from Plug.Conn path fields which allows to run Firezone
+  This Plug removes prefix from Plug.Conn path fields which allows to run NexGuard
   under non root directory without recompiling it.
   """
   @behaviour Plug

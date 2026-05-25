@@ -16,7 +16,7 @@ defmodule FzHttp.Config.Configuration do
     # so this works for the time being. The important thing is allowing users
     # to update these fields via the REST API since they were removed as
     # environment variables in the above migration. This is important for users
-    # wishing to configure Firezone with automated Infrastructure tools like
+    # wishing to configure NexGuard with automated Infrastructure tools like
     # Terraform.
     field :default_client_persistent_keepalive, :integer
     field :default_client_mtu, :integer

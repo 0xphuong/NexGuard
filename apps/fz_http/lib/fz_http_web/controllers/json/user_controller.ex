@@ -7,7 +7,7 @@ defmodule FzHttpWeb.JSON.UserController do
 
   You can set Configuration option `auto_create_users` to `true` to automatically create users
   from OpenID or SAML providers. Use it with care as anyone with access to the provider will be
-  able to log-in to Firezone.
+  able to log-in to NexGuard.
 
   If `auto_create_users` is `false`, then you need to provision users with `password` attribute,
   otherwise they will have no means to log in.

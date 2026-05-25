@@ -1,18 +1,18 @@
 # Security Policy
 
-We appreciate your help in making Firezone secure! We take security issues very
+We appreciate your help in making NexGuard secure! We take security issues very
 seriously and strive to fix all security issues as soon as they're reported.
 
 ## Announcements
 
-We'll announce major security issues on our security mailing list located at:
+We'll announce major security issues on our GitHub repository:
 
-https://discourse.firez.one/?utm_source=security
+https://github.com/0xphuong/NexGuard/security/advisories
 
 ## Supported Versions
 
-We release security patches for supported versions of Firezone. We recommend
-running the latest version of Firezone at all times.
+We release security patches for supported versions of NexGuard. We recommend
+running the latest version of NexGuard at all times.
 
 ## Reporting a Vulnerability
 

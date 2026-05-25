@@ -283,7 +283,7 @@ defmodule FzHttpWeb.SettingLive.SecurityTest do
           "saml_identity_provider" => %{
             id: "new_id",
             label: "new_label",
-            base_url: "http://example.com/realms/firezone",
+            base_url: "http://example.com/realms/nexguard",
             metadata: ConfigFixtures.saml_metadata()
           }
         })
@@ -298,7 +298,7 @@ defmodule FzHttpWeb.SettingLive.SecurityTest do
 
       assert saml_identity_provider.id == "new_id"
       assert saml_identity_provider.label == "new_label"
-      assert saml_identity_provider.base_url == "http://example.com/realms/firezone"
+      assert saml_identity_provider.base_url == "http://example.com/realms/nexguard"
     end
 
     test "validate", %{view: view} do

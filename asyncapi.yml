@@ -8,27 +8,27 @@ asyncapi: "2.5.0"
 
 tags:
   - name: gateway
-    description: Realtime API for Firezone Gateway
+    description: Realtime API for NexGuard Gateway
 
 info:
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
-  title: Firezone Realtime API
+  title: NexGuard Realtime API
   version: "1.0.0"
   contact:
-    name: Firezone
+    name: NexGuard
     url: https://nexguard.binhphuong.io.vn/
     email: async-api@binhphuong.io.vn
   description: |
-    Realtime API documentation for Firezone's control plane.
+    Realtime API documentation for NexGuard's control plane.
 
 externalDocs:
   url: https://docs.nexguard.binhphuong.io.vn/
 
 servers:
   public:
-    url: wss://firezone.example.com
+    url: wss://nexguard.example.com
     protocol: wss
 
 channels:

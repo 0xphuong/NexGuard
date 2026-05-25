@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering contributing to Firezone! Please read this guide to get
+Thanks for considering contributing to NexGuard! Please read this guide to get
 started.
 
 ## Table of Contents
@@ -43,20 +43,20 @@ the following general guidelines:
 
 ## Developer Environment Setup
 
-Docker is the preferred method of development Firezone locally. It (mostly)
-works cross-platform, and can be used to develop Firezone on all three
+Docker is the preferred method of development NexGuard locally. It (mostly)
+works cross-platform, and can be used to develop NexGuard on all three
 major desktop OS. This also provides a small but somewhat realistic network
 environment with working nftables and WireGuard subsystems for live development.
 
 ### Docker Setup
 
 We recommend [Docker Desktop](https://docs.docker.com/engine/install/#desktop)
-even if you're developing on Linux. This is what the Firezone core devs use and
+even if you're developing on Linux. This is what the NexGuard core devs use and
 comes with `compose` included.
 
 #### Docker Caveat
 
-Routing packets from the host's WireGuard client through the Firezone compose
+Routing packets from the host's WireGuard client through the NexGuard compose
 cluster and out to the external network will not work. This is because Docker
 Desktop
 [rewrites the source address from containers to appear as if they originated the
@@ -66,17 +66,17 @@ host](https://www.docker.com/blog/how-docker-desktop-networking-works-under-the-
 1. Packet originates on Host
 1. Enters WireGuard client tunnel
 1. Forwarding through the Docker bridge net
-1. Forward to the Firezone container, 127.0.0.1:51820
-1. Firezone sends packet back out
+1. Forward to the NexGuard container, 127.0.0.1:51820
+1. NexGuard sends packet back out
 1. Docker bridge net, Docker rewrites src IP to Host's LAN IP, (d'oh!)
 1. Docker sends packet out to Host ->
 1. Packet now has same src IP and dest IP as step 1 above, and the cycle
    continues
 
-However, packets destined for Firezone compose cluster IPs (172.28.0.0/16)
+However, packets destined for NexGuard compose cluster IPs (172.28.0.0/16)
 reach their destination through the tunnel just fine. Because of this, it's
 recommended to use `172.28.0.0/16` for your `AllowedIPs` parameter when using
-host-based WireGuard clients with Firezone running under Docker Desktop.
+host-based WireGuard clients with NexGuard running under Docker Desktop.
 
 Routing packets from _another_ host on the local network, through your development
 machine, and out to the external Internet should work as well.
@@ -93,7 +93,7 @@ the first time and will be different for each developer.
 ### asdf-vm Setup
 
 While not strictly required, we use [asdf-vm](https://asdf-vm.com) to manage
-language versions for Firezone. You'll need to install the language runtimes
+language versions for NexGuard. You'll need to install the language runtimes
 according to the versions laid out in the [.tool-versions](.tool-versions) file.
 
 If using asdf, simply run `asdf install` from the project root.
@@ -124,12 +124,12 @@ To start the local development cluster, follow these steps:
 ```
 docker compose build
 docker compose up -d postgres
-docker compose run --rm firezone mix do ecto.setup, ecto.seed
+docker compose run --rm nexguard mix do ecto.setup, ecto.seed
 docker compose up
 ```
 
 Now you should be able to connect to `https://localhost/`
-and sign in with email `firezone@localhost` and password `firezone1234`.
+and sign in with email `admin@localhost` and password `nexguard1234`.
 
 The [`docker-compose.yml`](docker-compose.yml) file configures the Docker
 development environment. If you make any changes you feel would benefit
@@ -138,11 +138,11 @@ all developers, feel free to open a PR to get them merged!
 ### Ensure Everything Works
 
 There is a `client` container in the docker-compose configuration that
-can be used to simulate a WireGuard client connecting to Firezone. It's already
-provisioned in the Firezone development cluster and has a corresponding
+can be used to simulate a WireGuard client connecting to NexGuard. It's already
+provisioned in the NexGuard development cluster and has a corresponding
 WireGuard configuration located at `priv/wg0.client.conf`.
 It's attached to the `isolation` Docker network which is isolated from the other
-Firezone Docker services. By connecting to Firezone from the `client`
+NexGuard Docker services. By connecting to NexGuard from the `client`
 container, you can test the WireGuard tunnel is set up correctly by pinging the
 `caddy` container:
 
@@ -157,7 +157,7 @@ If the above commands indicate success, you should be good to go!
 We appreciate any and all bug reports.
 
 To report a bug, please first [search for it in our issues
-tracker](https://github.com/firezone/firezone/issues). Be sure to search closed
+tracker](https://github.com/0xphuong/NexGuard/issues). Be sure to search closed
 issues as well.
 
 If it's not there, please open a new issue and include the following:
@@ -166,7 +166,7 @@ If it's not there, please open a new issue and include the following:
 - Expected behavior
 - Steps to reproduce
 - Estimated impact: High/Medium/Low
-- Firezone version
+- NexGuard version
 - Platform architecture (amd64, aarch64, etc)
 - Linux distribution
 - Linux kernel version
@@ -226,4 +226,4 @@ pre-commit run --all-files
 
 ## Asking For Help
 
-If you get stuck, don't hesitate to ask for help on our [community forums](https://discourse.firez.one/?utm_source=contributing).
+If you get stuck, don't hesitate to ask for help by opening an issue on [GitHub](https://github.com/0xphuong/NexGuard/issues).

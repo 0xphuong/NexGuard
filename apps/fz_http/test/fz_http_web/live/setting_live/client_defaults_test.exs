@@ -88,7 +88,7 @@ defmodule FzHttpWeb.SettingLive.ClientDefaultsTest do
       refute test_view =~ "is invalid"
 
       assert test_view =~ """
-             <input class="input " id="client_defaults_form_component_default_client_endpoint" name="configuration[default_client_endpoint]" placeholder="firezone.example.com" type="text" value="1.1.1.1"/>\
+             <input class="input " id="client_defaults_form_component_default_client_endpoint" name="configuration[default_client_endpoint]" placeholder="vpn.example.com" type="text" value="1.1.1.1"/>\
              """
     end
 
@@ -111,7 +111,7 @@ defmodule FzHttpWeb.SettingLive.ClientDefaultsTest do
                     {"disabled", "disabled"},
                     {"id", "client_defaults_form_component_default_client_endpoint"},
                     {"name", "configuration[default_client_endpoint]"},
-                    {"placeholder", "firezone.example.com"},
+                    {"placeholder", "vpn.example.com"},
                     {"type", "text"},
                     {"value", "Set in environment variable DEFAULT_CLIENT_ENDPOINT: 1.2.3.4:1234"}
                   ], []}
