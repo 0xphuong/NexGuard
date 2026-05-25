@@ -100,6 +100,7 @@ defmodule FzHttp.Config.Definitions do
        [
          :local_auth_enabled,
          :disable_vpn_on_oidc_error,
+         :require_mfa,
          :saml_entity_id,
          :saml_keyfile_path,
          :saml_certfile_path,
@@ -528,6 +529,11 @@ defmodule FzHttp.Config.Definitions do
   Enable or disable auto disabling VPN connection on OIDC refresh error.
   """
   defconfig(:disable_vpn_on_oidc_error, :boolean, default: false)
+
+  @doc """
+  Require all users to enroll in MFA before accessing the VPN or API.
+  """
+  defconfig(:require_mfa, :boolean, default: false)
 
   @doc """
   Entity ID for SAML authentication.

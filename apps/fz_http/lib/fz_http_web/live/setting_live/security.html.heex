@@ -85,6 +85,40 @@
       </div>
     </div>
 
+    <%# Force MFA toggle %>
+    <% require_mfa = Map.fetch!(@configs, :require_mfa) %>
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Force MFA for All Users</span>
+          <%= if config_has_override?(require_mfa) do %>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              <%= config_override_source(require_mfa) %>
+            </span>
+          <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Require every user to enroll in MFA before accessing the VPN or REST API.
+          Users without an MFA method will be redirected to the enrollment page on their next sign-in.
+        </p>
+      </div>
+      <div class="ng-setting-control ng-setting-control--toggle">
+        <label class="switch is-medium">
+          <input
+            type="checkbox"
+            phx-click="toggle"
+            name="require_mfa"
+            phx-value-config="require_mfa"
+            disabled={config_has_override?(require_mfa)}
+            checked={config_value(require_mfa)}
+            value={config_toggle_status(require_mfa)}
+          />
+          <span class="check"></span>
+        </label>
+      </div>
+    </div>
+
     <%# Local Auth toggle %>
     <% local_auth_enabled = Map.fetch!(@configs, :local_auth_enabled) %>
     <div class="ng-setting-row">

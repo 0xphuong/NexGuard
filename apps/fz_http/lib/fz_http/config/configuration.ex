@@ -8,6 +8,7 @@ defmodule FzHttp.Config.Configuration do
 
     field :local_auth_enabled, :boolean
     field :disable_vpn_on_oidc_error, :boolean
+    field :require_mfa, :boolean
 
     # The defaults for these fields are set in the following migration:
     # apps/fz_http/priv/repo/migrations/20221224210654_fix_sites_nullable_fields.exs

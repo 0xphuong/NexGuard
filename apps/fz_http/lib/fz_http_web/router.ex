@@ -17,6 +17,7 @@ defmodule FzHttpWeb.Router do
   pipeline :api do
     plug :accepts, ["json"]
     plug FzHttpWeb.Auth.JSON.Pipeline
+    plug FzHttpWeb.Plug.RequireMFA
   end
 
   pipeline :browser_static do

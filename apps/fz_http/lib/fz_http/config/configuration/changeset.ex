@@ -7,9 +7,10 @@ defmodule FzHttp.Config.Configuration.Changeset do
 
   @fields ~w[
       local_auth_enabled
+      disable_vpn_on_oidc_error
+      require_mfa
       allow_unprivileged_device_management
       allow_unprivileged_device_configuration
-      disable_vpn_on_oidc_error
       default_client_persistent_keepalive
       default_client_mtu
       default_client_endpoint

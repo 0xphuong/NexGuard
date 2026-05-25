@@ -38,55 +38,50 @@ defmodule FzHttpWeb.MFALive.Auth do
   @impl Phoenix.LiveView
   def render(%{live_action: :auth} = assigns) do
     ~H"""
-    <h3 class="is-3 title"><%= @page_title %></h3>
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <div class="auth-icon-badge">
+          <span class="mdi mdi-cellphone-key"></span>
+        </div>
+        <h1 class="auth-title">Two-Factor Authentication</h1>
+        <p class="auth-subtitle">Enter the 6-digit code from your authenticator app</p>
+      </div>
+      <div class="auth-card-body">
+        <.link navigate={~p"/mfa/types"} class="auth-back-link">
+          <span class="mdi mdi-arrow-left"></span> Use a different authenticator
+        </.link>
 
-    <p>
-      Authenticate with your configured MFA method.
-    </p>
-
-    <hr />
-
-    <div class="block has-text-right">
-      <.link navigate={~p"/mfa/types"}>
-        Other authenticators -&gt;
-      </.link>
-    </div>
-
-    <div class="block">
-      <.form :let={f} for={@changeset} id="mfa-method-form" phx-submit="verify">
-        <div class="field">
-          <%= label(f, :code, class: "label") %>
-          <div class="control">
-            <%= text_input(f, :code,
-              name: "code",
-              placeholder: "123456",
-              required: true,
-              class: "input #{input_error_class(@changeset, :code)}"
-            ) %>
-            <p class="help is-danger">
+        <.form :let={f} for={@changeset} id="mfa-method-form" phx-submit="verify" class="auth-form">
+          <div class="auth-field">
+            <label class="auth-label">Authentication Code</label>
+            <div class="auth-input-wrap">
+              <span class="mdi mdi-numeric auth-input-icon"></span>
+              <%= text_input(f, :code,
+                name: "code",
+                placeholder: "000000",
+                required: true,
+                autocomplete: "one-time-code",
+                inputmode: "numeric",
+                class: "auth-input #{input_error_class(@changeset, :code)}",
+                style: "letter-spacing:0.3em;font-family:'Fira Mono',monospace;font-size:1.25rem;text-align:center;padding-left:2.5rem"
+              ) %>
+            </div>
+            <p style="color:#ef4444;font-size:0.8125rem;min-height:1.1em">
               <%= error_tag(f, :code) %>
             </p>
           </div>
-        </div>
 
-        <div class="field">
-          <div class="control">
-            <div class="level">
-              <div class="level-left">
-                <%= submit("Verify",
-                  phx_disable_with: "verifying...",
-                  class: "button"
-                ) %>
-              </div>
-              <div class="level-right">
-                <%= link(to: ~p"/sign_out", method: :delete) do %>
-                  Sign out
-                <% end %>
-              </div>
-            </div>
+          <div class="auth-form-actions">
+            <%= submit("Verify Code",
+              phx_disable_with: "Verifying…",
+              class: "auth-submit-btn"
+            ) %>
+            <%= link to: ~p"/sign_out", method: :delete, class: "auth-link" do %>
+              Sign out
+            <% end %>
           </div>
-        </div>
-      </.form>
+        </.form>
+      </div>
     </div>
     """
   end
@@ -94,22 +89,28 @@ defmodule FzHttpWeb.MFALive.Auth do
   @impl Phoenix.LiveView
   def render(%{live_action: :types} = assigns) do
     ~H"""
-    <h3 class="is-3 title"><%= @page_title %></h3>
-
-    <p class="block">
-      Select your MFA method:
-    </p>
-
-    <div class="block">
-      <ul>
+    <div class="auth-card">
+      <div class="auth-card-header">
+        <div class="auth-icon-badge">
+          <span class="mdi mdi-shield-check-outline"></span>
+        </div>
+        <h1 class="auth-title">Choose Authenticator</h1>
+        <p class="auth-subtitle">Select an MFA method to continue</p>
+      </div>
+      <div class="auth-card-body">
         <%= for method <- @methods do %>
-          <li>
-            <.link navigate={~p"/mfa/auth/#{method.id}"}>
-              <%= "[#{method.type}] #{method.name} ->" %>
-            </.link>
-          </li>
+          <.link navigate={~p"/mfa/auth/#{method.id}"} class="auth-provider-btn">
+            <span class="mdi mdi-cellphone-key auth-provider-icon"></span>
+            <span>
+              <%= method.name %>
+              <span style="color:#94a3b8;font-size:0.8rem;margin-left:0.3rem">
+                [<%= method.type %>]
+              </span>
+            </span>
+            <span class="mdi mdi-chevron-right auth-provider-arrow"></span>
+          </.link>
         <% end %>
-      </ul>
+      </div>
     </div>
     """
   end

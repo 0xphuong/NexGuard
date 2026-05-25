@@ -15,6 +15,7 @@ defmodule FzHttpWeb.SettingLive.Security do
   @configs ~w[
     local_auth_enabled
     disable_vpn_on_oidc_error
+    require_mfa
     allow_unprivileged_device_management
     allow_unprivileged_device_configuration
     vpn_session_duration
