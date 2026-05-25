@@ -53,6 +53,52 @@ nexguard-ctl create-or-reset-admin
 nexguard-ctl status
 ```
 
+## Forward Traffic Without NAT (Preserve VPN Client IP)
+
+By default NexGuard masquerades all outbound traffic, so destination servers see the gateway IP instead of the VPN client's real IP. To disable NAT for specific internal subnets (so servers on those subnets see the actual VPN client IP), set `GATEWAY_NO_MASQUERADE_CIDRS` in `.env`:
+
+```bash
+# .env
+GATEWAY_NO_MASQUERADE_CIDRS=10.0.0.0/16,10.10.0.0/24
+```
+
+NexGuard will automatically add `nftables` RETURN rules for those subnets on startup — traffic to those destinations is forwarded as-is.
+
+> **Requirement:** The destination server (or its upstream router) must have a return route to the WireGuard subnet, e.g.:
+> ```bash
+> ip route add 10.0.55.0/24 via <nexguard-ip-on-that-network>
+> ```
+
+### Auto-add host route for the WireGuard subnet
+
+When running via Docker Compose, the host machine needs a route to the WireGuard subnet (`10.0.55.0/24`) pointing into the NexGuard container. Create a systemd service to add it automatically whenever Docker brings up the `br-nexguard` bridge:
+
+```bash
+sudo tee /etc/systemd/system/nexguard-route.service > /dev/null <<'EOF'
+[Unit]
+Description=NexGuard VPN subnet route
+BindsTo=sys-subsystem-net-devices-br\x2dnexguard.device
+After=sys-subsystem-net-devices-br\x2dnexguard.device
+StartLimitBurst=15
+StartLimitIntervalSec=60
+
+[Service]
+Type=oneshot
+ExecStart=/bin/ip route replace 10.0.55.0/24 via 172.25.0.100 dev br-nexguard
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=sys-subsystem-net-devices-br\x2dnexguard.device
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable nexguard-route.service
+```
+
+The service triggers automatically when `br-nexguard` comes up (on boot or after `docker compose up`) and retries until Docker finishes configuring the bridge. Adjust the subnet and gateway IP to match your `WIREGUARD_IPV4_NETWORK` and the container's fixed IP in `docker-compose.prod.yml`.
+
 ## Security
 
 See [SECURITY.md](SECURITY.md).

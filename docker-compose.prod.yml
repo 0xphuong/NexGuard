@@ -31,7 +31,7 @@ services:
 
         ${EXTERNAL_URL} {
           log
-          reverse_proxy * 172.25.0.100:${PHOENIX_PORT:-13000}
+          reverse_proxy * 172.25.0.100:${PHOENIX_HTTP_PORT:-13000}
         }
         EOF
     network_mode: "host"
@@ -43,7 +43,7 @@ services:
       nofile:
         soft: 65536
         hard: 65536
-    # image: ghcr.io/0xphuong/nexguard:${VERSION:-latest}
+    # image: binhphuong/nexguard:${VERSION:-latest}
     build:
       context: .
       dockerfile: Dockerfile.prod
@@ -68,7 +68,8 @@ services:
       - net.ipv4.ip_forward=1
       - net.ipv6.conf.all.forwarding=1
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       nexguard-network:
         ipv4_address: 172.25.0.100
@@ -85,6 +86,12 @@ services:
       POSTGRES_DB: ${DATABASE_NAME:-nexguard}
       POSTGRES_USER: ${DATABASE_USER:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?err}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DATABASE_USER:-postgres} -d ${DATABASE_NAME:-nexguard}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     networks:
       - nexguard-network
     deploy:
@@ -100,6 +107,8 @@ networks:
   nexguard-network:
     enable_ipv6: true
     driver: bridge
+    driver_opts:
+      com.docker.network.bridge.name: br-nexguard
     ipam:
       config:
         - subnet: 172.25.0.0/16
