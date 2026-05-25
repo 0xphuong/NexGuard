@@ -12,32 +12,44 @@
   ) %>
 <% end %>
 
+<%# ── Page Header ──────────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title"><%= @page_title %></h1>
+      <p class="ng-page-subtitle"><%= @page_subtitle %></p>
+    </div>
+    <%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>
+      <.link replace={true} patch={~p"/user_devices/new"} class="ng-primary-btn">
+        <i class="mdi mdi-plus"></i> Add Device
+      </.link>
+    <% end %>
+  </div>
+</div>
+
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
-  <h4 class="title is-4"><%= @page_title %></h4>
 
-  <div class="block">
-    <%= @page_subtitle %>
-  </div>
-
-  <div class="block">
-    You'll need a WireGuard client installed in order to connect to this NexGuard
-    instance. See
-    <a target="_blank" href="https://docs.nexguard.binhphuong.io.vn/user-guides/client-instructions/">
-      the NexGuard documentation
-    </a>
-    for a step-by-step guide.
-  </div>
-
-  <div class="block">
-    <%= unless Enum.empty?(@devices) do %>
-      <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+  <%# ── Devices Table ───────────────────────────────────────────────────────── %>
+  <%= if Enum.empty?(@devices) do %>
+    <div class="ng-empty-state">
+      <i class="mdi mdi-laptop ng-empty-state-icon"></i>
+      <p class="ng-empty-state-title">No devices yet</p>
+      <p class="ng-empty-state-hint">
+        Add a device to generate a WireGuard config. You'll need a
+        <a href="https://docs.nexguard.binhphuong.io.vn/user-guides/client-instructions/" target="_blank" class="ng-inline-link">WireGuard client</a>
+        installed to connect.
+      </p>
+    </div>
+  <% else %>
+    <div class="ng-table-wrap" style="margin-bottom:1.5rem">
+      <table class="ng-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Tunnel IPv4</th>
             <th>Tunnel IPv6</th>
-            <th>Public key</th>
+            <th>Public Key</th>
             <th>Created</th>
           </tr>
         </thead>
@@ -45,90 +57,86 @@
           <%= for device <- @devices do %>
             <tr>
               <td>
-                <.link navigate={~p"/user_devices/#{device}"}>
-                  <%= device.name %>
+                <.link navigate={~p"/user_devices/#{device}"} class="ng-inline-link">
+                  <i class="mdi mdi-laptop" style="margin-right:0.3rem;color:#94a3b8"></i><%= device.name %>
                 </.link>
               </td>
-              <td class="code"><%= device.ipv4 %></td>
-              <td class="code"><%= device.ipv6 %></td>
-              <td class="code"><%= device.public_key %></td>
+              <td class="ng-td-mono"><%= device.ipv4 %></td>
+              <td class="ng-td-mono"><%= device.ipv6 %></td>
+              <td class="ng-td-mono" style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title={device.public_key}>
+                <%= device.public_key %>
+              </td>
               <td
+                class="ng-td-muted"
                 id={"device-#{device.id}-inserted-at"}
                 data-timestamp={device.inserted_at}
                 phx-hook="FormatTimestamp"
-              >
-                …
-              </td>
+              >…</td>
             </tr>
           <% end %>
         </tbody>
       </table>
-    <% else %>
-      <p>
-        <strong>No devices to show.</strong>
-      </p>
-    <% end %>
-  </div>
-
-  <%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>
-    <div class="block">
-      <.link replace={true} patch={~p"/user_devices/new"} class="button">
-        Add Device
-      </.link>
     </div>
   <% end %>
 
-  <h4 class="title is-4">VPN Session</h4>
-
-  <div class="level">
-    <div class="level-left">
-      <div class="block">
-        <%= if vpn_sessions_expire?() do %>
-          <%= if vpn_expired?(@current_user) do %>
-            <p>
-              Your VPN session expired at:
-            </p>
-          <% else %>
-            <p>
-              Your VPN session expires at:
-            </p>
-          <% end %>
-          <p>
-            <strong>
-              <span
-                id="vpn-expires"
-                phx-hook="FormatTimestamp"
-                data-timestamp={vpn_expires_at(@current_user)}
-              >
-                ...
+  <%# ── VPN Session ─────────────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-shield-check"></i> VPN Session
+      </span>
+    </div>
+    <dl class="ng-details-list">
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Signed in as</dt>
+        <dd class="ng-details-value"><%= @current_user.email %></dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Session</dt>
+        <dd class="ng-details-value">
+          <%= if vpn_sessions_expire?() do %>
+            <%= if vpn_expired?(@current_user) do %>
+              <span class="ng-status-badge ng-status-badge--expired">
+                <i class="mdi mdi-clock-alert"></i> Expired at
+                <span id="vpn-expires" phx-hook="FormatTimestamp" data-timestamp={vpn_expires_at(@current_user)}>…</span>
               </span>
-            </strong>
-          </p>
-          <%= link("Reauthenticate", to: ~p"/sign_out", method: :delete) %> to renew your VPN session.
-        <% else %>
-          Your VPN session is active indefinitely.
-        <% end %>
-      </div>
-    </div>
-
-    <div class="level-right">
-      <div class="block">
-        <p>
-          Signed in as <%= @current_user.email %>.
-        </p>
-        <p>
-          <.link navigate={~p"/user_account"}>
-            My Account
-          </.link>
-          /
-          <%= link(to: ~p"/sign_out", method: :delete) do %>
-            Sign out
+            <% else %>
+              <span class="ng-status-badge ng-status-badge--enabled">
+                <i class="mdi mdi-check-circle"></i> Active — expires
+                <span id="vpn-expires" phx-hook="FormatTimestamp" data-timestamp={vpn_expires_at(@current_user)}>…</span>
+              </span>
+            <% end %>
+          <% else %>
+            <span class="ng-status-badge ng-status-badge--enabled">
+              <i class="mdi mdi-check-circle"></i> Active indefinitely
+            </span>
           <% end %>
-        </p>
-        <p>
-          For any issues, <a href={"mailto:#{admin_email()}"}>contact your NexGuard administrator</a>.
-        </p>
+        </dd>
       </div>
-    </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Actions</dt>
+        <dd class="ng-details-value" style="display:flex;gap:0.75rem;flex-wrap:wrap;align-items:center">
+          <.link navigate={~p"/user_account"} class="ng-inline-link">
+            <i class="mdi mdi-account-cog"></i> My Account
+          </.link>
+          <%= link to: ~p"/sign_out", method: :delete, class: "ng-inline-link" do %>
+            <i class="mdi mdi-logout"></i> Sign out
+          <% end %>
+          <%= if vpn_sessions_expire?() && vpn_expired?(@current_user) do %>
+            <%= link to: ~p"/sign_out", method: :delete, class: "ng-primary-btn", style: "font-size:0.8rem;padding:0.35rem 0.875rem" do %>
+              <i class="mdi mdi-refresh"></i> Reauthenticate
+            <% end %>
+          <% end %>
+        </dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Support</dt>
+        <dd class="ng-details-value">
+          <a href={"mailto:#{admin_email()}"} class="ng-inline-link">
+            <i class="mdi mdi-email-outline"></i> Contact administrator
+          </a>
+        </dd>
+      </div>
+    </dl>
   </div>
 </section>

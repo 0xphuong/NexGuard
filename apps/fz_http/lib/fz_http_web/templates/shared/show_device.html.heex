@@ -1,28 +1,103 @@
+<%# ── Page Header ──────────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.25rem">
+        <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) do %>
+          <.link navigate={~p"/users/#{@user}"} class="ng-breadcrumb"><%= @user.email %></.link>
+          <span class="ng-breadcrumb-sep">/</span>
+        <% else %>
+          <.link navigate={~p"/user_devices"} class="ng-breadcrumb">My Devices</.link>
+          <span class="ng-breadcrumb-sep">/</span>
+        <% end %>
+        <h1 class="ng-page-title" style="margin:0"><%= @device.name %></h1>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <%= if @device.latest_handshake do %>
+          <span class="ng-status-badge ng-status-badge--active">
+            <i class="mdi mdi-circle" style="font-size:0.5rem"></i> Connected
+          </span>
+        <% else %>
+          <span class="ng-status-badge ng-status-badge--inactive">
+            <i class="mdi mdi-circle" style="font-size:0.5rem"></i> Never connected
+          </span>
+        <% end %>
+        <%= if @device.description do %>
+          <span class="ng-breadcrumb-sep">·</span>
+          <span style="font-size:0.8125rem;color:#64748b"><%= @device.description %></span>
+        <% end %>
+      </div>
+    </div>
+  </div>
+</div>
+
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <h4 class="title is-4">Details</h4>
+  <%# ── Transfer Stats ───────────────────────────────────────────────────────── %>
+  <div class="ng-stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--blue">
+        <i class="mdi mdi-download"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= to_human_bytes(@device.rx_bytes) %></div>
+        <div class="ng-stat-label">Received</div>
+      </div>
+    </div>
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--indigo">
+        <i class="mdi mdi-upload"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div class="ng-stat-value"><%= to_human_bytes(@device.tx_bytes) %></div>
+        <div class="ng-stat-label">Sent</div>
+      </div>
+    </div>
+    <div class="ng-stat-card">
+      <div class="ng-stat-icon ng-stat-icon--green">
+        <i class="mdi mdi-handshake"></i>
+      </div>
+      <div class="ng-stat-body">
+        <div
+          class="ng-stat-value ng-stat-value--sm"
+          id={"device-#{@device.id}-handshake-stat"}
+          data-timestamp={@device.latest_handshake}
+          phx-hook="FormatTimestamp"
+        >…</div>
+        <div class="ng-stat-label">Latest Handshake</div>
+      </div>
+    </div>
+  </div>
 
+  <%# ── Details ─────────────────────────────────────────────────────────────── %>
   <%= render(FzHttpWeb.SharedView, "device_details.html", assigns) %>
+
+  <%# ── Danger Zone ─────────────────────────────────────────────────────────── %>
+  <%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>
+    <div class="ng-danger-zone">
+      <div class="ng-danger-zone-header">
+        <i class="mdi mdi-alert-octagon"></i> Danger Zone
+      </div>
+      <div class="ng-danger-zone-body">
+        <div class="ng-danger-zone-item">
+          <div>
+            <div class="ng-danger-zone-label">Delete Device</div>
+            <p class="ng-danger-zone-desc">
+              Permanently remove <strong><%= @device.name %></strong>. This will immediately disconnect this device and remove all associated data.
+            </p>
+          </div>
+          <button
+            class="ng-danger-btn"
+            id="delete-device-button"
+            phx-click="delete_device"
+            phx-value-device_id={@device.id}
+            data-confirm="Are you sure? This will immediately disconnect this device and remove all associated data."
+          >
+            <i class="mdi mdi-delete"></i> Delete Device
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
 </section>
-
-<%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>
-  <section class="section is-main-section">
-    <h4 class="title is-4">
-      Danger Zone
-    </h4>
-
-    <button
-      class="button is-danger"
-      id="delete-device-button"
-      phx-click="delete_device"
-      phx-value-device_id={@device.id}
-      data-confirm="Are you sure? This will immediately disconnect this device and remove all associated data."
-    >
-      <span class="icon is-small">
-        <i class="fas fa-trash"></i>
-      </span>
-      <span>Delete Device <%= @device.name %></span>
-    </button>
-  </section>
-<% end %>

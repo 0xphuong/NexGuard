@@ -1,103 +1,116 @@
-<table class="table is-bordered is-hoverable is-striped is-fullwidth">
-  <tbody>
+<%# ── Network ───────────────────────────────────────────────────────────────── %>
+<div class="ng-detail-card">
+  <div class="ng-detail-card-header">
+    <span class="ng-section-header" style="margin:0">
+      <i class="mdi mdi-network"></i> Network
+    </span>
+  </div>
+  <dl class="ng-details-list">
     <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) do %>
-      <tr>
-        <td><strong>User</strong></td>
-        <td>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">User</dt>
+        <dd class="ng-details-value">
           <%= live_redirect(@user.email, to: ~p"/users/#{@user}") %>
-        </td>
-      </tr>
+        </dd>
+      </div>
     <% end %>
-
-    <tr>
-      <td><strong>Name</strong></td>
-      <td><%= @device.name %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Description</strong></td>
-      <td><%= @device.description %></td>
-    </tr>
-
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Name</dt>
+      <dd class="ng-details-value"><%= @device.name %></dd>
+    </div>
+    <%= if @device.description do %>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Description</dt>
+        <dd class="ng-details-value ng-td-muted"><%= @device.description %></dd>
+      </div>
+    <% end %>
     <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv4_enabled) do %>
-      <tr>
-        <td><strong>Tunnel IPv4</strong></td>
-        <td><%= @device.ipv4 %></td>
-      </tr>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Tunnel IPv4</dt>
+        <dd class="ng-details-value"><code><%= @device.ipv4 %></code></dd>
+      </div>
     <% end %>
-
     <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv6_enabled) do %>
-      <tr>
-        <td><strong>Tunnel IPv6</strong></td>
-        <td><%= @device.ipv6 %></td>
-      </tr>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Tunnel IPv6</dt>
+        <dd class="ng-details-value"><code><%= @device.ipv6 %></code></dd>
+      </div>
     <% end %>
-
-    <tr>
-      <td><strong>Remote IP</strong></td>
-      <td><%= @device.remote_ip %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Latest Handshake</strong></td>
-      <td
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Remote IP</dt>
+      <dd class="ng-details-value">
+        <%= if @device.remote_ip do %>
+          <code><%= @device.remote_ip %></code>
+        <% else %>
+          <span class="ng-td-muted">—</span>
+        <% end %>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Latest Handshake</dt>
+      <dd
+        class="ng-details-value ng-td-muted"
         id={"device-#{@device.id}-latest-handshake"}
         data-timestamp={@device.latest_handshake}
         phx-hook="FormatTimestamp"
-      >
-        …
-      </td>
-    </tr>
+      >…</dd>
+    </div>
+  </dl>
+</div>
 
-    <tr>
-      <td><strong>Received</strong></td>
-      <td><%= to_human_bytes(@device.rx_bytes) %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Sent</strong></td>
-      <td><%= to_human_bytes(@device.tx_bytes) %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Allowed IPs</strong></td>
-      <td><%= list_to_string(@allowed_ips) || "None" %></td>
-    </tr>
-
-    <tr>
-      <td><strong>DNS Servers</strong></td>
-      <td><%= list_to_string(@dns) || "None" %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Endpoint</strong></td>
-      <td><%= @endpoint %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Persistent Keepalive</strong></td>
-      <td>
+<%# ── WireGuard Configuration ──────────────────────────────────────────────── %>
+<div class="ng-detail-card">
+  <div class="ng-detail-card-header">
+    <span class="ng-section-header" style="margin:0">
+      <i class="mdi mdi-shield-key"></i> WireGuard Configuration
+    </span>
+  </div>
+  <dl class="ng-details-list">
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Endpoint</dt>
+      <dd class="ng-details-value"><code><%= @endpoint %></code></dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Allowed IPs</dt>
+      <dd class="ng-details-value">
+        <code><%= list_to_string(@allowed_ips) || "None" %></code>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">DNS Servers</dt>
+      <dd class="ng-details-value">
+        <code><%= list_to_string(@dns) || "None" %></code>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">MTU</dt>
+      <dd class="ng-details-value"><%= @mtu %></dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Persistent Keepalive</dt>
+      <dd class="ng-details-value">
         <%= if @persistent_keepalive == 0 do %>
-          Disabled
+          <span class="ng-td-muted">Disabled</span>
         <% else %>
-          Every <%= @persistent_keepalive %> seconds
+          Every <%= @persistent_keepalive %>s
         <% end %>
-      </td>
-    </tr>
-
-    <tr>
-      <td><strong>MTU</strong></td>
-      <td><%= @mtu %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Public key</strong></td>
-      <td class="code"><%= @device.public_key %></td>
-    </tr>
-
-    <tr>
-      <td><strong>Preshared Key</strong></td>
-      <td class="code"><%= @device.preshared_key %></td>
-    </tr>
-  </tbody>
-</table>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Public Key</dt>
+      <dd class="ng-details-value">
+        <code class="ng-key-code"><%= @device.public_key %></code>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Preshared Key</dt>
+      <dd class="ng-details-value">
+        <%= if @device.preshared_key do %>
+          <code class="ng-key-code"><%= @device.preshared_key %></code>
+        <% else %>
+          <span class="ng-td-muted">Not set</span>
+        <% end %>
+      </dd>
+    </div>
+  </dl>
+</div>

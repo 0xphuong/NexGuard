@@ -30,9 +30,14 @@ cp .env.example .env          # fill in EXTERNAL_URL, DEFAULT_ADMIN_EMAIL, etc.
 # bash rel/overlays/bin/gen-env > .env
 
 docker compose -f docker-compose.prod.yml up -d
-docker compose -f docker-compose.prod.yml run --rm nexguard eval "FzHttp.Release.migrate"
-docker compose -f docker-compose.prod.yml run --rm nexguard eval "FzHttp.Release.create_admin_user"
+docker compose -f docker-compose.prod.yml run --rm nexguard bin/create-or-reset-admin
 ```
+
+> **Tip — reset admin password manually:** If `RESET_ADMIN_ON_BOOT=false` (default) and you need to reset the admin account without restarting, run:
+> ```bash
+> docker compose -f docker-compose.prod.yml run --rm nexguard bin/create-or-reset-admin
+> ```
+> This re-creates or resets the admin user using the current `DEFAULT_ADMIN_EMAIL` and `DEFAULT_ADMIN_PASSWORD` values in `.env`.
 
 ### Omnibus package
 

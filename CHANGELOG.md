@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [1.1.1] - 2026-05-25
+
 ### Changed
-- Complete rebranding from Firezone to NexGuard across all source files, configs, and documentation
+- Redesigned User Detail page (`/users/:id`): page header with avatar, role badge, VPN status; profile and devices in card layout; danger zone with proper labels and descriptions
+- Redesigned Device Detail page (`/devices/:id`, `/user_devices/:id`): page header with connection status badge; transfer stats (Received / Sent / Latest Handshake); details grouped into Network and WireGuard Configuration cards; danger zone
+- Redesigned unprivileged Devices page (`/user_devices`): consistent page header with Add Device button; VPN Session card replacing the old inline level layout
+- Breadcrumb on Device Detail is now context-aware: admin sees user email link, unprivileged user sees "My Devices" link
+- `README.md`: updated Quick Start commands; added tip for resetting admin manually with `bin/create-or-reset-admin`
+- `CHANGELOG.md`: added standard changelog following Keep a Changelog format
+
+### Fixed
+- `WIREGUARD_IPV4_ADDRESS` in `.env.example` documented as plain IP, not CIDR
+- `PHOENIX_HTTP_PORT` corrected (was `PHOENIX_PORT`); `OUTBOUND_EMAIL_ADAPTER` corrected (was legacy `OUTBOUND_EMAIL_PROVIDER`)
 
 ---
 
@@ -52,7 +65,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connectivity checks and telemetry (opt-out supported)
 - Automatic TLS via Caddy reverse proxy
 
-[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/0xphuong/NexGuard/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/0xphuong/NexGuard/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/0xphuong/NexGuard/compare/v1.0.1...v1.0.2
 [1.0.1]: https://github.com/0xphuong/NexGuard/compare/v1.0.0...v1.0.1

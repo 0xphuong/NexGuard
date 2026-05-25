@@ -25,45 +25,77 @@
   ) %>
 <% end %>
 
-<%= render(FzHttpWeb.SharedView, "heading.html", page_title: "Users |> #{@user.email}") %>
+<%# ── Page Header ──────────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div class="ng-user-cell">
+      <div class={"ng-avatar ng-avatar--lg ng-avatar--#{@user.role}"}>
+        <%= @user.email |> String.first() |> String.upcase() %>
+      </div>
+      <div class="ng-user-info">
+        <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap">
+          <.link navigate={~p"/users"} class="ng-breadcrumb">Users</.link>
+          <span class="ng-breadcrumb-sep">/</span>
+          <h1 class="ng-page-title" style="margin:0"><%= @user.email %></h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+          <span class={"ng-role-badge ng-role-badge--#{@user.role}"}><%= @user.role %></span>
+          <FzHttpWeb.UserLive.VPNStatusComponent.status
+            user={@user}
+            expired={vpn_expired?(@user)}
+          />
+        </div>
+      </div>
+    </div>
+    <.link patch={~p"/users/#{@user}/edit"} replace={true} class="ng-secondary-btn">
+      <i class="mdi mdi-pencil"></i> Edit
+    </.link>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="level">
-    <div class="level-left">
-      <h4 class="title is-4">Details</h4>
+  <%# ── Profile ─────────────────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-account-outline"></i> Profile
+      </span>
     </div>
-    <div class="level-right">
-      <.link patch={~p"/users/#{@user}/edit"} replace={true} class="button">
-        <span class="icon is-small">
-          <i class="mdi mdi-pencil"></i>
-        </span>
-        <span>Change Email or Password</span>
-      </.link>
-    </div>
+    <%= render(FzHttpWeb.SharedView, "user_details.html",
+      user: @user,
+      rules_path: @rules_path,
+      subject: @subject
+    ) %>
   </div>
 
-  <%= render(FzHttpWeb.SharedView, "user_details.html",
-    user: @user,
-    rules_path: @rules_path,
-    subject: @subject
-  ) %>
-</section>
+  <%# ── OIDC Connections ────────────────────────────────────────────────────── %>
+  <%= if length(@connections) > 0 do %>
+    <.live_component
+      id="connections-table"
+      module={FzHttpWeb.OIDCLive.ConnectionsTableComponent}
+      connections={@connections}
+      user={@user}
+    />
+  <% end %>
 
-<%= if length(@connections) > 0 do %>
-  <.live_component
-    id="connections-table"
-    module={FzHttpWeb.OIDCLive.ConnectionsTableComponent}
-    connections={@connections}
-    user={@user}
-  />
-<% end %>
-
-<section class="section is-main-section">
-  <h4 class="title is-4">Devices</h4>
-
-  <div class="block is-horizontally-scrollable">
+  <%# ── Devices ─────────────────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-laptop"></i> Devices
+        <span class="ng-section-badge"><%= length(@devices) %></span>
+      </span>
+      <.link
+        patch={~p"/users/#{@user}/new_device"}
+        replace={true}
+        class="ng-secondary-btn"
+        style="font-size:0.8rem;padding:0.35rem 0.875rem"
+      >
+        <i class="mdi mdi-plus"></i> Add Device
+      </.link>
+    </div>
     <%= if length(@devices) > 0 do %>
       <%= render(FzHttpWeb.SharedView, "devices_table.html",
         devices: @devices,
@@ -71,73 +103,62 @@
         socket: @socket
       ) %>
     <% else %>
-      No devices.
+      <div class="ng-empty-state" style="padding:2.5rem 1.5rem">
+        <i class="mdi mdi-laptop ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No devices yet</p>
+        <p class="ng-empty-state-hint">Add a device to generate a WireGuard config.</p>
+      </div>
     <% end %>
   </div>
 
-  <.link
-    patch={~p"/users/#{@user}/new_device"}
-    replace={true}
-    id="add-device-button"
-    class="button"
-  >
-    Add Device
-  </.link>
-</section>
-
-<section class="section is-main-section">
-  <h4 class="title is-4">Danger Zone</h4>
-  <strong>VPN Connection</strong>
-  <div class="level">
-    <div class="level-left">
-      <p>Enable or disable this user's VPN connection. Applies to all their devices.</p>
+  <%# ── Danger Zone ─────────────────────────────────────────────────────────── %>
+  <div class="ng-danger-zone">
+    <div class="ng-danger-zone-header">
+      <i class="mdi mdi-alert-octagon"></i> Danger Zone
     </div>
-    <div class="level-right">
-      <.live_component
-        id="allowed-to-connect"
-        module={FzHttpWeb.UserLive.VPNConnectionComponent}
-        user={@user}
-      />
-    </div>
-  </div>
-  <hr />
-  <strong>Promote or Demote User</strong>
-  <div class="level">
-    <div class="level-left">
-      <p>Promote a user to admin or demote a user to unprivileged role.</p>
-    </div>
-    <div class="level-right">
-      <button
-        class="button is-warning"
-        data-confirm={"Are you sure? #{mote_message(@user)}"}
-        phx-click={mote(@user)}
-        phx-value-user_id={@user.id}
-      >
-        <span class="icon is-small">
-          <i class="fas fa-user-shield"></i>
-        </span>
-        <span class="is-capitalized"><%= mote(@user) %></span>
-      </button>
-    </div>
-  </div>
-  <hr />
-  <strong>Delete User</strong>
-  <div class="level">
-    <div class="level-left">
-      <p>Permanently delete a user and all their devices.</p>
-    </div>
-    <div class="level-right">
-      <button
-        class="button is-danger"
-        data-confirm="Are you sure? This will permanently delete this user, all associated devices and instantly drop any active VPN sessions associated to this user."
-        phx-click="delete_user"
-        phx-value-user_id={@user.id}
-      >
-        <span class="icon is-small">
-          <i class="fas fa-trash"></i>
-        </span>
-        <span>Delete User</span>
-      </button>
+    <div class="ng-danger-zone-body">
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">VPN Connection</div>
+          <p class="ng-danger-zone-desc">Enable or disable this user's VPN connection. Applies to all their devices.</p>
+        </div>
+        <.live_component
+          id="allowed-to-connect"
+          module={FzHttpWeb.UserLive.VPNConnectionComponent}
+          user={@user}
+        />
+      </div>
+      <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">Promote or Demote User</div>
+          <p class="ng-danger-zone-desc">Promote to admin or demote to unprivileged role.</p>
+        </div>
+        <button
+          class="ng-danger-btn"
+          data-confirm={"Are you sure? #{mote_message(@user)}"}
+          phx-click={mote(@user)}
+          phx-value-user_id={@user.id}
+        >
+          <i class="mdi mdi-account-arrow-up"></i>
+          <span class="is-capitalized"><%= mote(@user) %></span>
+        </button>
+      </div>
+      <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">Delete User</div>
+          <p class="ng-danger-zone-desc">Permanently delete this user and all their devices. This action cannot be undone.</p>
+        </div>
+        <button
+          class="ng-danger-btn"
+          data-confirm="Are you sure? This will permanently delete this user, all associated devices and instantly drop any active VPN sessions."
+          phx-click="delete_user"
+          phx-value-user_id={@user.id}
+        >
+          <i class="mdi mdi-delete"></i> Delete User
+        </button>
+      </div>
     </div>
   </div>
 </section>
