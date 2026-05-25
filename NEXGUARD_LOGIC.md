@@ -1,7 +1,7 @@
 # NexGuard — Tổng hợp Logic & Kiến trúc
 
-> Cập nhật: 2026-05-23  
-> Image production: `binhphuong/nexguard:0.7.40`  
+> Cập nhật: 2026-05-25  
+> Image production: `binhphuong/nexguard:1.1.2`  
 > URL production: `https://nexguard.binhphuong.io.vn`
 
 ---
@@ -90,8 +90,9 @@ Mỗi context có cấu trúc chuẩn: `context.ex` + `schema.ex` + `changeset.e
 - Precedence: **env vars > database > defaults**
 - Type casting: boolean, integer, array, JSON
 - Embedded schemas: `OpenIDConnectProvider`, `SAMLIdentityProvider`
-- DB-backed: logo upload, OIDC providers, SAML providers, email config
+- DB-backed: logo upload, OIDC providers, SAML providers, email config, `require_mfa`
 - Env-backed: secrets, WireGuard network, database DSN
+- Changeset (`configuration/changeset.ex`): mọi field DB-backed phải có trong `@fields` để `cast/3` không bỏ qua khi save
 
 **Connectivity Checks (`lib/fz_http/connectivity_checks/`)**
 - GenServer poller kiểm tra kết nối Internet định kỳ
@@ -104,9 +105,11 @@ Request
   │
   ├── HTML pipeline ──► Guardian (JWT cookie) ──► LiveAuth hook
   │                          │
-  │                    MFA hook (TOTP check)
+  │                    LiveMFA hook (TOTP check + Force MFA enforcement)
   │
   └── JSON pipeline ──► Guardian (Bearer token / API token)
+                             │
+                        RequireMFA plug (403 nếu Force MFA bật và user chưa enroll)
 
 Auth methods:
   1. Email + Password (Argon2)
@@ -114,6 +117,14 @@ Auth methods:
   3. SAML (Samly) — enterprise IdP
   4. MFA (NimbleTOTP) — TOTP second factor
 ```
+
+**Force MFA** (`require_mfa` config):
+- Khi bật: user chưa có MFA method bị redirect đến trang đăng ký MFA thay vì tiếp tục
+  - Admin → `/settings/account/register_mfa`
+  - Unprivileged → `/user_account/register_mfa`
+- Trang `register_mfa` được loại trừ khỏi kiểm tra (tránh redirect loop)
+- API `/v0`: `FzHttpWeb.Plug.RequireMFA` trả về `403 + JSON error` nếu user chưa enroll
+- Toggle tại **Settings → Security → "Force MFA for All Users"**
 
 **OIDC Refresh Manager** (`oidc/refresh_manager.ex`):
 - GenServer chạy mỗi **10 phút**
@@ -159,7 +170,7 @@ Bridge giữa fz_http và fz_vpn/fz_wall:
 **Router pipelines:**
 ```
 :browser        ─► session + CSRF + LiveView flash
-:api            ─► JSON, Bearer token auth
+:api            ─► JSON, Bearer token auth, RequireMFA plug
 :require_auth   ─► redirect to login if unauthenticated
 :require_admin  ─► 403 if not admin role
 ```
@@ -179,7 +190,7 @@ Bridge giữa fz_http và fz_vpn/fz_wall:
 
 **Live Hooks:**
 - `LiveAuth` — kiểm tra Guardian token, redirect nếu hết hạn
-- `LiveMFA` — bắt buộc TOTP nếu user bật MFA
+- `LiveMFA` — bắt buộc TOTP nếu user bật MFA; nếu Force MFA bật và user chưa enroll → redirect đến trang đăng ký (bỏ qua khi `live_action == :register_mfa`)
 - `LiveNav` — set breadcrumbs, flash messages
 
 **JSON API** (`/v0/`):
@@ -206,7 +217,7 @@ GET/POST   /v0/configuration
 | DB transport | TLS (configurable) |
 | Cookie | Phoenix encrypted cookie |
 
-#### 3.9 Database Migrations (39 migrations)
+#### 3.9 Database Migrations (40 migrations)
 
 Trình tự tạo:
 1. `users` — email, role, password_hash
@@ -218,6 +229,7 @@ Trình tự tạo:
 7. `api_tokens` — REST API auth
 8. `connectivity_checks` — Internet check logs
 9. Index optimizations, UUID migrations, datetime fixes
+10. `20260525000001` — add `require_mfa boolean NOT NULL DEFAULT false` to `configurations`
 
 ---
 
