@@ -1,6 +1,6 @@
 defmodule FzHttpWeb.RootController do
   @moduledoc """
-  Firezone landing page -- show auth methods.
+  NexGuard landing page -- show auth methods.
   """
   use FzHttpWeb, :controller
 

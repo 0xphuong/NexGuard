@@ -1,6 +1,6 @@
-defmodule FirezoneUmbrella.MixProject do
+defmodule NexGuardUmbrella.MixProject do
   @moduledoc """
-  Welcome to the Firezone Elixir Umbrella Project
+  Welcome to the NexGuard Elixir Umbrella Project
   """
 
   use Mix.Project
@@ -12,7 +12,7 @@ defmodule FirezoneUmbrella.MixProject do
 
   def project do
     [
-      name: :firezone,
+      name: :nexguard,
       apps_path: "apps",
       version: version(),
       start_permanent: Mix.env() == :prod,
@@ -32,9 +32,9 @@ defmodule FirezoneUmbrella.MixProject do
         plt_file: {:no_warn, "priv/plts/dialyzer.plt"}
       ],
       aliases: aliases(),
-      default_release: :firezone,
+      default_release: :nexguard,
       releases: [
-        firezone: [
+        nexguard: [
           include_executables_for: [:unix],
           validate_compile_env: false,
           applications: [

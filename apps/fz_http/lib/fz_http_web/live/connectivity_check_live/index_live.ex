@@ -8,7 +8,7 @@ defmodule FzHttpWeb.ConnectivityCheckLive.Index do
 
   @page_title "WAN Connectivity Checks"
   @page_subtitle """
-  Firezone periodically checks for WAN connectivity to the Internet and logs the result here. \
+  NexGuard periodically checks for WAN connectivity to the Internet and logs the result here. \
   This is used to determine the public IP address of this server for populating the default \
   endpoint field in device configurations.
   """

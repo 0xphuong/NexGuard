@@ -29,7 +29,7 @@ defmodule FzHttpWeb.SettingLive.ShowApiTokenComponent do
           <div class="level-right">
             <button
               class="button copy-button"
-              phx-click={JS.dispatch("firezone:clipcopy", to: "#api-token-secret")}
+              phx-click={JS.dispatch("nexguard:clipcopy", to: "#api-token-secret")}
             >
               <span class="icon" title="Click to copy API token">
                 <i class="mdi mdi-content-copy"></i>

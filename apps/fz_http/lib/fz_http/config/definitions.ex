@@ -1,14 +1,14 @@
 defmodule FzHttp.Config.Definitions do
   @moduledoc """
-  Most day-to-day config of Firezone can be done via the Firezone Web UI,
+  Most day-to-day config of NexGuard can be done via the NexGuard Web UI,
   but for zero-touch deployments we allow to override most of configuration options
   using environment variables.
 
-  Read more about configuring Firezone in our [configure guide](/docs/deploy/configure).
+  Read more about configuring NexGuard in our [configure guide](/docs/deploy/configure).
 
   ## Errors
 
-  Firezone will not boot if the configuration is invalid, providing a detailed error message
+  NexGuard will not boot if the configuration is invalid, providing a detailed error message
   and a link to the documentation for the configuration key with samples how to set it.
 
   ## Naming
@@ -150,8 +150,8 @@ defmodule FzHttp.Config.Definitions do
 
   Must be a valid and public FQDN for ACME SSL issuance to function.
 
-  You can add a path suffix if you want to serve firezone from a non-root path,
-  eg: `https://firezone.mycorp.com/vpn/`.
+  You can add a path suffix if you want to serve nexguard from a non-root path,
+  eg: `https://nexguard.mycorp.com/vpn/`.
   """
   defconfig(:external_url, :string,
     changeset: fn changeset, key ->
@@ -239,7 +239,7 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Name of the PostgreSQL database.
   """
-  defconfig(:database_name, :string, default: "firezone")
+  defconfig(:database_name, :string, default: "nexguard")
 
   @doc """
   User that will be used to access the PostgreSQL database.
@@ -289,7 +289,7 @@ defmodule FzHttp.Config.Definitions do
   )
 
   defconfig(:database_parameters, :map,
-    default: %{application_name: "firezone-#{Application.spec(:fz_http, :vsn)}"},
+    default: %{application_name: "nexguard-#{Application.spec(:fz_http, :vsn)}"},
     dump: &Dumper.keyword/1
   )
 
@@ -298,8 +298,8 @@ defmodule FzHttp.Config.Definitions do
   ##############################################
 
   @doc """
-  Set this variable to `true` to create or reset the admin password every time Firezone
-  starts. By default, the admin password is only set when Firezone is installed.
+  Set this variable to `true` to create or reset the admin password every time NexGuard
+  starts. By default, the admin password is only set when NexGuard is installed.
 
   Note: This **will not** change the status of local authentication.
   """
@@ -397,7 +397,7 @@ defmodule FzHttp.Config.Definitions do
   defconfig(:allow_unprivileged_device_configuration, :boolean, default: true)
 
   @doc """
-  Optionally require users to periodically authenticate to the Firezone web UI in order to keep their VPN sessions active.
+  Optionally require users to periodically authenticate to the NexGuard web UI in order to keep their VPN sessions active.
   """
   defconfig(:vpn_session_duration, :integer,
     default: 0,
@@ -485,10 +485,10 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Configures the default AllowedIPs setting for devices.
 
-  AllowedIPs determines which destination IPs get routed through Firezone.
+  AllowedIPs determines which destination IPs get routed through NexGuard.
 
   Specify a comma-separated list of IPs or CIDRs here to achieve split tunneling, or use
-  `0.0.0.0/0, ::/0` to route all device traffic through this Firezone server.
+  `0.0.0.0/0, ::/0` to route all device traffic through this NexGuard server.
   """
   defconfig(
     :default_client_allowed_ips,
@@ -532,7 +532,7 @@ defmodule FzHttp.Config.Definitions do
   @doc """
   Entity ID for SAML authentication.
   """
-  defconfig(:saml_entity_id, :string, default: "urn:nexguard.dev:firezone-app")
+  defconfig(:saml_entity_id, :string, default: "urn:nexguard.dev:nexguard-app")
 
   @doc """
   Path to the SAML keyfile inside the container. Should be either a PEM or DER-encoded private key,
@@ -615,7 +615,7 @@ defmodule FzHttp.Config.Definitions do
   ##############################################
 
   @doc """
-  Enable or disable the Firezone telemetry collection.
+  Enable or disable the NexGuard telemetry collection.
 
   For more details see https://docs.nexguard.binhphuong.io.vn/reference/telemetry/.
   """
@@ -707,7 +707,7 @@ defmodule FzHttp.Config.Definitions do
     # changeset: &FzHttp.Validator.validate_file(&1, &2)
   )
 
-  defconfig(:wireguard_interface_name, :string, default: "wg-firezone")
+  defconfig(:wireguard_interface_name, :string, default: "wg-nexguard")
 
   defconfig(:gateway_egress_interface, :string,
     legacy_keys: [{:env, "EGRESS_INTERFACE", "0.8"}],
@@ -735,7 +735,7 @@ defmodule FzHttp.Config.Definitions do
   defconfig(:outbound_email_from, :string,
     default: fn ->
       external_uri = URI.parse(compile_config!(:external_url))
-      "firezone@#{external_uri.host}"
+      "admin@#{external_uri.host}"
     end,
     sensitive: true,
     changeset: fn changeset, key ->
@@ -818,7 +818,7 @@ defmodule FzHttp.Config.Definitions do
   ##############################################
 
   @doc """
-  The path to a logo image file to replace default Firezone logo.
+  The path to a logo image file to replace default NexGuard logo.
   """
   defconfig(:logo, {:embed, Logo},
     default: nil,

@@ -7,7 +7,7 @@ defmodule FzHttpWeb.SettingLive.Customization do
 
   @max_logo_size 1024 ** 2
   @page_title "Customization"
-  @page_subtitle "Customize the look and feel of your Firezone web portal."
+  @page_subtitle "Customize the look and feel of your NexGuard web portal."
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do

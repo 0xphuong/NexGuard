@@ -7,19 +7,19 @@ defmodule FzHttpWeb.LogoComponent do
 
   def render(%{url: url} = assigns) when is_binary(url) do
     ~H"""
-    <img src={@url} alt="Firezone App Logo" />
+    <img src={@url} alt="NexGuard Logo" />
     """
   end
 
   def render(%{file: file} = assigns) when is_binary(file) do
     ~H"""
-    <img src={static_path("/uploads/logo/" <> @file)} alt="Firezone App Logo" />
+    <img src={static_path("/uploads/logo/" <> @file)} alt="NexGuard Logo" />
     """
   end
 
   def render(%{data: data, type: type} = assigns) when is_binary(data) and is_binary(type) do
     ~H"""
-    <img src={"data:#{@type};base64," <> @data} alt="Firezone App Logo" />
+    <img src={"data:#{@type};base64," <> @data} alt="NexGuard Logo" />
     """
   end
 

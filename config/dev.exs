@@ -1,7 +1,7 @@
 import Config
 
 config :fz_http, FzHttp.Repo,
-  database: System.get_env("DATABASE_NAME", "firezone_dev"),
+  database: System.get_env("DATABASE_NAME", "nexguard_dev"),
   username: System.get_env("DATABASE_USER", "postgres"),
   hostname: System.get_env("DATABASE_HOST", "localhost"),
   port: String.to_integer(System.get_env("DATABASE_PORT", "5432")),

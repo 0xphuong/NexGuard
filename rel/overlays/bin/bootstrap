@@ -1,6 +1,6 @@
 #!/bin/sh
 
-: "${WIREGUARD_INTERFACE_NAME:=wg-firezone}"
+: "${WIREGUARD_INTERFACE_NAME:=wg-nexguard}"
 # Note: we keep legacy default values for those variables to avoid breaking existing deployments,
 # but they will go away in the 0.8.0 release.
 : "${WIREGUARD_IPV4_ADDRESS:=10.3.2.1}"
@@ -60,7 +60,7 @@ gen_cert() {
     -newkey rsa:2048 \
     -keyout /var/nexguard/saml.key \
     -out /var/nexguard/saml.crt \
-    -subj "/C=US/ST=Denial/L=Firezone/O=Dis/CN=www.example.com"
+    -subj "/C=US/ST=Denial/L=NexGuard/O=Dis/CN=www.example.com"
 }
 
 setup_saml() {

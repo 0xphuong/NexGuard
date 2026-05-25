@@ -43,7 +43,7 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
 
   def register(assigns) do
     otpauth_uri =
-      NimbleTOTP.otpauth_uri("Firezone:#{assigns.user.email}", assigns.secret, issuer: "Firezone")
+      NimbleTOTP.otpauth_uri("NexGuard:#{assigns.user.email}", assigns.secret, issuer: "NexGuard")
 
     assigns =
       assigns

@@ -119,11 +119,11 @@ defmodule FzHttp.Config.Errors do
       Or you can set this configuration in the database by either setting it via the admin panel,
       or by running an SQL query:
 
-          cd $HOME/.firezone
+          cd $HOME/.nexguard
           docker compose exec postgres psql \\
             -U postgres \\
             -h 127.0.0.1 \\
-            -d firezone \\
+            -d nexguard \\
             -c "UPDATE configurations SET #{key} = 'YOUR_VALUE'"
       """
     end

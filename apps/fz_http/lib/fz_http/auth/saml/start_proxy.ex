@@ -28,7 +28,7 @@ defmodule FzHttp.Auth.SAML.StartProxy do
     # Only one service provider definition: us.
     Keyword.put(samly_configs, :service_providers, [
       %{
-        id: "firezone",
+        id: "nexguard",
         entity_id: entity_id,
         certfile: certfile,
         keyfile: keyfile
@@ -42,7 +42,7 @@ defmodule FzHttp.Auth.SAML.StartProxy do
       |> Enum.map(fn provider ->
         %{
           id: provider.id,
-          sp_id: "firezone",
+          sp_id: "nexguard",
           metadata: provider.metadata,
           base_url: provider.base_url,
           sign_requests: provider.sign_requests,

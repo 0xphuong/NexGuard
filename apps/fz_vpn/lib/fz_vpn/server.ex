@@ -50,7 +50,7 @@ defmodule FzVpn.Server do
   end
 
   def iface_name do
-    Application.get_env(:fz_vpn, :wireguard_interface_name, "wg-firezone")
+    Application.get_env(:fz_vpn, :wireguard_interface_name, "wg-nexguard")
   end
 
   def http_pid do

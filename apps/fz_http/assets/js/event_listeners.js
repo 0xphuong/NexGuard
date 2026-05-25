@@ -17,7 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
   })
 })
 
-document.addEventListener("firezone:clipcopy", (event) => {
+document.addEventListener("nexguard:clipcopy", (event) => {
   if ("clipboard" in navigator) {
     const text = event.target.textContent
     navigator.clipboard.writeText(text)

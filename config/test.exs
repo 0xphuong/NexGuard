@@ -12,7 +12,7 @@ partition_suffix =
 config :fz_http, sql_sandbox: true
 
 config :fz_http, FzHttp.Repo,
-  database: "firezone_test#{partition_suffix}",
+  database: "nexguard_test#{partition_suffix}",
   pool: Ecto.Adapters.SQL.Sandbox,
   queue_target: 1000
 

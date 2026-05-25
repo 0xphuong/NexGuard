@@ -17,7 +17,7 @@ config :fz_http, FzHttp.Repo,
   hostname: "localhost",
   username: "postgres",
   password: "postgres",
-  database: "firezone_dev",
+  database: "nexguard_dev",
   show_sensitive_data_on_connection_error: true,
   pool_size: :erlang.system_info(:logical_processors_available) * 2,
   queue_target: 500,
@@ -60,7 +60,7 @@ config :fz_http,
   }
 
 config :fz_http, FzHttp.SAML,
-  entity_id: "urn:nexguard.dev:firezone-app",
+  entity_id: "urn:nexguard.dev:nexguard-app",
   certfile_path: Path.expand("../apps/fz_http/priv/cert/saml_selfsigned.pem", __DIR__),
   keyfile_path: Path.expand("../apps/fz_http/priv/cert/saml_selfsigned_key.pem", __DIR__)
 
@@ -70,7 +70,7 @@ config :fz_http,
 
 config :fz_http, FzHttp.Telemetry,
   enabled: true,
-  id: "firezone-dev"
+  id: "nexguard-dev"
 
 config :fz_http,
   cookie_secure: false,
@@ -84,8 +84,8 @@ config :fz_http, FzHttp.ConnectivityChecks,
   url: "https://api.ipify.org/"
 
 config :fz_http,
-  admin_email: "firezone@localhost",
-  default_admin_password: "firezone1234"
+  admin_email: "admin@localhost",
+  default_admin_password: "nexguard1234"
 
 config :fz_http,
   max_devices_per_user: 10
@@ -99,7 +99,7 @@ config :fz_wall, cli: FzWall.CLI.Sandbox
 config :fz_wall,
   wireguard_ipv4_masquerade: true,
   wireguard_ipv6_masquerade: true,
-  wireguard_interface_name: "wg-firezone",
+  wireguard_interface_name: "wg-nexguard",
   nft_path: "nft",
   egress_interface: "dummy"
 
@@ -114,7 +114,7 @@ config :fz_wall,
 config :fz_vpn,
   wireguard_private_key_path: "priv/wg_dev_private_key",
   stats_push_service_enabled: true,
-  wireguard_interface_name: "wg-firezone",
+  wireguard_interface_name: "wg-nexguard",
   wireguard_port: 51_820,
   wg_adapter: FzVpn.Interface.WGAdapter.Live,
   supervised_children: [FzVpn.Server, FzVpn.StatsPushService]

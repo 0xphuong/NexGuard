@@ -17,7 +17,7 @@ defmodule FzHttpWeb.SettingLive.Account do
 
   @live_sessions_topic "notification:session"
   @page_title "Account Settings"
-  @page_subtitle "Configure settings related to your Firezone web portal account."
+  @page_subtitle "Configure settings related to your NexGuard web portal account."
 
   @impl Phoenix.LiveView
   def mount(params, _session, socket) do
