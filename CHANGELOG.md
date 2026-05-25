@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.2] - 2026-05-25
+
+### Added
+- **Force MFA** global toggle in Security settings: when enabled, all users without an MFA method are redirected to the enrollment page on next sign-in and blocked from the REST API (`/v0`) until they enroll
+- New `require_mfa` boolean column in the `configurations` table (migration `20260525000001`)
+- New plug `FzHttpWeb.Plug.RequireMFA` added to the `:api` pipeline — returns `403` with a JSON error when Force MFA is on and the API user has no MFA method registered
+
+### Changed
+- `LiveMFA` hook: when Force MFA is enabled and a user has no MFA methods, redirects admin to `/settings/account/register_mfa` and unprivileged users to `/user_account/register_mfa` instead of continuing; MFA registration routes are excluded from enforcement to prevent redirect loops
+- Redesigned MFA verification screen (`/mfa/auth/:id`): `auth-card` layout matching the login page, monospace OTP input with `one-time-code` autocomplete, "Use a different authenticator" back link
+- Redesigned MFA method selector screen (`/mfa/types`): `auth-card` layout, each method displayed as an `auth-provider-btn` card consistent with the SSO provider buttons on the login page
+
+---
+
 ## [1.1.1] - 2026-05-25
 
 ### Changed
@@ -65,7 +79,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connectivity checks and telemetry (opt-out supported)
 - Automatic TLS via Caddy reverse proxy
 
-[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/0xphuong/NexGuard/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/0xphuong/NexGuard/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/0xphuong/NexGuard/compare/v1.0.2...v1.1.0
 [1.0.2]: https://github.com/0xphuong/NexGuard/compare/v1.0.1...v1.0.2
