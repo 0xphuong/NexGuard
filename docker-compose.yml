@@ -14,17 +14,17 @@ services:
         ipv4_address: 172.28.0.99
         ipv6_address: fcff:3990:3990::99
 
-  firezone:
+  nexguard:
     build:
       context: .
       dockerfile: Dockerfile.dev
       args:
         DATABASE_HOST: postgres
         DATABASE_PORT: 5432
-        DATABASE_NAME: firezone_dev
+        DATABASE_NAME: nexguard_dev
         DATABASE_USER: postgres
         DATABASE_PASSWORD: postgres
-    image: firezone_dev
+    image: nexguard_dev
     volumes:
       - ./priv:/var/app/priv
       - ./apps:/var/app/apps
@@ -63,7 +63,7 @@ services:
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: firezone_dev
+      POSTGRES_DB: nexguard_dev
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
       start_period: 20s
@@ -92,7 +92,7 @@ services:
     # This is a container with this PR merged: https://github.com/kristophjunge/docker-test-saml-idp/pull/27
     image: vihangk1/docker-test-saml-idp:latest
     environment:
-      SIMPLESAMLPHP_SP_ENTITY_ID: 'urn:nexguard.dev:firezone-app'
+      SIMPLESAMLPHP_SP_ENTITY_ID: 'urn:nexguard.dev:nexguard-app'
       SIMPLESAMLPHP_SP_ASSERTION_CONSUMER_SERVICE: 'http://localhost:13000/auth/saml/sp/consume/mysamlidp'
       SIMPLESAMLPHP_SP_SINGLE_LOGOUT_SERVICE: 'http://localhost:13000/auth/saml/sp/logout/mysamlidp'
       SIMPLESAMLPHP_SP_NAME_ID_FORMAT: 'urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress'
@@ -120,7 +120,7 @@ services:
 
   client:
     depends_on:
-      - firezone
+      - nexguard
     image: linuxserver/wireguard:latest
     environment:
       - PUID=1000

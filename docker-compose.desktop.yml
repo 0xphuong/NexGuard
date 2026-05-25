@@ -1,4 +1,4 @@
-# Example compose file for a running a local Firezone instance on
+# Example compose file for a running a local NexGuard instance on
 # macOS or Windows.
 #
 # Note: This file is meant to serve as a template. Please modify it
@@ -41,19 +41,19 @@ services:
     deploy:
       <<: *default-deploy
 
-  firezone:
-    image: firezone/firezone:${VERSION:-latest}
+  nexguard:
+    image: ghcr.io/0xphuong/nexguard:${VERSION:-latest}
     ports:
       - ${WIREGUARD_PORT:-51820}:${WIREGUARD_PORT:-51820}/udp
     env_file:
-      # This should contain a list of env vars for configuring Firezone.
+      # This should contain a list of env vars for configuring NexGuard.
       # See https://nexguard.binhphuong.io.vn/docs/reference/env-vars for more info.
       - ${FZ_INSTALL_DIR:-.}/.env
     volumes:
       # IMPORTANT: Persists WireGuard private key and other data. If
-      # /var/nexguard/private_key exists when Firezone starts, it is
+      # /var/nexguard/private_key exists when NexGuard starts, it is
       # used as the WireGuard private. Otherwise, one is generated.
-      - ${FZ_INSTALL_DIR:-.}/firezone:/var/nexguard
+      - ${FZ_INSTALL_DIR:-.}/nexguard:/var/nexguard
     cap_add:
       # Needed for WireGuard and firewall support.
       - NET_ADMIN
@@ -73,7 +73,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${DATABASE_NAME:-firezone}
+      POSTGRES_DB: ${DATABASE_NAME:-nexguard}
       POSTGRES_USER: ${DATABASE_USER:-postgres}
       POSTGRES_PASSWORD: ${DATABASE_PASSWORD:?err}
     deploy:
