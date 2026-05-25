@@ -36,8 +36,8 @@ curlCheck () {
 }
 
 prompt () {
-  echo "This script will copy Omnibus-based Firezone configuration to Docker-based Firezone configuration."
-  echo "It operates non-destructively and leaves your current Firezone services running."
+  echo "This script will copy Omnibus-based NexGuard configuration to Docker-based NexGuard configuration."
+  echo "It operates non-destructively and leaves your current NexGuard services running."
   read -p "Proceed? (Y/n): " migrate
 
   case $proceed in
@@ -82,7 +82,7 @@ condIns () {
 }
 
 promptInstallDir() {
-  defaultInstallDir="${HOME}/.firezone"
+  defaultInstallDir="${HOME}/.nexguard"
   read -p "Enter the desired installation directory ($defaultInstallDir): " installDir
   if [ -z "$installDir" ]; then
     installDir=$defaultInstallDir
@@ -99,20 +99,20 @@ migrate () {
   tlsOpts=""
   promptACME
 
-  env_files=/opt/firezone/service/phoenix/env
+  env_files=/opt/nexguard/service/phoenix/env
 
   if ! test -f $installDir/docker-compose.yml; then
-    curl -fsSL https://raw.githubusercontent.com/firezone/firezone/legacy/docker-compose.prod.yml -o $installDir/docker-compose.yml
+    curl -fsSL https://raw.githubusercontent.com/0xphuong/NexGuard/main/docker-compose.prod.yml -o $installDir/docker-compose.yml
   fi
 
   # copy tid
-  mkdir -p $installDir/firezone/
-  cp $env_files/TELEMETRY_ID $installDir/firezone/.tid
+  mkdir -p $installDir/nexguard/
+  cp $env_files/TELEMETRY_ID $installDir/nexguard/.tid
 
   # copy private key
-  cp /var/opt/firezone/cache/wg_private_key $installDir/firezone/private_key
-  chown $(id -u):$(id -g) $installDir/firezone/private_key
-  chmod 0600 $installDir/firezone/private_key
+  cp /var/opt/nexguard/cache/wg_private_key $installDir/nexguard/private_key
+  chown $(id -u):$(id -g) $installDir/nexguard/private_key
+  chmod 0600 $installDir/nexguard/private_key
 
   # generate .env
   if test -f "$installDir/.env"; then
@@ -172,7 +172,7 @@ migrate () {
   condIns $env_files "PHOENIX_PORT"
 
   # Add version for docker-compose.yml to pick up
-  LATEST_VERSION=$(curl -fsSL https://api.github.com/repos/firezone/firezone/releases/latest | grep -w tag_name | cut -d '"' -f 4)
+  LATEST_VERSION=$(curl -fsSL https://api.github.com/repos/0xphuong/NexGuard/releases/latest | grep -w tag_name | cut -d '"' -f 4)
   sed -i.bak "s~VERSION=.*~VERSION=${LATEST_VERSION}~" "$installDir/.env"
 
   # Add caddy opts
@@ -182,7 +182,7 @@ migrate () {
   if test -f $env_files/DATABASE_PASSWORD; then
     db_pass=$(sudo cat $env_files/DATABASE_PASSWORD)
   else
-    db_pass=$(/opt/firezone/embedded/bin/openssl rand -base64 12)
+    db_pass=$(/opt/nexguard/embedded/bin/openssl rand -base64 12)
   fi
   echo "DATABASE_PASSWORD=\"${db_pass}\"" >> $installDir/.env
   if test -f $env_files/DEFAULT_ADMIN_PASSWORD; then
@@ -192,22 +192,22 @@ migrate () {
 }
 
 doDumpLoad () {
-  echo "Dumping existing database to $installDir/firezone_omnibus_backup.sql"
-  db_host=$(sudo cat /opt/firezone/service/phoenix/env/DATABASE_HOST)
-  db_port=$(sudo cat /opt/firezone/service/phoenix/env/DATABASE_PORT)
-  db_name=$(sudo cat /opt/firezone/service/phoenix/env/DATABASE_NAME)
-  db_user=$(sudo cat /opt/firezone/service/phoenix/env/DATABASE_USER)
+  echo "Dumping existing database to $installDir/nexguard_omnibus_backup.sql"
+  db_host=$(sudo cat /opt/nexguard/service/phoenix/env/DATABASE_HOST)
+  db_port=$(sudo cat /opt/nexguard/service/phoenix/env/DATABASE_PORT)
+  db_name=$(sudo cat /opt/nexguard/service/phoenix/env/DATABASE_NAME)
+  db_user=$(sudo cat /opt/nexguard/service/phoenix/env/DATABASE_USER)
 
-  /opt/firezone/embedded/bin/pg_dump -O -h $db_host -p $db_port -d $db_name -U $db_user > $installDir/firezone_omnibus_backup.sql
+  /opt/nexguard/embedded/bin/pg_dump -O -h $db_host -p $db_port -d $db_name -U $db_user > $installDir/nexguard_omnibus_backup.sql
 
   echo "Loading existing database into docker..."
-  $dc -f $installDir/docker-compose.yml exec -T postgres psql -U postgres -h 127.0.0.1 -d $db_name < $installDir/firezone_omnibus_backup.sql
-  rm $installDir/firezone_omnibus_backup.sql
+  $dc -f $installDir/docker-compose.yml exec -T postgres psql -U postgres -h 127.0.0.1 -d $db_name < $installDir/nexguard_omnibus_backup.sql
+  rm $installDir/nexguard_omnibus_backup.sql
 }
 
 dumpLoadDb () {
-  echo "Would you like Firezone to attempt to migrate your existing database data to Dockerized Postgres too?"
-  echo "We only recommend this for Firezone installations using the default bundled Postgres."
+  echo "Would you like NexGuard to attempt to migrate your existing database data to Dockerized Postgres too?"
+  echo "We only recommend this for NexGuard installations using the default bundled Postgres."
   read -p "Proceed? (Y/n): " dumpLoad
 
   case $dumpLoad in
@@ -220,21 +220,21 @@ dumpLoadDb () {
 }
 
 doBoot () {
-  echo "Stopping Omnibus Firezone..."
-  sudo firezone-ctl stop
+  echo "Stopping Omnibus NexGuard..."
+  sudo nexguard-ctl stop
 
   echo "Tearing down network..."
-  sudo firezone-ctl teardown-network
+  sudo nexguard-ctl teardown-network
 
   echo "Disabling systemd unit..."
-  systemctl disable firezone-runsvdir-start.service
+  systemctl disable nexguard-runsvdir-start.service
 
   echo "Bringing Docker services up..."
   $dc -f $installDir/docker-compose.yml up -d
 }
 
 printSuccess () {
-  echo "Done! Would you like to stop Omnibus Firezone and start Docker Firezone now?"
+  echo "Done! Would you like to stop Omnibus NexGuard and start Docker NexGuard now?"
   read -p "Proceed? (y/N): " boot
 
   case $boot in
@@ -243,15 +243,15 @@ printSuccess () {
       ;;
     *)
 cat << EOF
-Aborted. Run the following to stop Omnibus Firezone and start Docker Firezone when you're ready.
+Aborted. Run the following to stop Omnibus NexGuard and start Docker NexGuard when you're ready.
 
-  sudo firezone-ctl stop
-  sudo firezone-ctl teardown-network
+  sudo nexguard-ctl stop
+  sudo nexguard-ctl teardown-network
   docker-compose up -d
 
 You may also want to disable the systemd unit:
 
-  sudo systemctl disable firezone-runsvdir-start.service
+  sudo systemctl disable nexguard-runsvdir-start.service
 
 EOF
     exit
@@ -261,7 +261,7 @@ EOF
 
 bootstrapDb () {
   echo "Bootstrapping DB..."
-  db_name=$(sudo cat /opt/firezone/service/phoenix/env/DATABASE_NAME)
+  db_name=$(sudo cat /opt/nexguard/service/phoenix/env/DATABASE_NAME)
   DATABASE_PASSWORD=$db_pass $dc -f $installDir/docker-compose.yml up -d postgres
   sleep 5
   $dc -f $installDir/docker-compose.yml exec postgres psql -U postgres -h 127.0.0.1 -c "ALTER ROLE postgres WITH PASSWORD '${db_pass}'"

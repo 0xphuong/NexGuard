@@ -1,0 +1,8 @@
+#!/bin/sh
+exec 2>&1
+exec <%= node['runit']['chpst_bin'] %> \
+       -P \
+       -U <%= node['nexguard']['postgresql']['username'] %> \
+       -u <%= node['nexguard']['postgresql']['username'] %> \
+     <%= node['nexguard']['install_directory']%>/embedded/bin/postgres \
+     -D <%= node['nexguard']['postgresql']['data_directory'] %> <%= '> /dev/null 2>&1' unless node['nexguard']['logging']['enabled'] %>

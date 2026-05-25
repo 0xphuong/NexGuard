@@ -1,7 +1,7 @@
-firezone Omnibus project
+nexguard Omnibus project
 ========================
 This project creates full-stack platform-specific packages for
-`firezone`!
+`nexguard`!
 
 Installation
 ------------
@@ -19,7 +19,7 @@ Usage
 You create a platform-specific package using the `build project` command:
 
 ```shell
-$ bin/omnibus build firezone
+$ bin/omnibus build nexguard
 ```
 
 The platform/architecture type of the package created will match the platform
@@ -33,15 +33,15 @@ You can clean up all temporary files generated during the build process with
 the `clean` command:
 
 ```shell
-$ bin/omnibus clean firezone
+$ bin/omnibus clean nexguard
 ```
 
 Adding the `--purge` purge option removes __ALL__ files generated during the
-build including the project install directory (`/opt/firezone`) and
+build including the project install directory (`/opt/nexguard`) and
 the package cache directory (`/var/cache/omnibus/pkg`):
 
 ```shell
-$ bin/omnibus clean firezone --purge
+$ bin/omnibus clean nexguard --purge
 ```
 
 ### Publish
@@ -115,9 +115,9 @@ section:
 $ bin/kitchen login ubuntu-1804
 [vagrant@ubuntu...] $ .  load-omnibus-toolchain.sh
 [vagrant@ubuntu...] $ [ -e .bundle ] && sudo chown -R vagrant:vagrant .bundle
-[vagrant@ubuntu...] $ cd firezone   # or 'cd firezone/omnibus' if your omnibus project is embedded in your main project
+[vagrant@ubuntu...] $ cd nexguard   # or 'cd nexguard/omnibus' if your omnibus project is embedded in your main project
 [vagrant@ubuntu...] $ bundle install
-[vagrant@ubuntu...] $ bin/omnibus build firezone
+[vagrant@ubuntu...] $ bin/omnibus build nexguard
 ```
 
 For a complete list of all commands and platforms, run `kitchen list` or

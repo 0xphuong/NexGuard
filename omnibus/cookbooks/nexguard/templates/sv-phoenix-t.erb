@@ -1,0 +1,5 @@
+#!/bin/sh
+<% if node['nexguard']['logging']['enabled'] -%>
+  echo "received TERM from runit, forcing quit"
+<% end -%>
+<%= node['runit']['sv_bin'] %> kill phoenix

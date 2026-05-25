@@ -45,7 +45,7 @@ promptEmail() {
 }
 
 promptContact() {
-  echo "Could we email you to ask for product feedback? Firezone depends heavily on input from users like you to steer development. (Y/n): "
+  echo "Could we email you to ask for product feedback? NexGuard depends heavily on input from users like you to steer development. (Y/n): "
   read contact
   case $contact in
     n|N);;
@@ -88,7 +88,7 @@ setupCloudsmithRepoAndInstall() {
         "$hostinfo" =~ .*"Ubuntu 2"(0|1|2)".04".*
      ]]
   then
-    if [ ! -f /etc/apt/sources.list.d/firezone-firezone.list ]; then
+    if [ ! -f /etc/apt/sources.list.d/nexguard-nexguard.list ]; then
       apt-get -qqy update
       apt-get -qqy install apt-transport-https gnupg
       setupCloudsmithRepo "deb"
@@ -96,7 +96,7 @@ setupCloudsmithRepoAndInstall() {
       apt-get -qqy update
     fi
 
-    apt-get install -y firezone
+    apt-get install -y nexguard
   elif [[ "$hostinfo" =~ .*"Amazon Linux 2".*                   || \
           "$hostinfo" =~ .*"Fedora 33".*                        || \
           "$hostinfo" =~ .*"Fedora 34".*                        || \
@@ -112,20 +112,20 @@ setupCloudsmithRepoAndInstall() {
           "$hostinfo" =~ .*"VzLinux 8".*
        ]]
   then
-    if [ ! -f /etc/yum.repos.d/firezone-firezone.repo ]; then
+    if [ ! -f /etc/yum.repos.d/nexguard-nexguard.repo ]; then
       setupCloudsmithRepo "rpm"
     fi
 
-    yum install -y firezone
+    yum install -y nexguard
   elif [[ "$hostinfo" =~ .*"openSUSE Leap 15".* ]]
   then
-    if ! zypper lr | grep firezone-firezone; then
+    if ! zypper lr | grep nexguard-nexguard; then
       setupCloudsmithRepo "rpm"
     else
-      zypper --non-interactive --quiet ref firezone-firezone
+      zypper --non-interactive --quiet ref nexguard-nexguard
     fi
 
-    zypper --non-interactive install -y firezone
+    zypper --non-interactive install -y nexguard
   else
     echo "Did not detect a supported Linux distribution. Try using the manual installation method using a release package from a similar distribution. Aborting."
     exit
@@ -134,28 +134,28 @@ setupCloudsmithRepoAndInstall() {
 
 setupCloudsmithRepo() {
   curl -1sLf \
-    "https://dl.cloudsmith.io/public/firezone/firezone/setup.$1.sh" \
+    "https://dl.cloudsmith.io/public/nexguard/nexguard/setup.$1.sh" \
     | bash
 }
 
-firezoneSetup() {
-  conf="/opt/firezone/embedded/cookbooks/firezone/attributes/default.rb"
-  sed -i "s/firezone@localhost/$1/" $conf
-  sed -i "s/default\['firezone']\['external_url'].*/default['firezone']['external_url'] = 'https:\/\/$public_ip'/" $conf
-  firezone-ctl reconfigure
-  firezone-ctl create-or-reset-admin
+nexguardSetup() {
+  conf="/opt/nexguard/embedded/cookbooks/nexguard/attributes/default.rb"
+  sed -i "s/nexguard@localhost/$1/" $conf
+  sed -i "s/default\['nexguard']\['external_url'].*/default['nexguard']['external_url'] = 'https:\/\/$public_ip'/" $conf
+  nexguard-ctl reconfigure
+  nexguard-ctl create-or-reset-admin
 }
 
 main() {
   adminUser=''
   kernelCheck
   wireguardCheck
-  promptEmail "Enter the administrator email you'd like to use for logging into this Firezone instance:"
+  promptEmail "Enter the administrator email you'd like to use for logging into this NexGuard instance:"
   promptContact
   echo "Press <ENTER> to install or Ctrl-C to abort."
   read
   setupCloudsmithRepoAndInstall
-  firezoneSetup $adminUser
+  nexguardSetup $adminUser
 }
 
 osCheck

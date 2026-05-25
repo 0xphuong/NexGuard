@@ -3,22 +3,22 @@ set -ex
 # This script should be run from the app root
 
 function print_logs() {
-  sudo cat /var/log/firezone/nginx/current
-  sudo cat /var/log/firezone/postgresql/current
-  sudo cat /var/log/firezone/phoenix/current
-  sudo cat /var/log/firezone/wireguard/current
+  sudo cat /var/log/nexguard/nginx/current
+  sudo cat /var/log/nexguard/postgresql/current
+  sudo cat /var/log/nexguard/phoenix/current
+  sudo cat /var/log/nexguard/wireguard/current
 }
 
 trap print_logs EXIT
 
 # Disable telemetry
-sudo mkdir -p /opt/firezone/
-sudo touch /opt/firezone/.disable-telemetry
+sudo mkdir -p /opt/nexguard/
+sudo touch /opt/nexguard/.disable-telemetry
 
 if type rpm > /dev/null; then
-  sudo -E rpm -i omnibus/pkg/firezone*.rpm
+  sudo -E rpm -i omnibus/pkg/nexguard*.rpm
 elif type dpkg > /dev/null; then
-  sudo -E dpkg -i omnibus/pkg/firezone*.deb
+  sudo -E dpkg -i omnibus/pkg/nexguard*.deb
 else
   echo 'Neither rpm nor dpkg found'
   exit 1
@@ -28,18 +28,18 @@ fi
 PATH=/usr/sbin/:$PATH
 
 # Disable connectivity checks
-conf="/opt/firezone/embedded/cookbooks/firezone/attributes/default.rb"
-search="default\['firezone']\['connectivity_checks']\['enabled'] = true"
-replace="default['firezone']['connectivity_checks']['enabled'] = false"
+conf="/opt/nexguard/embedded/cookbooks/nexguard/attributes/default.rb"
+search="default\['nexguard']\['connectivity_checks']\['enabled'] = true"
+replace="default['nexguard']['connectivity_checks']['enabled'] = false"
 sudo -E sed -i "s/$search/$replace/" $conf
 
 # Disable telemetry
-search="default\['firezone']\['telemetry']\['enabled'] = true"
-search="default['firezone']['telemetry']['enabled'] = false"
+search="default\['nexguard']\['telemetry']\['enabled'] = true"
+search="default['nexguard']['telemetry']['enabled'] = false"
 sudo -E sed -i "s/$search/$replace/" $conf
 
 # Bootstrap config
-sudo -E firezone-ctl reconfigure
+sudo -E nexguard-ctl reconfigure
 
 # Wait for app to fully boot
 sleep 5
@@ -48,7 +48,7 @@ sleep 5
 print_logs
 
 # Create admin; requires application to be up
-sudo -E firezone-ctl create-or-reset-admin
+sudo -E nexguard-ctl create-or-reset-admin
 
 # XXX: Add more commands here to test
 
@@ -60,9 +60,9 @@ echo "Testing for sign in button"
 echo $page | grep '<a class="button" href="/auth/identity">Sign in with email</a>'
 
 echo "Testing telemetry_id survives reconfigures"
-tid1=`sudo cat /var/opt/firezone/cache/telemetry_id`
-sudo firezone-ctl reconfigure
-tid2=`sudo cat /var/opt/firezone/cache/telemetry_id`
+tid1=`sudo cat /var/opt/nexguard/cache/telemetry_id`
+sudo nexguard-ctl reconfigure
+tid2=`sudo cat /var/opt/nexguard/cache/telemetry_id`
 
 if [ "$tid1" = "$tid2" ]; then
   echo "telemetry_ids match!"
@@ -73,7 +73,7 @@ else
   exit 1
 fi
 
-fz_bin="/opt/firezone/embedded/service/firezone/bin/firezone"
+fz_bin="/opt/nexguard/embedded/service/nexguard/bin/nexguard"
 ok_res=":ok"
 
 echo "Testing FzVpn.Interface module works with WireGuard"

@@ -1,0 +1,8 @@
+#!/bin/sh
+exec 2>&1
+<%= 'export OPENSSL_FIPS=1' if node['nexguard']['fips_enabled'] == true %>
+
+exec <%= node['runit']['chpst_bin'] %> \
+       -P \
+     <%= node['nexguard']['install_directory'] %>/embedded/sbin/nginx \
+     -c <%= node['nexguard']['nginx']['directory'] %>/nginx.conf <%= '> /dev/null 2>&1' unless node['nexguard']['logging']['enabled'] %>

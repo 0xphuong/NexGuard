@@ -3,4 +3,4 @@ AllCops:
   Exclude:
     - "vendor/**/*"
     - "apps/fz_http/assets/node_modules/**/*"
-    - "omnibus/cookbooks/firezone/attributes/default.rb"
+    - "omnibus/cookbooks/nexguard/attributes/default.rb"

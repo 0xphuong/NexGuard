@@ -1,0 +1,12 @@
+[ req ]
+distinguished_name = req_distinguished_name
+prompt = no
+
+[ req_distinguished_name ]
+C                      = <%= node['nexguard']['ssl']['country_name'] %>
+ST                     = <%= node['nexguard']['ssl']['state_name'] %>
+L                      = <%= node['nexguard']['ssl']['locality_name'] %>
+O                      = <%= node['nexguard']['ssl']['company_name'] %>
+OU                     = <%= node['nexguard']['ssl']['organizational_unit_name'] %>
+CN                     = <%= URI.parse(node['nexguard']['external_url']).host %>
+emailAddress           = <%= node['nexguard']['ssl']['email_address'] %>

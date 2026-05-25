@@ -5,7 +5,7 @@ driver:
     cpus: 2
     memory: 2048
   synced_folders:
-    - ['.', '/home/vagrant/firezone']
+    - ['.', '/home/vagrant/nexguard']
 
 provisioner:
   name: chef_zero
@@ -38,4 +38,4 @@ suites:
         build_user:          vagrant
         build_user_group:    vagrant
         build_user_password: vagrant
-        install_dir:         /opt/firezone
+        install_dir:         /opt/nexguard

@@ -1,0 +1,34 @@
+#!/bin/sh
+set -e
+#
+# Perform necessary nexguard removal steps
+# after package is uninstalled.
+#
+
+capture () {
+  if type curl > /dev/null; then
+    if [ -e /var/opt/nexguard/cache/telemetry_id ]; then
+      telemetry_id=`cat /var/opt/nexguard/cache/telemetry_id`
+      if [ ! -z "$telemetry_id" ]; then
+        curl -s -XPOST \
+          -m 5 \
+          -H 'Content-Type: application/json' \
+          -d "{
+            \"api_key\": \"phc_ubuPhiqqjMdedpmbWpG2Ak3axqv5eMVhFDNBaXl9UZK\",
+            \"event\": \"postrm\",
+            \"properties\": {
+              \"distinct_id\": \"$telemetry_id\"
+            }
+          }" \
+          https://t.firez.one/capture/ > /dev/null
+      fi
+    fi
+  fi
+}
+if [ ! -e /var/opt/nexguard/.disable_telemetry ]; then
+  capture || true
+fi
+
+echo "nexguard has been uninstalled!"
+
+exit 0
