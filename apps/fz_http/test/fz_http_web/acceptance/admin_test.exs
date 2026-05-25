@@ -54,8 +54,8 @@ defmodule FzHttpWeb.Acceptance.AdminTest do
       |> assert_el(Query.text("does not match confirmation"))
       |> fill_form(%{
         "user[email]" => user.email,
-        "user[password]" => "firezone1234",
-        "user[password_confirmation]" => "firezone1234"
+        "user[password]" => "nexguard1234",
+        "user[password_confirmation]" => "nexguard1234"
       })
       |> click(Query.button("Save"))
       |> assert_el(Query.text("has already been taken"))

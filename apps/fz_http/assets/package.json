@@ -1,9 +1,9 @@
 {
-  "name": "firezone",
+  "name": "nexguard",
   "version": "0.1.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/firezone/firezone.git"
+    "url": "https://github.com/0xphuong/NexGuard.git"
   },
   "license": "Apache-2.0",
   "scripts": {

@@ -28,7 +28,7 @@ end
 
 {:ok, unprivileged_user1} =
   Users.create_user(:unprivileged, %{
-    email: "firezone-unprivileged-1@localhost"
+    email: "nexguard-unprivileged-1@localhost"
   })
 
 {:ok, _device} =
@@ -52,9 +52,9 @@ end
 
 {:ok, mfa_user} =
   Users.create_user(:unprivileged, %{
-    email: "firezone-mfa@localhost",
-    password: "firezone1234",
-    password_confirmation: "firezone1234"
+    email: "nexguard-mfa@localhost",
+    password: "nexguard1234",
+    password_confirmation: "nexguard1234"
   })
 
 secret = NimbleTOTP.secret()
@@ -71,9 +71,9 @@ MFA.create_method(
 
 {:ok, user} =
   Users.create_user(:admin, %{
-    email: "firezone@localhost",
-    password: "firezone1234",
-    password_confirmation: "firezone1234"
+    email: "admin@localhost",
+    password: "nexguard1234",
+    password_confirmation: "nexguard1234"
   })
 
 {:ok, _api_token} = ApiTokens.create_api_token(user, %{"expires_in" => 5})
@@ -138,9 +138,9 @@ MFA.create_method(
 
 {:ok, user} =
   Users.create_user(:admin, %{
-    email: "firezone2@localhost",
-    password: "firezone1234",
-    password_confirmation: "firezone1234"
+    email: "admin2@localhost",
+    password: "nexguard1234",
+    password_confirmation: "nexguard1234"
   })
 
 {:ok, _device} =
@@ -194,7 +194,7 @@ MFA.create_method(
     response_headers: %{"Content-Type" => "text/plain"},
     response_body: "127.0.0.1",
     response_code: 200,
-    url: "https://ping-dev.firez.one/0.1.19"
+    url: "https://api.ipify.org/0.1.19"
   })
   |> Repo.insert()
 
@@ -203,7 +203,7 @@ MFA.create_method(
     response_headers: %{"Content-Type" => "text/plain"},
     response_body: "127.0.0.1",
     response_code: 400,
-    url: "https://ping-dev.firez.one/0.20.0"
+    url: "https://api.ipify.org/0.20.0"
   })
   |> Repo.insert()
 

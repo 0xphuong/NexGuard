@@ -1,7 +1,7 @@
 defmodule FzHttpWeb.AcceptanceCase.Vault do
   use Wallaby.DSL
 
-  @vault_root_token "firezone"
+  @vault_root_token "nexguard"
   @vault_endpoint "http://127.0.0.1:8200"
 
   def ensure_userpass_auth_enabled do
@@ -28,7 +28,7 @@ defmodule FzHttpWeb.AcceptanceCase.Vault do
 
   def setup_oidc_provider(endpoint_url, attrs_overrides \\ %{"auto_create_users" => true}) do
     :ok =
-      request(:put, "identity/oidc/client/firezone", %{
+      request(:put, "identity/oidc/client/nexguard", %{
         assignments: "allow_all",
         redirect_uris: "#{endpoint_url}/auth/oidc/vault/callback/",
         scopes_supported: "openid,email"
@@ -48,7 +48,7 @@ defmodule FzHttpWeb.AcceptanceCase.Vault do
         %{scopes_supported: "email"}
       )
 
-    {:ok, {200, params}} = request(:get, "identity/oidc/client/firezone")
+    {:ok, {200, params}} = request(:get, "identity/oidc/client/nexguard")
 
     FzHttp.Config.put_config!(
       :openid_connect_providers,

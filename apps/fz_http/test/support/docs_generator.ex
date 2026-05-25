@@ -31,7 +31,7 @@ defmodule DocsGenerator do
     end
 
     w!(file, "## Environment Variable Listing")
-    w!(file, "We recommend setting these in your Docker ENV file (`$HOME/.firezone/.env` by")
+    w!(file, "We recommend setting these in your Docker ENV file (`$HOME/.nexguard/.env` by")
     w!(file, "default). Required fields in **bold**.")
 
     keys =
@@ -296,7 +296,7 @@ defmodule DocsGenerator do
         """
         ```bash
         $ curl -i \\
-          -X #{conn.method} "https://{firezone_host}#{path}" \\
+          -X #{conn.method} "https://{nexguard_host}#{path}" \\
           -H 'Content-Type: application/json' \\
         """
         |> String.trim_trailing()

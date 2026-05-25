@@ -272,7 +272,7 @@ defmodule FzHttpWeb.AuthControllerTest do
 
       assert_receive {:email, email}
 
-      assert email.subject == "Firezone Magic Link"
+      assert email.subject == "NexGuard Magic Link"
       assert email.to == [{"", user.email}]
       assert email.text_body =~ "/auth/magic/#{user.id}/"
 

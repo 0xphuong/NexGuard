@@ -80,7 +80,7 @@ services:
     image: vault
     environment:
       VAULT_ADDR: 'http://127.0.0.1:8200'
-      VAULT_DEV_ROOT_TOKEN_ID: 'firezone'
+      VAULT_DEV_ROOT_TOKEN_ID: 'nexguard'
     ports:
       - 8200:8200/tcp
     cap_add:

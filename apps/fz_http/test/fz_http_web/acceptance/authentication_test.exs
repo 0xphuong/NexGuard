@@ -6,7 +6,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
   describe "using login and password" do
     feature "renders error on invalid login or password", %{session: session} do
       session
-      |> password_login_flow("foo@bar.com", "firezone1234")
+      |> password_login_flow("foo@bar.com", "nexguard1234")
       |> assert_error_flash(
         "Error signing in: user credentials are invalid or user does not exist"
       )
@@ -16,7 +16,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
       user = UsersFixtures.create_user_with_role(:admin)
 
       session
-      |> password_login_flow(user.email, "firezone1234")
+      |> password_login_flow(user.email, "nexguard1234")
       |> assert_error_flash(
         "Error signing in: user credentials are invalid or user does not exist"
       )
@@ -24,7 +24,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     end
 
     feature "redirects to /users after successful log in as admin", %{session: session} do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(:admin,
@@ -42,7 +42,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     feature "redirects to /user_devices after successful log in as unprivileged user", %{
       session: session
     } do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(
@@ -93,7 +93,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
         |> click(Query.button("Send"))
         |> assert_el(Query.text("Please check your inbox for the magic link."))
         |> visit(~p"/dev/mailbox")
-        |> click(Query.link("Firezone Magic Link"))
+        |> click(Query.link("NexGuard Magic Link"))
         |> assert_el(Query.text("HTML body preview:"))
 
       email_text = text(session, Query.css(".body-text"))
@@ -139,8 +139,8 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
 
   describe "using OpenID Connect provider" do
     feature "creates a user when auto_create_users is true", %{session: session} do
-      oidc_login = "firezone-1"
-      oidc_password = "firezone1234_oidc"
+      oidc_login = "nexguard-1"
+      oidc_password = "nexguard1234_oidc"
       attrs = UsersFixtures.user_attrs()
 
       :ok = Vault.setup_oidc_provider(@endpoint.url, %{"auto_create_users" => true})
@@ -163,8 +163,8 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     feature "authenticates existing user", %{session: session} do
       user = UsersFixtures.create_user_with_role(:admin)
 
-      oidc_login = "firezone-2"
-      oidc_password = "firezone1234_oidc"
+      oidc_login = "nexguard-2"
+      oidc_password = "nexguard1234_oidc"
 
       :ok = Vault.setup_oidc_provider(@endpoint.url, %{"auto_create_users" => false})
       :ok = Vault.upsert_user(oidc_login, user.email, oidc_password)
@@ -186,8 +186,8 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     feature "does not create new users when auto_create_users is false", %{session: session} do
       user_attrs = UsersFixtures.user_attrs()
 
-      oidc_login = "firezone-2"
-      oidc_password = "firezone1234_oidc"
+      oidc_login = "nexguard-2"
+      oidc_password = "nexguard1234_oidc"
 
       :ok = Vault.setup_oidc_provider(@endpoint.url, %{"auto_create_users" => false})
       :ok = Vault.upsert_user(oidc_login, user_attrs.email, oidc_password)
@@ -204,8 +204,8 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     feature "allows to use OIDC when password auth is disabled", %{session: session} do
       user_attrs = UsersFixtures.user_attrs()
 
-      oidc_login = "firezone-2"
-      oidc_password = "firezone1234_oidc"
+      oidc_login = "nexguard-2"
+      oidc_password = "nexguard1234_oidc"
 
       :ok = Vault.setup_oidc_provider(@endpoint.url, %{"auto_create_users" => false})
       :ok = Vault.upsert_user(oidc_login, user_attrs.email, oidc_password)
@@ -279,7 +279,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     end
 
     feature "MFA code is requested on unprivileged user login", %{session: session} do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(
@@ -307,7 +307,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     end
 
     feature "MFA code is requested on admin user login", %{session: session} do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(
@@ -335,7 +335,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     end
 
     feature "user can sign out during MFA flow", %{session: session} do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(
@@ -364,7 +364,7 @@ defmodule FzHttpWeb.Acceptance.AuthenticationTest do
     end
 
     feature "user can see other methods during MFA flow", %{session: session} do
-      password = "firezone1234"
+      password = "nexguard1234"
 
       user =
         UsersFixtures.create_user_with_role(
