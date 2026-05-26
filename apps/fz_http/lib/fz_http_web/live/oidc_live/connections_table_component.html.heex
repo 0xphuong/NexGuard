@@ -1,26 +1,20 @@
-<section class="section is-main-section">
-  <div class="level">
-    <div class="level-left">
-      <h4 class="title is-4">OIDC Connections</h4>
-    </div>
-    <div class="level-right">
-      <button
-        class="button"
-        data-confirm="Refresh this users' tokens?"
-        phx-click="refresh"
-        phx-target={@myself}
-      >
-        <span class="icon is-small">
-          <i class="fas fa-redo"></i>
-        </span>
-        <span>
-          Refresh Tokens
-        </span>
-      </button>
-    </div>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <h4 class="ng-page-title">OIDC Connections</h4>
+    <button
+      class="ng-secondary-btn"
+      data-confirm="Refresh this users' tokens?"
+      phx-click="refresh"
+      phx-target={@myself}
+    >
+      <i class="mdi mdi-refresh"></i>
+      Refresh Tokens
+    </button>
   </div>
+</div>
 
-  <table class="table is-bordered is-hoverable is-striped is-fullwidth">
+<div class="ng-table-wrap">
+  <table class="ng-table">
     <thead>
       <tr>
         <th>Provider</th>
@@ -51,22 +45,18 @@
           </td>
           <td>
             <button
-              class="button is-warning"
+              class="ng-danger-btn"
               data-confirm={delete_warning(conn)}
               phx-click="delete"
               phx-value-id={conn.id}
               phx-target={@myself}
             >
-              <span class="icon is-small">
-                <i class="fas fa-trash"></i>
-              </span>
-              <span>
-                Delete Connection
-              </span>
+              <i class="mdi mdi-delete-outline"></i>
+              Delete Connection
             </button>
           </td>
         </tr>
       <% end %>
     </tbody>
   </table>
-</section>
+</div>

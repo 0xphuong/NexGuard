@@ -18,32 +18,23 @@ defmodule FzHttpWeb.SettingLive.NewApiTokenComponent do
         phx-submit="save"
       >
         <%= if @changeset.action do %>
-          <div class="notification is-danger">
-            <div class="flash-error">
-              <%= error_tag(f, :base) %>
-            </div>
+          <div class="ng-flash ng-flash--error" style="margin-bottom: 1rem;">
+            <i class="mdi mdi-alert-circle-outline ng-flash-icon"></i>
+            <span class="ng-flash-message"><%= error_tag(f, :base) %></span>
           </div>
         <% end %>
-        <div class="field is-horizontal">
-          <div class="field-label is-normal">
-            <%= label(f, :expires_in, class: "label") %>
+        <div class="ng-field ng-field--horizontal">
+          <div class="ng-field-label">
+            <%= label(f, :expires_in, class: "ng-label") %>
           </div>
-          <div class="field-body">
-            <div class="field is-expanded">
-              <div class="field has-addons">
-                <p class="control is-expanded">
-                  <%= text_input(f, :expires_in, class: "input #{input_error_class(f, :expires_in)}") %>
-                </p>
-                <p class="control">
-                  <a class="button is-static">
-                    days
-                  </a>
-                </p>
-              </div>
+          <div class="ng-field-body">
+            <div class="ng-input-group">
+              <%= text_input(f, :expires_in, class: "ng-input #{input_error_class(f, :expires_in)}") %>
+              <span class="ng-input-suffix">days</span>
             </div>
-            <div class="help is-danger">
+            <p class="ng-field-error">
               <%= error_tag(f, :expires_in) %>
-            </div>
+            </p>
           </div>
         </div>
       </.form>

@@ -15,27 +15,11 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
       <h4>Choose authenticator type</h4>
       <hr />
 
-      <div class="control">
-        <div>
-          <label class="radio">
-            <input type="radio" name="type" value="totp" id="mfa-method-totp" checked />
-            Time-Based One-Time Password
-          </label>
-        </div>
-        <!-- Coming Soon
-        <div>
-          <label class="radio disabled">
-            <input type="radio" name="type" value="native" disabled>
-            Native (Windows Hello, iOS Face ID, etc)
-          </label>
-        </div>
-        <div>
-          <label class="radio disabled">
-            <input type="radio" name="type" value="portable" disabled>
-            Portable (YubiKey-like products)
-          </label>
-        </div>
-        -->
+      <div class="ng-radio-group">
+        <label class="ng-radio">
+          <input type="radio" name="type" value="totp" id="mfa-method-totp" checked />
+          Time-Based One-Time Password
+        </label>
       </div>
     </form>
     """
@@ -55,7 +39,7 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
       <h4>Register Authenticator</h4>
       <hr />
 
-      <div class="has-text-centered">
+      <div style="text-align:center">
         <canvas data-qrdata={@uri} id="register-totp" phx-hook="RenderQR" />
 
         <pre
@@ -66,23 +50,21 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
         ><code><%= format_key(@secret_base32_encoded) %></code></pre>
       </div>
 
-      <div class="field is-horizontal">
-        <div class="field-label is-normal">
-          <label class="label">Name</label>
+      <div class="ng-field ng-field--horizontal">
+        <div class="ng-field-label">
+          <label class="ng-label">Name</label>
         </div>
-        <div class="field-body">
-          <div class="field">
-            <p class="control">
-              <input
-                class={"input #{input_error_class(@changeset, :name)}"}
-                type="text"
-                name="name"
-                value={Map.get(@changeset.changes, :name, "My Authenticator")}
-                placeholder="name"
-                required
-              />
-            </p>
-            <p class="help is-danger">
+        <div class="ng-field-body">
+          <div class="ng-field">
+            <input
+              class={"ng-input #{input_error_class(@changeset, :name)}"}
+              type="text"
+              name="name"
+              value={Map.get(@changeset.changes, :name, "My Authenticator")}
+              placeholder="name"
+              required
+            />
+            <p class="ng-field-error">
               <%= error_tag(@changeset, :name) %>
             </p>
           </div>
@@ -98,22 +80,20 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
       <h4>Verify Code</h4>
       <hr />
 
-      <div class="field is-horizontal">
-        <div class="field-label is-normal">
-          <label class="label">Code</label>
+      <div class="ng-field ng-field--horizontal">
+        <div class="ng-field-label">
+          <label class="ng-label">Code</label>
         </div>
-        <div class="field-body">
-          <div class="field">
-            <p class="control">
-              <input
-                class={"input #{input_error_class(@changeset, :code)}"}
-                type="text"
-                name="code"
-                placeholder="123456"
-                required
-              />
-            </p>
-            <p class="help is-danger">
+        <div class="ng-field-body">
+          <div class="ng-field">
+            <input
+              class={"ng-input #{input_error_class(@changeset, :code)}"}
+              type="text"
+              name="code"
+              placeholder="123456"
+              required
+            />
+            <p class="ng-field-error">
               <%= error_tag(@changeset, :code) %>
             </p>
           </div>
@@ -128,7 +108,7 @@ defmodule FzHttpWeb.MFA.RegisterStepsComponent do
     <form id="mfa-method-form" phx-target={@parent} phx-submit="save">
       Confirm to save this Authentication method.
       <%= if !@changeset.valid? do %>
-        <p class="help is-danger">
+        <p class="ng-field-error">
           Something went wrong. Try saving again or starting over.
         </p>
       <% end %>

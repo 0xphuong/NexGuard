@@ -16,175 +16,148 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
         phx-target={@myself}
         phx-submit="save"
       >
-        <div class="field">
-          <%= label(f, :id, "Config ID", class: "label") %>
-
-          <div class="control">
-            <%= text_input(f, :id, class: "input #{input_error_class(f, :id)}") %>
-          </div>
-          <p class="help is-danger">
+        <div class="ng-field">
+          <%= label(f, :id, "Config ID", class: "ng-label") %>
+          <%= text_input(f, :id, class: "ng-input #{input_error_class(f, :id)}") %>
+          <p class="ng-field-error">
             <%= error_tag(f, :id) %>
           </p>
-          <p class="help">
+          <p class="ng-field-hint">
             ID used for generating auth URLs.
           </p>
         </div>
 
         <hr />
 
-        <div class="field">
-          <%= label(f, :label, class: "label") %>
-
-          <div class="control">
-            <%= text_input(f, :label, class: "input #{input_error_class(f, :label)}") %>
-          </div>
-          <p class="help is-danger">
+        <div class="ng-field">
+          <%= label(f, :label, class: "ng-label") %>
+          <%= text_input(f, :label, class: "ng-input #{input_error_class(f, :label)}") %>
+          <p class="ng-field-error">
             <%= error_tag(f, :label) %>
           </p>
-          <p class="help">
+          <p class="ng-field-hint">
             Sign in button text.
           </p>
         </div>
 
         <hr />
 
-        <div class="field">
-          <%= label(f, :base_url, "Base URL", class: "label") %>
-
-          <div class="control">
-            <%= text_input(f, :base_url, class: "input #{input_error_class(f, :base_url)}") %>
-          </div>
-          <p class="help is-danger">
+        <div class="ng-field">
+          <%= label(f, :base_url, "Base URL", class: "ng-label") %>
+          <%= text_input(f, :base_url, class: "ng-input #{input_error_class(f, :base_url)}") %>
+          <p class="ng-field-error">
             <%= error_tag(f, :base_url) %>
           </p>
-          <p class="help">
+          <p class="ng-field-hint">
             Base URL for the ACS URL. in most cases this shouldn't be changed.
           </p>
         </div>
 
         <hr />
 
-        <div class="field">
-          <%= label(f, :metadata, class: "label") %>
-
-          <div class="control">
-            <%= textarea(f, :metadata,
-              rows: 8,
-              class: "textarea #{input_error_class(f, :metadata)}"
-            ) %>
-          </div>
-          <p class="help is-danger">
+        <div class="ng-field">
+          <%= label(f, :metadata, class: "ng-label") %>
+          <%= textarea(f, :metadata,
+            rows: 8,
+            class: "ng-textarea #{input_error_class(f, :metadata)}"
+          ) %>
+          <p class="ng-field-error">
             <%= error_tag(f, :metadata) %>
           </p>
-          <p class="help">
+          <p class="ng-field-hint">
             IdP metadata XML.
           </p>
         </div>
 
         <hr />
 
-        <div class="field">
-          <strong>Sign requests</strong>
-
-          <div class="level">
-            <div class="level-left">
-              <p class="help">Sign SAML requests with your SAML private key.</p>
-              <p class="help is-danger">
-                <%= error_tag(f, :sign_requests) %>
-              </p>
-            </div>
-            <div class="level-right">
-              <%= label f, :sign_requests, class: "ng-toggle" do %>
-                <%= checkbox(f, :sign_requests) %>
-                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
-              <% end %>
-            </div>
+        <div class="ng-toggle-row">
+          <div class="ng-toggle-row-desc">
+            <strong>Sign requests</strong>
+            <p class="ng-field-hint">Sign SAML requests with your SAML private key.</p>
+            <p class="ng-field-error">
+              <%= error_tag(f, :sign_requests) %>
+            </p>
+          </div>
+          <div class="ng-toggle-row-control">
+            <%= label f, :sign_requests, class: "ng-toggle" do %>
+              <%= checkbox(f, :sign_requests) %>
+              <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+            <% end %>
           </div>
         </div>
 
         <hr />
 
-        <div class="field">
-          <strong>Sign metadata</strong>
-
-          <div class="level">
-            <div class="level-left">
-              <p class="help">Sign SAML metadata with your SAML private key.</p>
-              <p class="help is-danger">
-                <%= error_tag(f, :sign_metadata) %>
-              </p>
-            </div>
-            <div class="level-right">
-              <%= label f, :sign_metadata, class: "ng-toggle" do %>
-                <%= checkbox(f, :sign_metadata) %>
-                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
-              <% end %>
-            </div>
+        <div class="ng-toggle-row">
+          <div class="ng-toggle-row-desc">
+            <strong>Sign metadata</strong>
+            <p class="ng-field-hint">Sign SAML metadata with your SAML private key.</p>
+            <p class="ng-field-error">
+              <%= error_tag(f, :sign_metadata) %>
+            </p>
+          </div>
+          <div class="ng-toggle-row-control">
+            <%= label f, :sign_metadata, class: "ng-toggle" do %>
+              <%= checkbox(f, :sign_metadata) %>
+              <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+            <% end %>
           </div>
         </div>
 
         <hr />
 
-        <div class="field">
-          <strong>Require signed assertions</strong>
-
-          <div class="level">
-            <div class="level-left">
-              <p class="help">Require assertions from your IdP to be signed.</p>
-              <p class="help is-danger">
-                <%= error_tag(f, :signed_assertion_in_resp) %>
-              </p>
-            </div>
-            <div class="level-right">
-              <%= label f, :signed_assertion_in_resp, class: "ng-toggle" do %>
-                <%= checkbox(f, :signed_assertion_in_resp) %>
-                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
-              <% end %>
-            </div>
+        <div class="ng-toggle-row">
+          <div class="ng-toggle-row-desc">
+            <strong>Require signed assertions</strong>
+            <p class="ng-field-hint">Require assertions from your IdP to be signed.</p>
+            <p class="ng-field-error">
+              <%= error_tag(f, :signed_assertion_in_resp) %>
+            </p>
+          </div>
+          <div class="ng-toggle-row-control">
+            <%= label f, :signed_assertion_in_resp, class: "ng-toggle" do %>
+              <%= checkbox(f, :signed_assertion_in_resp) %>
+              <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+            <% end %>
           </div>
         </div>
 
         <hr />
 
-        <div class="field">
-          <strong>Require signed envelopes</strong>
-
-          <div class="level">
-            <div class="level-left">
-              <p class="help">Require envelopes from your IdP to be signed.</p>
-              <p class="help is-danger">
-                <%= error_tag(f, :signed_envelopes_in_resp) %>
-              </p>
-            </div>
-            <div class="level-right">
-              <%= label f, :signed_envelopes_in_resp, class: "ng-toggle" do %>
-                <%= checkbox(f, :signed_envelopes_in_resp) %>
-                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
-              <% end %>
-            </div>
+        <div class="ng-toggle-row">
+          <div class="ng-toggle-row-desc">
+            <strong>Require signed envelopes</strong>
+            <p class="ng-field-hint">Require envelopes from your IdP to be signed.</p>
+            <p class="ng-field-error">
+              <%= error_tag(f, :signed_envelopes_in_resp) %>
+            </p>
+          </div>
+          <div class="ng-toggle-row-control">
+            <%= label f, :signed_envelopes_in_resp, class: "ng-toggle" do %>
+              <%= checkbox(f, :signed_envelopes_in_resp) %>
+              <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+            <% end %>
           </div>
         </div>
 
         <hr />
 
-        <div class="field">
-          <strong>Auto-create users</strong>
-
-          <div class="level">
-            <div class="level-left">
-              <p class="help">
-                Automatically provision users when signing in for the first time.
-              </p>
-              <p class="help is-danger">
-                <%= error_tag(f, :auto_create_users) %>
-              </p>
-            </div>
-            <div class="level-right">
-              <%= label f, :auto_create_users, class: "ng-toggle" do %>
-                <%= checkbox(f, :auto_create_users) %>
-                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
-              <% end %>
-            </div>
+        <div class="ng-toggle-row">
+          <div class="ng-toggle-row-desc">
+            <strong>Auto-create users</strong>
+            <p class="ng-field-hint">
+              Automatically provision users when signing in for the first time.
+            </p>
+            <p class="ng-field-error">
+              <%= error_tag(f, :auto_create_users) %>
+            </p>
+          </div>
+          <div class="ng-toggle-row-control">
+            <%= label f, :auto_create_users, class: "ng-toggle" do %>
+              <%= checkbox(f, :auto_create_users) %>
+              <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+            <% end %>
           </div>
         </div>
       </.form>

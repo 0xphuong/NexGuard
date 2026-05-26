@@ -20,18 +20,18 @@ defmodule FzHttpWeb.ModalComponent do
       <div class="modal-card">
         <header class="modal-card-head">
           <p class="modal-card-title"><%= @opts[:title] %></p>
-          <button class="delete" aria-label="close" phx-click="close" phx-target={@myself}></button>
+          <button class="ng-modal-close" aria-label="Close" phx-click="close" phx-target={@myself}>
+            <i class="mdi mdi-close"></i>
+          </button>
         </header>
         <section class="modal-card-body">
-          <div class="block">
-            <%= if is_atom(@component) do %>
-              <.live_component module={@component} {@opts} />
-            <% else %>
-              <%= @component %>
-            <% end %>
-          </div>
+          <%= if is_atom(@component) do %>
+            <.live_component module={@component} {@opts} />
+          <% else %>
+            <%= @component %>
+          <% end %>
         </section>
-        <footer class="modal-card-foot is-justify-content-flex-end">
+        <footer class="modal-card-foot">
           <%= if !(assigns[:hide_footer_content] || @opts[:hide_footer_content]) do %>
             <%= Phoenix.View.render(FzHttpWeb.SharedView, "submit_button.html",
               button_text: @opts[:button_text],

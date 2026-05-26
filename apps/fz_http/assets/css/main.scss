@@ -387,6 +387,9 @@ pre {
 }
 
 .modal-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   padding: 1.25rem 1.5rem;
@@ -395,17 +398,35 @@ pre {
     font-size: 1.0625rem;
     font-weight: 700;
     color: #1e293b;
+    margin: 0;
   }
+}
+
+.ng-modal-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #94a3b8;
+  border-radius: 6px;
+  padding: 0.3rem;
+  line-height: 1;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+
+  &:hover {
+    color: #1e293b;
+    background: #f1f5f9;
+  }
+
+  .mdi { font-size: 1.25rem; }
 }
 
 .modal-card-body {
   padding: 1.5rem;
   background: #ffffff;
-
-  .block p {
-    font-size: 0.875rem;
-    color: #64748b;
-  }
 
   .field {
     margin-bottom: 1.125rem;
@@ -458,26 +479,78 @@ pre {
 }
 
 .modal-card-foot {
+  display: flex;
+  justify-content: flex-end;
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   padding: 1rem 1.5rem;
 
-  .button.is-primary {
-    background: #1e3a8a;
-    border-color: #1e3a8a;
-    border-radius: 7px;
-    font-weight: 600;
-    font-size: 0.9375rem;
-    height: auto;
-    padding: 0.6rem 1.5rem;
-    transition: background 0.15s, transform 0.1s;
-
-    &:hover {
-      background: darken(#1e3a8a, 6%);
-      border-color: darken(#1e3a8a, 6%);
-      transform: translateY(-1px);
-    }
+  .ng-primary-btn {
+    min-width: 100px;
   }
+}
+
+/* ── Flash Notifications ──────────────────────────────────────── */
+
+.ng-flash-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.ng-flash {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1.45;
+
+  &--info {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1d4ed8;
+
+    .ng-flash-icon { color: #2563eb; }
+    .ng-flash-close { color: #2563eb; }
+  }
+
+  &--error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #b91c1c;
+
+    .ng-flash-icon { color: #dc2626; }
+    .ng-flash-close { color: #dc2626; }
+  }
+}
+
+.ng-flash-icon {
+  font-size: 1.0625rem;
+  flex-shrink: 0;
+}
+
+.ng-flash-message {
+  flex: 1;
+}
+
+.ng-flash-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0.1rem;
+  border-radius: 4px;
+  opacity: 0.65;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+
+  &:hover { opacity: 1; }
+
+  .mdi { font-size: 1rem; }
 }
 
 /* ── Shared Admin Page Components ────────────────────────────── */
@@ -1614,6 +1687,162 @@ pre {
   line-height: 1.5;
 }
 
+/* ── Modal / General Form Components ─────────────────────────── */
+
+.ng-field {
+  margin-bottom: 1.125rem;
+
+  &--horizontal {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+}
+
+.ng-field-label {
+  flex: 0 0 130px;
+  padding-top: 0.65rem;
+}
+
+.ng-field-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ng-label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #1e293b;
+  letter-spacing: 0.01em;
+  margin-bottom: 0.375rem;
+}
+
+.ng-input,
+.ng-textarea {
+  display: block;
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fafbfc;
+  color: #1e293b;
+  font-size: 0.9375rem;
+  padding: 0.65rem 0.875rem;
+  box-shadow: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+
+  &::placeholder { color: #94a3b8; }
+
+  &:focus {
+    border-color: #2563eb;
+    background: #ffffff;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    outline: none;
+  }
+
+  &.is-danger {
+    border-color: #dc2626;
+    &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f1f5f9;
+  }
+}
+
+.ng-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.ng-field-error {
+  font-size: 0.75rem;
+  color: #dc2626;
+  margin-top: 0.25rem;
+  min-height: 1rem;
+}
+
+.ng-field-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: 0.375rem;
+  line-height: 1.5;
+}
+
+.ng-input-group {
+  display: flex;
+  align-items: stretch;
+
+  .ng-input {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+    flex: 1;
+  }
+}
+
+.ng-input-suffix {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 0.875rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  font-size: 0.875rem;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.ng-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.125rem;
+}
+
+.ng-toggle-row-desc {
+  flex: 1;
+
+  strong {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 0.25rem;
+  }
+}
+
+.ng-toggle-row-control {
+  flex-shrink: 0;
+  padding-top: 0.125rem;
+}
+
+.ng-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ng-radio {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.9375rem;
+  color: #374151;
+  cursor: pointer;
+  margin-right: 1rem;
+
+  input[type="radio"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #2563eb;
+    cursor: pointer;
+  }
+}
+
 .ng-form-field {
   margin-bottom: 1rem;
 }
@@ -1736,7 +1965,8 @@ pre {
       .icon { color: #94a3b8 !important; }
     }
 
-    &.is-active {
+    &.is-active,
+    &.ng-sidebar-link--active {
       background: rgba(37, 99, 235, 0.18) !important;
       color: #93c5fd !important;
       box-shadow: inset 3px 0 0 #2563eb !important;
@@ -1837,7 +2067,8 @@ pre {
   min-width: 200px !important;
   top: calc(100% + 6px) !important;
 
-  .navbar-divider { margin: 0.375rem 0 !important; }
+  .navbar-divider,
+  .ng-topnav-divider { margin: 0.375rem 0 !important; }
 }
 
 .ng-topnav-menu-item {

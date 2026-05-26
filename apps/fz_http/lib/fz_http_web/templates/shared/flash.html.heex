@@ -1,27 +1,31 @@
 <%= if !is_nil(live_flash(@flash, :info)) or !is_nil(live_flash(@flash, :error)) do %>
-  <div class="content flash-squeeze">
+  <div class="ng-flash-group">
     <%= if live_flash(@flash, :info) do %>
-      <div class="notification is-info">
+      <div class="ng-flash ng-flash--info">
+        <i class="mdi mdi-check-circle-outline ng-flash-icon"></i>
+        <span class="ng-flash-message"><%= live_flash(@flash, :info) %></span>
         <button
-          title="Dismiss notification"
-          class="delete"
+          class="ng-flash-close"
+          title="Dismiss"
           phx-click="lv:clear-flash"
           phx-value-key="info"
         >
+          <i class="mdi mdi-close"></i>
         </button>
-        <div class="flash-info"><%= live_flash(@flash, :info) %></div>
       </div>
     <% end %>
     <%= if live_flash(@flash, :error) do %>
-      <div class="notification is-danger">
+      <div class="ng-flash ng-flash--error">
+        <i class="mdi mdi-alert-circle-outline ng-flash-icon"></i>
+        <span class="ng-flash-message"><%= live_flash(@flash, :error) %></span>
         <button
-          title="Dismiss notification"
-          class="delete"
+          class="ng-flash-close"
+          title="Dismiss"
           phx-click="lv:clear-flash"
           phx-value-key="error"
         >
+          <i class="mdi mdi-close"></i>
         </button>
-        <div class="flash-error"><%= live_flash(@flash, :error) %></div>
       </div>
     <% end %>
   </div>
