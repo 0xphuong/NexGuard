@@ -62,6 +62,12 @@ defmodule FzHttpWeb.SidebarComponent do
             <% end %>
           </li>
           <li>
+            <%= live_redirect(to: ~p"/settings/network", class: nav_class(@path, "/settings/network")) do %>
+              <span class="icon"><i class="mdi mdi-router-network"></i></span>
+              <span class="menu-item-label">Network</span>
+            <% end %>
+          </li>
+          <li>
             <%= live_redirect(to: ~p"/settings/security", class: nav_class(@path, "/settings/security")) do %>
               <span class="icon"><i class="mdi mdi-shield-key-outline"></i></span>
               <span class="menu-item-label">Security</span>

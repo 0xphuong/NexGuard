@@ -95,8 +95,7 @@ if config_env() == :prod do
     wireguard_ipv6_masquerade: compile_config!(:wireguard_ipv6_masquerade),
     wireguard_interface_name: compile_config!(:wireguard_interface_name),
     nft_path: compile_config!(:gateway_nft_path),
-    egress_interface: compile_config!(:gateway_egress_interface),
-    no_masquerade_cidrs: compile_config!(:gateway_no_masquerade_cidrs)
+    egress_interface: compile_config!(:gateway_egress_interface)
 
   config :fz_wall,
     port_based_rules_supported:

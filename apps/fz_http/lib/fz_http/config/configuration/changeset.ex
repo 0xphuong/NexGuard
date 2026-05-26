@@ -9,6 +9,8 @@ defmodule FzHttp.Config.Configuration.Changeset do
       local_auth_enabled
       disable_vpn_on_oidc_error
       require_mfa
+      gateway_no_masquerade_enabled
+      gateway_no_masquerade_cidrs
       allow_unprivileged_device_management
       allow_unprivileged_device_configuration
       default_client_persistent_keepalive

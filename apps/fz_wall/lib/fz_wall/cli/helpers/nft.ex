@@ -140,16 +140,28 @@ defmodule FzWall.CLI.Helpers.Nft do
     end
   end
 
-  defp setup_no_masquerade_rules do
-    Application.fetch_env!(:fz_wall, :no_masquerade_cidrs)
-    |> parse_cidrs()
-    |> Enum.each(fn cidr ->
-      proto = if String.contains?(cidr, ":"), do: "ip6", else: "ip"
+  @doc """
+  Flush and rebuild the postrouting chain (RETURN rules + masquerade rules).
+  Call after updating no-masquerade settings via the UI to apply changes live
+  without a full firewall teardown.
+  """
+  def reload_postrouting do
+    exec!("#{nft()} flush chain inet #{@table_name} postrouting")
+    setup_masquerade()
+  end
 
-      exec!(
-        "#{nft()} 'add rule inet #{@table_name} postrouting #{proto} daddr #{cidr} return'"
-      )
-    end)
+  defp setup_no_masquerade_rules do
+    if FzHttp.Config.fetch_config!(:gateway_no_masquerade_enabled) do
+      FzHttp.Config.fetch_config!(:gateway_no_masquerade_cidrs)
+      |> parse_cidrs()
+      |> Enum.each(fn cidr ->
+        proto = if String.contains?(cidr, ":"), do: "ip6", else: "ip"
+
+        exec!(
+          "#{nft()} 'add rule inet #{@table_name} postrouting #{proto} daddr #{cidr} return'"
+        )
+      end)
+    end
   end
 
   defp parse_cidrs(nil), do: []

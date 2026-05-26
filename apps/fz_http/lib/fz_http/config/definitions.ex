@@ -122,6 +122,7 @@ defmodule FzHttp.Config.Definitions do
          :wireguard_interface_name,
          :gateway_egress_interface,
          :gateway_nft_path,
+         :gateway_no_masquerade_enabled,
          :gateway_no_masquerade_cidrs
        ]},
       {"Outbound Emails",
@@ -724,11 +725,22 @@ defmodule FzHttp.Config.Definitions do
   defconfig(:gateway_nft_path, :string, default: "nft", legacy_keys: [{:env, "NFT_PATH", "0.8"}])
 
   @doc """
-  List of CIDR subnets that should NOT be NATed in the postrouting chain.
-  Traffic to these destinations will be forwarded as-is, preserving the VPN client's real IP.
-  Comma-separated, e.g. GATEWAY_NO_MASQUERADE_CIDRS=10.0.0.0/16,10.10.0.0/24
+  Enable or disable forwarding VPN traffic to internal subnets without NAT.
+  When enabled, destination servers on those subnets see the real VPN client IP
+  instead of the gateway IP.
+  Requires a return route to the WireGuard subnet on the destination side.
   """
-  defconfig(:gateway_no_masquerade_cidrs, :string, default: "")
+  defconfig(:gateway_no_masquerade_enabled, :boolean, default: false)
+
+  @doc """
+  Comma-separated list of CIDR subnets that should NOT be NATed in the postrouting chain.
+  Only effective when `gateway_no_masquerade_enabled` is true.
+  Defaults to RFC 1918 private address ranges: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16.
+  e.g. GATEWAY_NO_MASQUERADE_CIDRS=10.0.0.0/8,172.16.0.0/12,192.168.0.0/16
+  """
+  defconfig(:gateway_no_masquerade_cidrs, :string,
+    default: "10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+  )
 
   ##############################################
   ## HTTP Client Settings

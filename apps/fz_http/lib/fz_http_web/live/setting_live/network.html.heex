@@ -1,0 +1,112 @@
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Network</h1>
+      <p class="ng-page-subtitle">Gateway routing and NAT settings</p>
+    </div>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── NAT / Routing ──────────────────────────────────────── %>
+  <div class="ng-section-header">NAT &amp; Routing</div>
+
+  <div class="ng-settings-card">
+
+    <%# Preserve Client IP toggle %>
+    <% cfg_no_masq_enabled = Map.fetch!(@configs, :gateway_no_masquerade_enabled) %>
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Preserve Client IP</span>
+          <%= if config_has_override?(cfg_no_masq_enabled) do %>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              Locked by env var
+            </span>
+          <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Forward VPN traffic to internal subnets without NAT — destination servers
+          see the real client IP instead of the gateway IP.
+          Requires a return route to the WireGuard subnet on those servers.
+        </p>
+      </div>
+      <div class="ng-setting-control ng-setting-control--toggle">
+        <label class="ng-toggle">
+          <input
+            type="checkbox"
+            phx-click="toggle"
+            name="gateway_no_masquerade_enabled"
+            phx-value-config="gateway_no_masquerade_enabled"
+            disabled={config_has_override?(cfg_no_masq_enabled)}
+            checked={config_value(cfg_no_masq_enabled)}
+            value={config_toggle_status(cfg_no_masq_enabled)}
+          />
+          <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+        </label>
+      </div>
+    </div>
+
+    <%# Internal Subnets form %>
+    <% cfg_no_masq_cidrs = Map.fetch!(@configs, :gateway_no_masquerade_cidrs) %>
+    <div class="ng-setting-row">
+      <div class="ng-setting-info">
+        <div class="ng-setting-label-wrap">
+          <span class="ng-setting-label">Internal Subnets</span>
+          <%= if config_has_override?(cfg_no_masq_cidrs) do %>
+            <span class="ng-override-badge">
+              <i class="mdi mdi-lock-outline"></i>
+              Locked by env var
+            </span>
+          <% end %>
+        </div>
+        <p class="ng-setting-desc">
+          Comma-separated CIDR subnets to route without NAT.
+          Defaults to all RFC 1918 private ranges
+          (<code>10.0.0.0/8</code>, <code>172.16.0.0/12</code>, <code>192.168.0.0/16</code>).
+        </p>
+        <%= if config_has_override?(cfg_no_masq_cidrs) do %>
+          <p class="ng-setting-desc ng-setting-desc--warning">
+            <i class="mdi mdi-information-outline"></i>
+            Overridden by <code>GATEWAY_NO_MASQUERADE_CIDRS</code> in <code>.env</code>.
+            Comment out or remove that line to manage it from the UI.
+          </p>
+        <% end %>
+      </div>
+      <div class="ng-setting-control">
+        <.form
+          :let={f}
+          for={@configuration_changeset}
+          phx-change="change_cidrs"
+          phx-submit="save_cidrs"
+        >
+          <%= textarea(f, :gateway_no_masquerade_cidrs,
+            placeholder: "10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16",
+            class: "ng-setting-textarea #{input_error_class(f, :gateway_no_masquerade_cidrs)}",
+            disabled: config_has_override?(cfg_no_masq_cidrs) || !@no_masquerade_enabled,
+            value:
+              if config_has_override?(cfg_no_masq_cidrs) do
+                config_value(cfg_no_masq_cidrs)
+              else
+                input_value(f, :gateway_no_masquerade_cidrs)
+              end
+          ) %>
+          <p class="ng-setting-error"><%= error_tag(f, :gateway_no_masquerade_cidrs) %></p>
+          <%= submit "Save",
+            disabled: !(
+              @cidrs_form_changed and
+              !config_has_override?(cfg_no_masq_cidrs) and
+              @no_masquerade_enabled
+            ),
+            phx_disable_with: "Saving…",
+            class: "ng-save-inline-btn" %>
+        </.form>
+      </div>
+    </div>
+
+  </div>
+
+</section>

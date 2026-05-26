@@ -55,6 +55,12 @@ defmodule FzWall.Server do
   end
 
   @impl GenServer
+  def handle_call(:reload_masquerade, _from, state) do
+    cli().reload_postrouting()
+    {:reply, :ok, state}
+  end
+
+  @impl GenServer
   def handle_call({:add_user, user_id}, _from, %{users: existing_users} = state) do
     new_users = add_user(user_id, existing_users)
 
@@ -66,6 +72,10 @@ defmodule FzWall.Server do
     new_users = delete_user(user_id, existing_users)
 
     {:reply, :ok, %{state | users: new_users}}
+  end
+
+  def reload_masquerade do
+    GenServer.call({:global, :fz_wall_server}, :reload_masquerade)
   end
 
   def http_pid do
