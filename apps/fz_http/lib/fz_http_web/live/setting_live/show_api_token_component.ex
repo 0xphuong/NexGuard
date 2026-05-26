@@ -20,40 +20,30 @@ defmodule FzHttpWeb.SettingLive.ShowApiTokenComponent do
     ~H"""
     <div>
       <%= if assigns[:secret] do %>
-        <div class="level">
-          <div class="level-left">
-            <h6 class="title is-6">
-              API token secret:
-            </h6>
-          </div>
-          <div class="level-right">
-            <button
-              class="button copy-button"
-              phx-click={JS.dispatch("nexguard:clipcopy", to: "#api-token-secret")}
-            >
-              <span class="icon" title="Click to copy API token">
-                <i class="mdi mdi-content-copy"></i>
-              </span>
-            </button>
-          </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:0.75rem;margin-bottom:0.5rem">
+          <span class="ng-label" style="margin-bottom:0">API token secret</span>
+          <button
+            class="ng-secondary-btn copy-button"
+            phx-click={JS.dispatch("nexguard:clipcopy", to: "#api-token-secret")}
+            title="Click to copy API token"
+          >
+            <i class="mdi mdi-content-copy"></i> Copy
+          </button>
         </div>
-        <div class="block">
-          <pre class="multiline"><code id="api-token-secret"><%= @secret %></code></pre>
-        </div>
-        <div class="block">
-          <p><strong>Warning!</strong> This token is sensitive data. Store it somewhere safe.</p>
+        <pre class="multiline" style="margin-bottom:0.75rem"><code id="api-token-secret"><%= @secret %></code></pre>
+        <div class="ng-flash ng-flash--info" style="margin-bottom:1rem">
+          <i class="mdi mdi-alert-circle-outline ng-flash-icon"></i>
+          <span class="ng-flash-message"><strong>Warning!</strong> This token is sensitive. Store it somewhere safe.</span>
         </div>
         <hr />
-        <div class="block">
-          <h6 class="title is-6">cURL example:</h6>
-          <pre><code id="api-usage-example"><i># List all users</i>
-    curl -H 'Content-Type: application/json' \
-         -H 'Authorization: Bearer <%= @secret %>' \
-         <%= FzHttp.Config.fetch_env!(:fz_http, :external_url) %>/v0/users</code></pre>
-        </div>
-        <div class="block has-text-right">
-          <a href="https://docs.nexguard.binhphuong.io.vn/reference/rest-api?utm_source=product">
-            Explore the REST API docs -&gt;
+        <p class="ng-label" style="margin-bottom:0.5rem">cURL example</p>
+        <pre><code id="api-usage-example"><i># List all users</i>
+curl -H 'Content-Type: application/json' \
+     -H 'Authorization: Bearer <%= @secret %>' \
+     <%= FzHttp.Config.fetch_env!(:fz_http, :external_url) %>/v0/users</code></pre>
+        <div style="text-align:right;margin-top:0.75rem">
+          <a class="ng-inline-link" href="https://docs.nexguard.binhphuong.io.vn/reference/rest-api?utm_source=product">
+            Explore the REST API docs <i class="mdi mdi-arrow-right"></i>
           </a>
         </div>
       <% end %>

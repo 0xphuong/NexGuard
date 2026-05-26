@@ -8,18 +8,13 @@
     phx-submit="save"
   >
     <%= if @action == :edit do %>
-      <div class="block">
-        <p>Change user email or enter new password below.</p>
-      </div>
+      <p class="ng-modal-form-hint">Change user email or enter new password below.</p>
     <% end %>
 
-    <div class="field">
-      <%= label(f, :email, class: "label") %>
-
-      <div class="control">
-        <%= text_input(f, :email, class: "input #{input_error_class(f, :email)}") %>
-      </div>
-      <p class="help is-danger">
+    <div class="ng-field">
+      <%= label(f, :email, class: "ng-label") %>
+      <%= text_input(f, :email, class: "ng-input #{input_error_class(f, :email)}") %>
+      <p class="ng-field-error">
         <%= error_tag(f, :email) %>
       </p>
     </div>
