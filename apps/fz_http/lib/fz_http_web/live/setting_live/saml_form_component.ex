@@ -94,9 +94,9 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :sign_requests, class: "switch is-medium" do %>
+              <%= label f, :sign_requests, class: "ng-toggle" do %>
                 <%= checkbox(f, :sign_requests) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>
@@ -115,9 +115,9 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :sign_metadata, class: "switch is-medium" do %>
+              <%= label f, :sign_metadata, class: "ng-toggle" do %>
                 <%= checkbox(f, :sign_metadata) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>
@@ -136,9 +136,9 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :signed_assertion_in_resp, class: "switch is-medium" do %>
+              <%= label f, :signed_assertion_in_resp, class: "ng-toggle" do %>
                 <%= checkbox(f, :signed_assertion_in_resp) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>
@@ -157,9 +157,9 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :signed_envelopes_in_resp, class: "switch is-medium" do %>
+              <%= label f, :signed_envelopes_in_resp, class: "ng-toggle" do %>
                 <%= checkbox(f, :signed_envelopes_in_resp) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>
@@ -180,9 +180,9 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :auto_create_users, class: "switch is-medium" do %>
+              <%= label f, :auto_create_users, class: "ng-toggle" do %>
                 <%= checkbox(f, :auto_create_users) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>

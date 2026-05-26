@@ -10,7 +10,7 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
   @impl Phoenix.LiveComponent
   def render(assigns) do
     ~H"""
-    <label class="switch is-medium">
+    <label class="ng-toggle">
       <input
         type="checkbox"
         phx-target={@myself}
@@ -21,7 +21,7 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
         checked={!@user.disabled_at}
         value={if(@user.disabled_at, do: "on")}
       />
-      <span class="check"></span>
+      <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
     </label>
     """
   end

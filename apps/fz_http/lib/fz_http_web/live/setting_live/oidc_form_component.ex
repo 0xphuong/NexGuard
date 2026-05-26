@@ -166,9 +166,9 @@ defmodule FzHttpWeb.SettingLive.OIDCFormComponent do
               </p>
             </div>
             <div class="level-right">
-              <%= label f, :auto_create_users, class: "switch is-medium" do %>
+              <%= label f, :auto_create_users, class: "ng-toggle" do %>
                 <%= checkbox(f, :auto_create_users) %>
-                <span class="check"></span>
+                <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
               <% end %>
             </div>
           </div>
