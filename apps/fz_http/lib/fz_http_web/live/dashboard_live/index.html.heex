@@ -58,31 +58,173 @@
     </div>
   </div>
 
-  <div class="ng-section-header">Quick Actions</div>
-  <div class="ng-quick-actions">
-    <.link navigate={~p"/users"} class="ng-action-btn">
-      <i class="mdi mdi-account-group"></i>
-      <span>Manage Users</span>
-    </.link>
-    <.link navigate={~p"/devices"} class="ng-action-btn">
-      <i class="mdi mdi-laptop"></i>
-      <span>Manage Devices</span>
-    </.link>
-    <.link navigate={~p"/rules"} class="ng-action-btn">
-      <i class="mdi mdi-traffic-light"></i>
-      <span>Firewall Rules</span>
-    </.link>
-    <.link navigate={~p"/settings/security"} class="ng-action-btn">
-      <i class="mdi mdi-lock-check"></i>
-      <span>Security Settings</span>
-    </.link>
-    <.link navigate={~p"/settings/customization"} class="ng-action-btn">
-      <i class="mdi mdi-palette"></i>
-      <span>Customization</span>
-    </.link>
-    <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-action-btn">
-      <i class="mdi mdi-access-point"></i>
-      <span>WAN Diagnostics</span>
-    </.link>
+  <div class="ng-dashboard-lower">
+    <%# ── Security Status ── %>
+    <div class="ng-security-panel">
+      <div class="ng-security-panel-header">
+        <i class="mdi mdi-shield-check-outline"></i>
+        Security Status
+      </div>
+
+      <%# MFA coverage %>
+      <% mfa_pct = mfa_pct(@users_with_mfa, @user_count) %>
+      <div class={"ng-security-row #{if mfa_pct < 80 && !@require_mfa, do: "ng-security-row--warn", else: ""}"}>
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-shield-account-outline ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">MFA Coverage</div>
+            <div class="ng-security-row-sub"><%= @users_with_mfa %> of <%= @user_count %> users enrolled</div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <%= if @require_mfa do %>
+            <span class="ng-sec-badge ng-sec-badge--ok">Force MFA On</span>
+          <% else %>
+            <span class={"ng-sec-badge #{if mfa_pct >= 80, do: "ng-sec-badge--ok", else: "ng-sec-badge--warn"}"}>
+              <%= mfa_pct %>%
+            </span>
+            <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Enable Force MFA</.link>
+          <% end %>
+        </div>
+      </div>
+
+      <%# Admin accounts %>
+      <div class={"ng-security-row #{if @admin_count > 3, do: "ng-security-row--warn", else: ""}"}>
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-shield-crown-outline ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">Admin Accounts</div>
+            <div class="ng-security-row-sub">Users with full admin access</div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <span class={"ng-sec-badge #{if @admin_count > 3, do: "ng-sec-badge--warn", else: "ng-sec-badge--ok"}"}>
+            <%= @admin_count %>
+          </span>
+          <.link navigate={~p"/users"} class="ng-sec-action-link">View users</.link>
+        </div>
+      </div>
+
+      <%# Stale devices %>
+      <div class={"ng-security-row #{if @stale_device_count > 0, do: "ng-security-row--warn", else: ""}"}>
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-laptop-off ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">Stale Devices</div>
+            <div class="ng-security-row-sub">No handshake in last 30 days</div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <span class={"ng-sec-badge #{if @stale_device_count > 0, do: "ng-sec-badge--warn", else: "ng-sec-badge--ok"}"}>
+            <%= @stale_device_count %>
+          </span>
+          <.link navigate={~p"/devices"} class="ng-sec-action-link">Review</.link>
+        </div>
+      </div>
+
+      <%# VPN session expiry %>
+      <div class="ng-security-row">
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-clock-outline ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">VPN Session Duration</div>
+            <div class="ng-security-row-sub">Sessions disconnect after this period</div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <span class={"ng-sec-badge #{if @vpn_session_duration == 0, do: "ng-sec-badge--warn", else: "ng-sec-badge--info"}"}>
+            <%= session_label(@vpn_session_duration) %>
+          </span>
+          <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Configure</.link>
+        </div>
+      </div>
+
+      <%# Auth methods %>
+      <div class="ng-security-row">
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-login-variant ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">Authentication Methods</div>
+            <div class="ng-security-row-sub">
+              <%= if @local_auth_enabled, do: "Local" %><%= if @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0), do: " · " %><%= if @oidc_provider_count > 0, do: "#{@oidc_provider_count} OIDC" %><%= if @oidc_provider_count > 0 && @saml_provider_count > 0, do: " · " %><%= if @saml_provider_count > 0, do: "#{@saml_provider_count} SAML" %>
+            </div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <span class={"ng-sec-badge #{if @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0), do: "ng-sec-badge--warn", else: "ng-sec-badge--info"}"}>
+            <%= cond do
+              @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0) -> "Mixed"
+              !@local_auth_enabled -> "SSO Only"
+              true -> "Local"
+            end %>
+          </span>
+          <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Configure</.link>
+        </div>
+      </div>
+
+      <%# WAN connectivity %>
+      <div class="ng-security-row">
+        <div class="ng-security-row-left">
+          <i class="mdi mdi-access-point ng-security-row-icon"></i>
+          <div>
+            <div class="ng-security-row-label">WAN Connectivity</div>
+            <div class="ng-security-row-sub">
+              <%= cond do %>
+                <% @last_connectivity_check -> %>
+                  Last check: <%= Calendar.strftime(@last_connectivity_check.inserted_at, "%b %d, %H:%M") %>
+                <% @connectivity_checks_enabled -> %>
+                  Enabled — no data yet
+                <% true -> %>
+                  Disabled in configuration
+              <% end %>
+            </div>
+          </div>
+        </div>
+        <div class="ng-security-row-right">
+          <%= cond do %>
+            <% @last_connectivity_check -> %>
+              <span class={"ng-sec-badge #{if @last_connectivity_check.response_code == 200, do: "ng-sec-badge--ok", else: "ng-sec-badge--risk"}"}>
+                HTTP <%= @last_connectivity_check.response_code %>
+              </span>
+            <% @connectivity_checks_enabled -> %>
+              <span class="ng-sec-badge ng-sec-badge--info">Pending</span>
+            <% true -> %>
+              <span class="ng-sec-badge ng-sec-badge--warn">Disabled</span>
+          <% end %>
+          <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-sec-action-link">View logs</.link>
+        </div>
+      </div>
+    </div>
+
+    <%# ── Quick Actions ── %>
+    <div>
+      <div class="ng-section-header">Quick Actions</div>
+      <div class="ng-quick-actions">
+        <.link navigate={~p"/users"} class="ng-action-btn">
+          <i class="mdi mdi-account-group"></i>
+          <span>Manage Users</span>
+        </.link>
+        <.link navigate={~p"/devices"} class="ng-action-btn">
+          <i class="mdi mdi-laptop"></i>
+          <span>Manage Devices</span>
+        </.link>
+        <.link navigate={~p"/rules"} class="ng-action-btn">
+          <i class="mdi mdi-traffic-light"></i>
+          <span>Firewall Rules</span>
+        </.link>
+        <.link navigate={~p"/settings/security"} class="ng-action-btn">
+          <i class="mdi mdi-lock-check"></i>
+          <span>Security Settings</span>
+        </.link>
+        <.link navigate={~p"/settings/customization"} class="ng-action-btn">
+          <i class="mdi mdi-palette"></i>
+          <span>Customization</span>
+        </.link>
+        <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-action-btn">
+          <i class="mdi mdi-access-point"></i>
+          <span>WAN Diagnostics</span>
+        </.link>
+      </div>
+    </div>
   </div>
 </section>
