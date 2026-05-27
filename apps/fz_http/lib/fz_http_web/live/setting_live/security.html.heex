@@ -1,6 +1,60 @@
 <% openid_connect_providers = Map.fetch!(@configs, :openid_connect_providers) %>
 <% saml_identity_providers = Map.fetch!(@configs, :saml_identity_providers) %>
 
+<%# ── Provider Delete Confirmation Modal ─────────────────────────────────── %>
+<%= if @pending_delete do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_provider_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_provider_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete <%= if @pending_delete.type == "openid_connect_providers", do: "OIDC Provider", else: "SAML Provider" %>
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_provider_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to delete the following provider:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @pending_delete.label %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
+          This will also:
+        </p>
+        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+          <li>Remove this provider from the login page immediately</li>
+          <li>Revoke all active SSO sessions for users authenticated via this provider</li>
+        </ul>
+        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
+          This action cannot be undone.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_provider_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete"
+          phx-value-key={@pending_delete.key}
+          phx-value-type={@pending_delete.type}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-trash-can-outline"></i> Delete Provider
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%= if @live_action == :edit_oidc do %>
   <%= live_modal(
     FzHttpWeb.SettingLive.OIDCFormComponent,
@@ -319,10 +373,10 @@
                       <% end %>
                       <button
                         class="ng-danger-link"
-                        phx-click="delete"
+                        phx-click="open_provider_delete"
                         phx-value-key={provider.id}
                         phx-value-type="openid_connect_providers"
-                        data-confirm={"Delete OIDC provider \"#{provider.label}\"?"}
+                        phx-value-label={provider.label}
                       >
                         <i class="mdi mdi-trash-can-outline"></i> Delete
                       </button>
@@ -395,10 +449,10 @@
                       <% end %>
                       <button
                         class="ng-danger-link"
-                        phx-click="delete"
+                        phx-click="open_provider_delete"
                         phx-value-key={provider.id}
                         phx-value-type="saml_identity_providers"
-                        data-confirm={"Delete SAML provider \"#{provider.label}\"?"}
+                        phx-value-label={provider.label}
                       >
                         <i class="mdi mdi-trash-can-outline"></i> Delete
                       </button>

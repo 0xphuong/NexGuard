@@ -1,9 +1,56 @@
+<%# ── Delete Connection Confirmation Modal ────────────────────────────────── %>
+<%= if @pending_conn_delete do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_conn_delete"
+       phx-key="escape"
+       phx-target={@myself}>
+    <div class="modal-background" phx-click="cancel_conn_delete" phx-target={@myself}></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete OIDC Connection
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_conn_delete" phx-target={@myself}>
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          Delete the connection to:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @pending_conn_delete.provider %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+          Deleting this connection will prevent VPN sessions from being disabled for OIDC errors from this provider until the connection is re-established.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_conn_delete" phx-target={@myself}>
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete"
+          phx-value-id={@pending_conn_delete.id}
+          phx-target={@myself}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-delete-outline"></i> Delete Connection
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
     <h4 class="ng-page-title">OIDC Connections</h4>
     <button
       class="ng-secondary-btn"
-      data-confirm="Refresh this users' tokens?"
       phx-click="refresh"
       phx-target={@myself}
     >
@@ -46,9 +93,9 @@
           <td>
             <button
               class="ng-danger-btn"
-              data-confirm={delete_warning(conn)}
-              phx-click="delete"
+              phx-click="open_conn_delete"
               phx-value-id={conn.id}
+              phx-value-provider={conn.provider}
               phx-target={@myself}
             >
               <i class="mdi mdi-delete-outline"></i>

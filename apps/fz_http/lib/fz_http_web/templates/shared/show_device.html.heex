@@ -1,3 +1,55 @@
+<%# ── Delete Device Confirmation Modal ───────────────────────────────────── %>
+<%= if assigns[:show_device_confirm] do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_device_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_device_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete Device
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_device_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to permanently delete:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @device.name %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
+          This will also:
+        </p>
+        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+          <li>Immediately disconnect this device from the VPN</li>
+          <li>Remove all associated WireGuard configuration</li>
+        </ul>
+        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
+          This action cannot be undone.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_device_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete_device"
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-delete"></i> Delete Device
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Page Header ──────────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -90,9 +142,7 @@
           <button
             class="ng-danger-btn"
             id="delete-device-button"
-            phx-click="delete_device"
-            phx-value-device_id={@device.id}
-            data-confirm="Are you sure? This will immediately disconnect this device and remove all associated data."
+            phx-click="confirm_device_delete"
           >
             <i class="mdi mdi-delete"></i> Delete Device
           </button>

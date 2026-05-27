@@ -5,6 +5,11 @@ defmodule FzHttpWeb.OIDCLive.ConnectionsTableComponent do
   use FzHttpWeb, :live_component
   alias FzHttp.Auth.OIDC
 
+  @impl Phoenix.LiveComponent
+  def update(assigns, socket) do
+    {:ok, socket |> assign(assigns) |> assign_new(:pending_conn_delete, fn -> nil end)}
+  end
+
   def handle_event("refresh", _payload, socket) do
     DynamicSupervisor.start_child(
       FzHttp.RefresherSupervisor,
@@ -17,19 +22,22 @@ defmodule FzHttpWeb.OIDCLive.ConnectionsTableComponent do
      |> push_redirect(to: ~p"/users/#{socket.assigns.user}")}
   end
 
+  def handle_event("open_conn_delete", %{"id" => id, "provider" => provider}, socket) do
+    {:noreply, assign(socket, :pending_conn_delete, %{id: id, provider: provider})}
+  end
+
+  def handle_event("cancel_conn_delete", _params, socket) do
+    {:noreply, assign(socket, :pending_conn_delete, nil)}
+  end
+
   def handle_event("delete", %{"id" => id}, socket) do
     conn = OIDC.get_connection!(id)
     {:ok, _connection} = OIDC.delete_connection(conn)
 
     {:noreply,
      socket
+     |> assign(:pending_conn_delete, nil)
      |> put_flash(:info, "The #{conn.provider} connection is deleted.")
      |> push_redirect(to: ~p"/users/#{socket.assigns.user}")}
-  end
-
-  defp delete_warning(conn) do
-    "Deleting the connection will prevent their VPN session from being " <>
-      "disabled for any OIDC errors from #{conn.provider} until the " <>
-      "connection is re-established. Proceed?"
   end
 end

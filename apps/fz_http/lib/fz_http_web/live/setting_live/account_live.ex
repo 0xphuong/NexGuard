@@ -38,6 +38,9 @@ defmodule FzHttpWeb.SettingLive.Account do
       |> assign(:page_title, @page_title)
       |> assign(:page_subtitle, @page_subtitle)
       |> assign(:rules_path, ~p"/rules")
+      |> assign(:show_account_delete_confirm, false)
+      |> assign(:pending_mfa_delete, nil)
+      |> assign(:pending_token_delete, nil)
       |> assign(
         :metas,
         get_metas(Presence.list(@live_sessions_topic), socket.assigns.current_user.id)
@@ -66,6 +69,30 @@ defmodule FzHttpWeb.SettingLive.Account do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("open_account_delete_confirm", _params, socket) do
+    {:noreply, assign(socket, :show_account_delete_confirm, true)}
+  end
+
+  def handle_event("cancel_account_delete", _params, socket) do
+    {:noreply, assign(socket, :show_account_delete_confirm, false)}
+  end
+
+  def handle_event("open_mfa_delete", %{"id" => id, "name" => name}, socket) do
+    {:noreply, assign(socket, :pending_mfa_delete, %{id: id, name: name})}
+  end
+
+  def handle_event("cancel_mfa_delete", _params, socket) do
+    {:noreply, assign(socket, :pending_mfa_delete, nil)}
+  end
+
+  def handle_event("open_token_delete", %{"id" => id}, socket) do
+    {:noreply, assign(socket, :pending_token_delete, %{id: id})}
+  end
+
+  def handle_event("cancel_token_delete", _params, socket) do
+    {:noreply, assign(socket, :pending_token_delete, nil)}
+  end
+
   def handle_event("delete_api_token", %{"id" => id}, socket) do
     case ApiTokens.delete_api_token_by_id(id, socket.assigns.subject) do
       {:ok, _api_token} ->
@@ -75,10 +102,10 @@ defmodule FzHttpWeb.SettingLive.Account do
             socket.assigns.subject
           )
 
-        {:noreply, assign(socket, :api_tokens, api_tokens)}
+        {:noreply, socket |> assign(:api_tokens, api_tokens) |> assign(:pending_token_delete, nil)}
 
       {:error, :not_found} ->
-        {:noreply, socket}
+        {:noreply, assign(socket, :pending_token_delete, nil)}
     end
   end
 
@@ -86,14 +113,14 @@ defmodule FzHttpWeb.SettingLive.Account do
   def handle_event("delete_authenticator", %{"id" => id}, socket) do
     with {:ok, _method} <- MFA.delete_method_by_id(id, socket.assigns.current_user) do
       {:ok, methods} = MFA.list_methods_for_user(socket.assigns.current_user)
-      {:noreply, assign(socket, :methods, methods)}
+      {:noreply, socket |> assign(:methods, methods) |> assign(:pending_mfa_delete, nil)}
     else
       {:error, :not_found} ->
         {:ok, methods} = MFA.list_methods_for_user(socket.assigns.current_user)
-        {:noreply, assign(socket, :methods, methods)}
+        {:noreply, socket |> assign(:methods, methods) |> assign(:pending_mfa_delete, nil)}
 
       false ->
-        {:noreply, socket}
+        {:noreply, assign(socket, :pending_mfa_delete, nil)}
     end
   end
 

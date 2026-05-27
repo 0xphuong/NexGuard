@@ -25,6 +25,116 @@
   ) %>
 <% end %>
 
+<%# ── Delete Confirmation Modal ────────────────────────────────────────────── %>
+<%= if @show_delete_confirm do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete User
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to permanently delete:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @user.email %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
+          This will also:
+        </p>
+        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+          <li>Delete all associated devices</li>
+          <li>Instantly drop any active VPN sessions</li>
+        </ul>
+        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
+          This action cannot be undone.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete_user"
+          phx-value-user_id={@user.id}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-delete"></i> Delete User
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Promote / Demote Confirmation Modal ─────────────────────────────────── %>
+<%= if @show_mote_confirm do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_mote"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_mote"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class={"mdi #{mote_icon(@user)}"} style="color:#dc2626;margin-right:0.4rem"></i>
+          <%= mote(@user) %> User
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_mote">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to change the role for:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @user.email %>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.625rem;margin-bottom:1rem;font-size:0.875rem">
+          <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;
+                       padding:0.25rem 0.625rem;color:#475569;font-weight:600">
+            <%= @user.role %>
+          </span>
+          <i class="mdi mdi-arrow-right" style="color:#94a3b8"></i>
+          <span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:5px;
+                       padding:0.25rem 0.625rem;color:#1e293b;font-weight:600">
+            <%= mote_target_role(@user) %>
+          </span>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+          <%= mote_message(@user) %>
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_mote">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="confirm_mote"
+          phx-value-user_id={@user.id}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class={"mdi #{mote_icon(@user)}"}></i> <%= mote(@user) %> User
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Page Header ──────────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -134,14 +244,9 @@
           <div class="ng-danger-zone-label">Promote or Demote User</div>
           <p class="ng-danger-zone-desc">Promote to admin or demote to unprivileged role.</p>
         </div>
-        <button
-          class="ng-danger-btn"
-          data-confirm={"Are you sure? #{mote_message(@user)}"}
-          phx-click={mote(@user)}
-          phx-value-user_id={@user.id}
-        >
-          <i class="mdi mdi-account-arrow-up"></i>
-          <span class="is-capitalized"><%= mote(@user) %></span>
+        <button class="ng-danger-btn" phx-click="open_mote_confirm">
+          <i class={"mdi #{mote_icon(@user)}"}></i>
+          <%= mote(@user) %> User
         </button>
       </div>
       <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />
@@ -150,12 +255,7 @@
           <div class="ng-danger-zone-label">Delete User</div>
           <p class="ng-danger-zone-desc">Permanently delete this user and all their devices. This action cannot be undone.</p>
         </div>
-        <button
-          class="ng-danger-btn"
-          data-confirm="Are you sure? This will permanently delete this user, all associated devices and instantly drop any active VPN sessions."
-          phx-click="delete_user"
-          phx-value-user_id={@user.id}
-        >
+        <button class="ng-danger-btn" phx-click="confirm_delete">
           <i class="mdi mdi-delete"></i> Delete User
         </button>
       </div>

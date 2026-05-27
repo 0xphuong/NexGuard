@@ -1,3 +1,147 @@
+<%# ── MFA Delete Confirmation Modal ──────────────────────────────────────── %>
+<%= if @pending_mfa_delete do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_mfa_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_mfa_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-shield-remove-outline" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete Authenticator
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_mfa_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to delete:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @pending_mfa_delete.name %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+          If this is your only MFA method and Force MFA is enabled, you will be required to re-enroll on next login.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_mfa_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete_authenticator"
+          phx-value-id={@pending_mfa_delete.id}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-trash-can-outline"></i> Delete
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── API Token Delete Confirmation Modal ────────────────────────────────── %>
+<%= if @pending_token_delete do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_token_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_token_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-key-remove" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete API Token
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_token_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          Delete API token:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.875rem;color:#991b1b;
+                    word-break:break-all">
+          <%= @pending_token_delete.id %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+          Any services or scripts using this token will immediately lose API access.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_token_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete_api_token"
+          phx-value-id={@pending_token_delete.id}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-key-remove"></i> Delete Token
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Delete Account Confirmation Modal ──────────────────────────────────── %>
+<%= if @show_account_delete_confirm do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_account_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_account_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete Your Account
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_account_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to permanently delete:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @current_user.email %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
+          This will also:
+        </p>
+        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+          <li>Delete all your devices and WireGuard configurations</li>
+          <li>Revoke all your API tokens</li>
+          <li>Drop all active VPN sessions immediately</li>
+        </ul>
+        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
+          This action cannot be undone. You will be signed out immediately.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_account_delete">
+          Cancel
+        </button>
+        <%= form_for @changeset, ~p"/user", [id: "delete-account", method: :delete], fn _f -> %>
+          <%= submit(class: "ng-danger-btn", style: "background:#dc2626;color:#fff") do %>
+            <i class="mdi mdi-trash-can-outline"></i> Delete My Account
+          <% end %>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Modal triggers ──────────────────────────────────────────────── %>
 <%= if @live_action == :edit do %>
   <%= live_modal(
@@ -174,14 +318,13 @@
                   >…</span>
                 </td>
                 <td>
-                  <.link
+                  <button
                     class="ng-danger-link"
-                    data-confirm="Are you sure?"
-                    phx-click="delete_api_token"
+                    phx-click="open_token_delete"
                     phx-value-id={api_token.id}
                   >
                     <i class="mdi mdi-trash-can-outline"></i> Delete
-                  </.link>
+                  </button>
                 </td>
               </tr>
             <% end %>
@@ -238,15 +381,13 @@
             <% end %>
           </p>
         </div>
-        <%= form_for @changeset, ~p"/sign_out", [id: "delete-account", method: :delete], fn _f -> %>
-          <%= submit(
-            class: "ng-danger-btn",
-            data: if(@allow_delete, do: [confirm: "Delete your account permanently?"], else: []),
-            disabled: !@allow_delete
-          ) do %>
-            <i class="mdi mdi-trash-can-outline"></i> Delete Account
-          <% end %>
-        <% end %>
+        <button
+          class="ng-danger-btn"
+          phx-click="open_account_delete_confirm"
+          disabled={!@allow_delete}
+        >
+          <i class="mdi mdi-trash-can-outline"></i> Delete Account
+        </button>
       </div>
     </div>
   </div>

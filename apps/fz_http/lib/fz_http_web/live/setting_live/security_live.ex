@@ -32,6 +32,7 @@ defmodule FzHttpWeb.SettingLive.Security do
       |> assign(:form_changed, false)
       |> assign(:configuration_changeset, configuration_changeset())
       |> assign(:configs, FzHttp.Config.fetch_source_and_configs!(@configs))
+      |> assign(:pending_delete, nil)
 
     {:ok, socket}
   end
@@ -77,6 +78,14 @@ defmodule FzHttpWeb.SettingLive.Security do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("open_provider_delete", %{"type" => type, "key" => key, "label" => label}, socket) do
+    {:noreply, assign(socket, :pending_delete, %{type: type, key: key, label: label})}
+  end
+
+  def handle_event("cancel_provider_delete", _params, socket) do
+    {:noreply, assign(socket, :pending_delete, nil)}
+  end
+
   def handle_event("delete", %{"type" => type, "key" => key}, socket) do
     field_key = String.to_existing_atom(type)
 
@@ -93,7 +102,7 @@ defmodule FzHttpWeb.SettingLive.Security do
 
     configs = FzHttp.Config.fetch_source_and_configs!(@configs)
 
-    {:noreply, assign(socket, :configs, configs)}
+    {:noreply, socket |> assign(:configs, configs) |> assign(:pending_delete, nil)}
   end
 
   def config_has_override?({{source, _source_key}, _key}), do: source not in [:db]

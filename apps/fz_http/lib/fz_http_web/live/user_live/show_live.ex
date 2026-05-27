@@ -22,7 +22,9 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:connections, connections)
      |> assign(:user, user)
      |> assign(:page_title, "Users")
-     |> assign(:rules_path, ~p"/rules")}
+     |> assign(:rules_path, ~p"/rules")
+     |> assign(:show_delete_confirm, false)
+     |> assign(:show_mote_confirm, false)}
   end
 
   @doc """
@@ -41,6 +43,49 @@ defmodule FzHttpWeb.UserLive.Show do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("confirm_delete", _params, socket) do
+    {:noreply, assign(socket, :show_delete_confirm, true)}
+  end
+
+  def handle_event("cancel_delete", _params, socket) do
+    {:noreply, assign(socket, :show_delete_confirm, false)}
+  end
+
+  def handle_event("open_mote_confirm", _params, socket) do
+    {:noreply, assign(socket, :show_mote_confirm, true)}
+  end
+
+  def handle_event("cancel_mote", _params, socket) do
+    {:noreply, assign(socket, :show_mote_confirm, false)}
+  end
+
+  def handle_event("confirm_mote", %{"user_id" => user_id}, socket) do
+    role = mote_target_role(socket.assigns.user)
+
+    with {:ok, user} <- Users.fetch_user_by_id(user_id, socket.assigns.subject),
+         {:ok, user} <- Users.update_user(user, %{role: role}, socket.assigns.subject) do
+      FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
+
+      {:noreply,
+       socket
+       |> assign(:user, user)
+       |> assign(:show_mote_confirm, false)
+       |> put_flash(:info, "User updated successfully.")}
+    else
+      {:error, %Ecto.Changeset{} = changeset} ->
+        {:noreply,
+         socket
+         |> assign(:show_mote_confirm, false)
+         |> put_flash(:error, "Error, #{ErrorHelpers.aggregated_errors(changeset)}")}
+
+      {:error, reason} ->
+        {:noreply,
+         socket
+         |> assign(:show_mote_confirm, false)
+         |> put_flash(:error, "Error updating user: #{inspect(reason)}")}
+    end
+  end
+
   def handle_event("delete_user", %{"user_id" => user_id}, socket) do
     if user_id == "#{socket.assigns.current_user.id}" do
       {:noreply,
@@ -69,54 +114,23 @@ defmodule FzHttpWeb.UserLive.Show do
     end
   end
 
-  @impl Phoenix.LiveView
-  def handle_event(action, %{"user_id" => user_id}, socket) when action in ~w(promote demote) do
-    role =
-      case action do
-        "promote" -> :admin
-        "demote" -> :unprivileged
-      end
-
-    with {:ok, user} <- Users.fetch_user_by_id(user_id, socket.assigns.subject),
-         {:ok, user} <- Users.update_user(user, %{role: role}, socket.assigns.subject) do
-      # Force reconnect with new role
-      FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
-
-      socket =
-        socket
-        |> assign(:user, user)
-        |> put_flash(:info, "User updated successfully.")
-
-      {:noreply, socket}
-    else
-      {:error, %Ecto.Changeset{} = changeset} ->
-        message = "Error, #{ErrorHelpers.aggregated_errors(changeset)}"
-        socket = put_flash(socket, :error, message)
-        {:noreply, socket}
-
-      {:error, reason} ->
-        message = "Error updating user: #{inspect(reason)}"
-        socket = put_flash(socket, :error, message)
-        {:noreply, socket}
-    end
-  end
-
   @action_and_message %{
     admin: %{
-      action: "demote",
-      message: "This will remove admin permissions from the user."
+      action: "Demote",
+      message: "This will remove admin permissions from the user.",
+      icon: "mdi-account-arrow-down",
+      target_role: :unprivileged
     },
     unprivileged: %{
-      action: "promote",
-      message: "This will give admin permissions to the user."
+      action: "Promote",
+      message: "This will give admin permissions to the user.",
+      icon: "mdi-account-arrow-up",
+      target_role: :admin
     }
   }
 
-  defp mote(%{role: role}) do
-    @action_and_message[role].action
-  end
-
-  defp mote_message(%{role: role}) do
-    @action_and_message[role].message
-  end
+  defp mote(%{role: role}), do: @action_and_message[role].action
+  defp mote_message(%{role: role}), do: @action_and_message[role].message
+  defp mote_icon(%{role: role}), do: @action_and_message[role].icon
+  defp mote_target_role(%{role: role}), do: @action_and_message[role].target_role
 end

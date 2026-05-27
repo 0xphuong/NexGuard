@@ -22,9 +22,9 @@
           <td>
             <button
               class="ng-danger-link"
-              data-confirm={"Delete authenticator \"#{method.name}\"?"}
-              phx-click="delete_authenticator"
+              phx-click="open_mfa_delete"
               phx-value-id={method.id}
+              phx-value-name={method.name}
             >
               <i class="mdi mdi-trash-can-outline"></i> Delete
             </button>

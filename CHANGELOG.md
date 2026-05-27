@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.3] - 2026-05-27
+
+### Changed
+- **Replaced all `data-confirm` (browser native dialogs) with styled LiveView modals** across the entire admin UI — all destructive and role-changing actions now use consistent `modal-card` modals matching the `ng-*` design system; each modal shows the target object (email, device name, provider label, token ID) in a monospace block, lists specific consequences, and supports Escape-to-close and backdrop-click-to-close
+- **Refresh Tokens** (OIDC Connections table): removed `data-confirm` entirely — non-destructive action does not require confirmation
+
+### Fixed
+- **Delete Your Account** was submitting to `DELETE /sign_out` (session logout only) instead of `DELETE /user` (account deletion) — form action corrected; account is now actually deleted when confirmed
+
+### UI — Modals added
+
+| Action | Location | Pattern |
+|---|---|---|
+| Delete User | User Detail page | Parent LiveView modal |
+| Promote / Demote User | User Detail page | Parent LiveView modal with role transition display (`current → new`) |
+| Disable VPN Connection | User Detail page | `VPNConnectionComponent` internal modal — confirm only on disable, enable executes immediately |
+| Delete Device | Device Detail page (admin + unprivileged) | Shared template modal, both LiveViews wired |
+| Delete OIDC Provider | Security Settings | Single shared modal driven by `pending_delete` assign; title adapts to OIDC vs SAML |
+| Delete SAML Provider | Security Settings | (same modal as above) |
+| Delete Your Account | Account Settings | Modal gates the form submit to `DELETE /user` |
+| Delete MFA Authenticator | Account Settings (admin + unprivileged) | Shared template button, modal in each parent template |
+| Delete API Token | Account Settings | Parent LiveView modal showing full token UUID |
+| Delete OIDC Connection | User Detail → OIDC Connections | `ConnectionsTableComponent` internal modal with provider-specific warning |
+
+---
+
 ## [1.2.2] - 2026-05-27
 
 ### Added

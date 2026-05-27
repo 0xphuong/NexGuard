@@ -21,6 +21,14 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Show do
   end
 
   @impl Phoenix.LiveView
+  def handle_event("confirm_device_delete", _params, socket) do
+    {:noreply, assign(socket, :show_device_confirm, true)}
+  end
+
+  def handle_event("cancel_device_delete", _params, socket) do
+    {:noreply, assign(socket, :show_device_confirm, false)}
+  end
+
   def handle_event("delete_device", _params, socket) do
     device = socket.assigns.device
 
@@ -43,6 +51,7 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Show do
       device: device,
       user: Users.fetch_user_by_id!(device.user_id),
       page_title: device.name,
+      show_device_confirm: false,
       allowed_ips: Devices.get_allowed_ips(device, defaults),
       dns: Devices.get_dns(device, defaults),
       endpoint: Devices.get_endpoint(device, defaults),

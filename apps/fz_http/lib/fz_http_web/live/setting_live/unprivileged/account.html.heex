@@ -1,3 +1,49 @@
+<%# ── MFA Delete Confirmation Modal ──────────────────────────────────────── %>
+<%= if @pending_mfa_delete do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_mfa_delete"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_mfa_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-shield-remove-outline" style="color:#dc2626;margin-right:0.4rem"></i>
+          Delete Authenticator
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_mfa_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p style="color:#1e293b;margin-bottom:0.875rem">
+          You are about to delete:
+        </p>
+        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
+                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
+                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
+          <%= @pending_mfa_delete.name %>
+        </div>
+        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+          If this is your only MFA method and Force MFA is enabled, you will be required to re-enroll on next login.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_mfa_delete">
+          Cancel
+        </button>
+        <button
+          class="ng-danger-btn"
+          phx-click="delete_authenticator"
+          phx-value-id={@pending_mfa_delete.id}
+          style="background:#dc2626;color:#fff"
+        >
+          <i class="mdi mdi-trash-can-outline"></i> Delete
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Modal triggers ──────────────────────────────────────────────── %>
 <%= if @live_action == :change_password do %>
   <%= live_modal(
