@@ -2684,55 +2684,19 @@ pre {
   white-space: nowrap;
 }
 
-.ng-audit-retention-form {
-  display: inline-flex;
+// ── Toolbar (filters + count) ─────────────────────────────────────
+
+.ng-audit-toolbar {
+  display: flex;
   align-items: center;
-}
-
-.ng-audit-retention-input {
-  width: 3.5rem;
-  border: none;
-  background: transparent;
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #475569;
-  text-align: center;
-  padding: 0;
-  outline: none;
-
-  &:focus {
-    border-bottom: 1px solid #94a3b8;
-  }
-
-  // Remove number input spinners
-  &::-webkit-outer-spin-button,
-  &::-webkit-inner-spin-button {
-    -webkit-appearance: none;
-    margin: 0;
-  }
-  -moz-appearance: textfield;
-}
-
-.ng-audit-retention-save {
-  display: inline-flex;
-  align-items: center;
-  background: none;
-  border: none;
-  padding: 0 0 0 0.25rem;
-  cursor: pointer;
-  color: #64748b;
-  font-size: 0.85rem;
-  line-height: 1;
-
-  &:hover {
-    color: #0f172a;
-  }
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.875rem;
 }
 
 .ng-audit-filters {
   display: flex;
   gap: 0.625rem;
-  margin-bottom: 1rem;
 }
 
 .ng-audit-filter-select {
@@ -2753,9 +2717,43 @@ pre {
   }
 }
 
+.ng-audit-filter-count {
+  font-size: 0.8125rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  strong { color: #475569; }
+}
+
+// ── Table ─────────────────────────────────────────────────────────
+
 .ng-audit-table {
-  .ng-audit-ts { white-space: nowrap; font-size: 0.8125rem; }
-  .ng-audit-actor { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ng-audit-ts {
+    white-space: nowrap;
+    font-size: 0.8125rem;
+  }
+
+  .ng-audit-actor {
+    font-weight: 500;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  // Row hover — critical for scanning across 6 columns
+  tbody tr:hover td {
+    background: #f8fafc;
+  }
+
+  .ng-audit-th-result {
+    text-align: center;
+  }
+
+  .ng-audit-result-cell {
+    text-align: center;
+  }
 }
 
 .ng-audit-empty {
@@ -2767,7 +2765,40 @@ pre {
   .mdi { font-size: 1.5rem; display: block; margin-bottom: 0.5rem; }
 }
 
-// Action category badges
+// ── Target column ─────────────────────────────────────────────────
+
+.ng-audit-target {
+  white-space: nowrap;
+}
+
+.ng-audit-target-type {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 400;
+
+  &::after { content: ":"; margin-right: 0.2rem; }
+}
+
+.ng-audit-target-label {
+  font-size: 0.8125rem;
+  color: #334155;
+  font-weight: 500;
+}
+
+// ── Result icon (icon-only, no text) ──────────────────────────────
+
+.ng-result-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+
+  &--success { color: #16a34a; }
+  &--failure { color: #dc2626; }
+}
+
+// ── Action category badges ─────────────────────────────────────────
+
 .ng-action-badge {
   display: inline-block;
   font-family: 'Fira Mono', monospace;
@@ -2785,23 +2816,8 @@ pre {
   &--api    { background: #fef9c3; color: #92400e; }
 }
 
-// Result badges
-.ng-result-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  padding: 0.2rem 0.5rem;
-  border-radius: 5px;
-  white-space: nowrap;
-  text-transform: capitalize;
+// ── Pagination ────────────────────────────────────────────────────
 
-  &--success { background: #f0fdf4; color: #16a34a; }
-  &--failure { background: #fef2f2; color: #dc2626; }
-}
-
-// Pagination
 .ng-pagination {
   display: flex;
   align-items: center;
@@ -2840,4 +2856,94 @@ pre {
   font-size: 0.875rem;
   color: #64748b;
   font-weight: 500;
+}
+
+// ── Retention Policy Panel ────────────────────────────────────────
+
+.ng-audit-retention-panel {
+  margin-top: 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+
+.ng-audit-retention-panel-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+.ng-audit-retention-panel-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.ng-audit-retention-panel-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+  margin: 0 0 0.2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+
+  .mdi { color: #64748b; }
+}
+
+.ng-audit-retention-panel-desc {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.ng-audit-retention-panel-form {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.ng-audit-retention-panel-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.875rem;
+  color: #475569;
+  white-space: nowrap;
+}
+
+.ng-audit-retention-panel-input {
+  width: 4rem;
+  height: 2rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #1e293b;
+  text-align: center;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  -moz-appearance: textfield;
+}
+
+.ng-primary-btn--sm {
+  padding: 0.4rem 0.875rem;
+  font-size: 0.8125rem;
 }

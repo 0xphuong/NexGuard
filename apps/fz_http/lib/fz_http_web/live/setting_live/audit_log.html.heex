@@ -6,27 +6,13 @@
       <p class="ng-page-subtitle">Immutable record of all security-relevant events.</p>
     </div>
     <div class="ng-audit-header-meta">
-      <form phx-submit="update_retention" class="ng-audit-retention-form">
-        <span class="ng-audit-retention-badge">
-          <i class="mdi mdi-clock-outline"></i>
-          Retain for
-          <input
-            type="number"
-            name="retention[days]"
-            value={@retention_days}
-            min="1"
-            max="3650"
-            class="ng-audit-retention-input"
-          />
-          days
-          <button type="submit" class="ng-audit-retention-save" title="Save retention policy">
-            <i class="mdi mdi-check"></i>
-          </button>
-        </span>
-      </form>
+      <span class="ng-audit-retention-badge">
+        <i class="mdi mdi-clock-outline"></i>
+        <%= @retention_days %>-day retention
+      </span>
       <span class="ng-audit-count-badge">
         <i class="mdi mdi-format-list-bulleted"></i>
-        <%= @total %> events
+        <%= @grand_total %> events
       </span>
     </div>
   </div>
@@ -35,25 +21,35 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Filters ──────────────────────────────────────────────────── %>
-  <.form
-    :let={_f}
-    for={%{}}
-    phx-change="filter"
-    class="ng-audit-filters"
-  >
-    <select name="category" class="ng-audit-filter-select">
-      <%= for {label, value} <- @categories do %>
-        <option value={value} selected={value == @category}><%= label %></option>
-      <% end %>
-    </select>
+  <%# ── Toolbar: filters + result count ────────────────────────── %>
+  <div class="ng-audit-toolbar">
+    <.form
+      :let={_f}
+      for={%{}}
+      phx-change="filter"
+      class="ng-audit-filters"
+    >
+      <select name="category" class="ng-audit-filter-select">
+        <%= for {label, value} <- @categories do %>
+          <option value={value} selected={value == @category}><%= label %></option>
+        <% end %>
+      </select>
 
-    <select name="result" class="ng-audit-filter-select">
-      <%= for {label, value} <- @results do %>
-        <option value={value} selected={value == @result_filter}><%= label %></option>
+      <select name="result" class="ng-audit-filter-select">
+        <%= for {label, value} <- @results do %>
+          <option value={value} selected={value == @result_filter}><%= label %></option>
+        <% end %>
+      </select>
+    </.form>
+
+    <span class="ng-audit-filter-count">
+      <%= if @category != "" or @result_filter != "" do %>
+        Showing <strong><%= @total %></strong> of <%= @grand_total %> events
+      <% else %>
+        <%= @grand_total %> events total
       <% end %>
-    </select>
-  </.form>
+    </span>
+  </div>
 
   <%# ── Table ───────────────────────────────────────────────────── %>
   <div class="ng-table-wrap">
@@ -63,7 +59,7 @@
           <th>Time</th>
           <th>Actor</th>
           <th>Action</th>
-          <th>Result</th>
+          <th class="ng-audit-th-result">Result</th>
           <th>Target</th>
           <th>IP</th>
         </tr>
@@ -100,21 +96,31 @@
                 </span>
               </td>
 
-              <%# Result %>
-              <td>
-                <span class={"ng-result-badge ng-result-badge--#{log.result}"}>
+              <%# Result — icon only %>
+              <td class="ng-audit-result-cell">
+                <span
+                  class={"ng-result-icon ng-result-icon--#{log.result}"}
+                  title={log.result}
+                >
                   <%= if log.result == "success" do %>
                     <i class="mdi mdi-check-circle"></i>
                   <% else %>
                     <i class="mdi mdi-alert-circle"></i>
                   <% end %>
-                  <%= log.result %>
                 </span>
               </td>
 
-              <%# Target %>
-              <td class="ng-td-muted">
-                <%= format_target(log.target_type, log.target_id, log.target_label) || "—" %>
+              <%# Target — type muted, label bold %>
+              <td class="ng-audit-target">
+                <% parts = target_parts(log.target_type, log.target_id, log.target_label) %>
+                <%= if parts do %>
+                  <span class="ng-audit-target-type"><%= elem(parts, 0) %></span>
+                  <%= if elem(parts, 1) do %>
+                    <span class="ng-audit-target-label"><%= elem(parts, 1) %></span>
+                  <% end %>
+                <% else %>
+                  <span class="ng-td-muted">—</span>
+                <% end %>
               </td>
 
               <%# IP %>
@@ -152,5 +158,38 @@
       </button>
     </div>
   <% end %>
+
+  <%# ── Retention Policy Panel ───────────────────────────────────── %>
+  <div class="ng-audit-retention-panel">
+    <div class="ng-audit-retention-panel-inner">
+      <div class="ng-audit-retention-panel-text">
+        <p class="ng-audit-retention-panel-title">
+          <i class="mdi mdi-clock-remove-outline"></i>
+          Retention Policy
+        </p>
+        <p class="ng-audit-retention-panel-desc">
+          Entries older than the configured number of days are deleted automatically each day.
+        </p>
+      </div>
+      <form phx-submit="update_retention" class="ng-audit-retention-panel-form">
+        <label class="ng-audit-retention-panel-label">
+          Keep logs for
+          <input
+            type="number"
+            name="retention[days]"
+            value={@retention_days}
+            min="1"
+            max="3650"
+            class="ng-audit-retention-panel-input"
+          />
+          days
+        </label>
+        <button type="submit" class="ng-primary-btn ng-primary-btn--sm">
+          <i class="mdi mdi-check"></i>
+          Save
+        </button>
+      </form>
+    </div>
+  </div>
 
 </section>

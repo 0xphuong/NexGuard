@@ -89,11 +89,9 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   def format_actor(_id, email) when is_binary(email), do: email
   def format_actor(_id, _), do: "—"
 
-  def format_target(nil, nil, nil), do: nil
-  def format_target(type, _id, label) when is_binary(type) do
-    if label, do: "#{type}: #{label}", else: type
-  end
-  def format_target(_, _, _), do: nil
+  def target_parts(nil, _, _), do: nil
+  def target_parts(type, _id, label) when is_binary(type), do: {type, label}
+  def target_parts(_, _, _), do: nil
 
   # ── Private ──────────────────────────────────────────────────────
 
@@ -101,11 +99,13 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
     filters = base_filters(socket)
     logs = AuditLogs.list_logs([{:page, socket.assigns.page} | filters])
     total = AuditLogs.count_logs(filters)
+    grand_total = AuditLogs.count_logs([])
     total_pages = max(1, ceil(total / @page_size))
 
     socket
     |> assign(:logs, logs)
     |> assign(:total, total)
+    |> assign(:grand_total, grand_total)
     |> assign(:total_pages, total_pages)
   end
 

@@ -9,6 +9,42 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.0] - 2026-05-27
+
+### Added
+
+- **Immutable Audit Log** — new `/settings/audit_log` page records every security-relevant event with actor, action, result, target, IP address, and timestamp; events are append-only (no edit or delete from UI/API)
+- **Audit event coverage** — the following event types are captured:
+
+  | Category | Events |
+  |---|---|
+  | Authentication | `auth.login`, `auth.logout`, `auth.login_failure`, `auth.mfa_success`, `auth.mfa_failure` |
+  | Users | `user.create`, `user.update`, `user.delete`, `user.enable`, `user.disable` |
+  | Devices | `device.create`, `device.delete` |
+  | Rules | `rule.create`, `rule.update`, `rule.delete` |
+  | Config | `config.change` |
+
+- **Actor & IP tracking** — all events record the actor email and the originating IP address; events triggered via the REST API use the request IP; LiveView events use the WebSocket remote IP; system events (e.g. auto-expiry) log without actor
+- **Target field** — events reference the affected object by type and label (e.g. `user: admin@corp.com`, `device: laptop`, `configuration: system`)
+- **Configurable retention policy** — default 90 days; adjustable from 1 to 3650 days directly from the Audit Log settings page; backed by the `configurations` DB table (env var `AUDIT_LOG_RETENTION_DAYS` overrides and locks the UI field)
+- **Daily purge** — `FzHttp.AuditLog.RetentionScheduler` GenServer runs once per day and deletes entries older than the configured retention window; reads the live DB value so changes take effect without a restart
+- **Filterable log view** — filter by event category (Auth / Users / Config / Devices / Rules) and result (Success / Failure); shows "Showing N of M events" count when a filter is active
+- **Paginated table** — 50 events per page with Prev / Next navigation; timestamps formatted client-side to local timezone via `FormatTimestamp` LiveView hook
+- New `audit_logs` table (migration `20260527000001`) with `action`, `actor_id`, `actor_email`, `ip_address`, `result`, `target_type`, `target_id`, `target_label`, `metadata` (JSONB), `inserted_at`
+- New `audit_log_retention_days` integer column in `configurations` table (migration `20260527000002`), default 90
+
+### UI
+
+- Audit Log page: dense log-console layout — color-coded action badges per category, success/failure icon-only result column, muted type prefix on target column, row hover highlight for cross-column scanning
+- Retention Policy panel at bottom of page with explicit input + Save button (replaces previous hidden inline badge form)
+- Page header shows read-only `N-day retention` and total event count badges
+- Sidebar: **Audit Log** entry added under Settings
+
+[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/0xphuong/NexGuard/compare/v1.2.3...v1.3.0
+
+---
+
 ## [1.2.3] - 2026-05-27
 
 ### Changed
@@ -162,7 +198,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Connectivity checks and telemetry (opt-out supported)
 - Automatic TLS via Caddy reverse proxy
 
-[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.1.2...HEAD
+[1.2.3]: https://github.com/0xphuong/NexGuard/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/0xphuong/NexGuard/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/0xphuong/NexGuard/compare/v1.2.0...v1.2.1
+[1.2.0]: https://github.com/0xphuong/NexGuard/compare/v1.1.2...v1.2.0
 [1.1.2]: https://github.com/0xphuong/NexGuard/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/0xphuong/NexGuard/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/0xphuong/NexGuard/compare/v1.0.2...v1.1.0
