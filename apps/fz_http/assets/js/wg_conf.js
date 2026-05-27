@@ -56,6 +56,19 @@ const renderTunnel = function (config) {
   let container = document.getElementById("wg-conf-container")
   code.innerHTML = config
   container.classList.remove("is-hidden")
+
+  let copyBtn = document.getElementById("copy-config-btn")
+  if (copyBtn) {
+    copyBtn.classList.remove("is-hidden")
+    copyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(config).then(() => {
+        copyBtn.innerHTML = '<i class="mdi mdi-check"></i> Copied!'
+        setTimeout(() => {
+          copyBtn.innerHTML = '<i class="mdi mdi-content-copy"></i> Copy'
+        }, 2000)
+      })
+    })
+  }
 }
 
 export { renderConfig }

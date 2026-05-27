@@ -17,7 +17,7 @@ defmodule FzHttpWeb.ModalComponent do
       phx-page-loading
     >
       <div class="modal-background"></div>
-      <div class="modal-card">
+      <div class={"modal-card#{if @opts[:wide], do: " modal-card--wide", else: ""}"}>
         <header class="modal-card-head">
           <p class="modal-card-title"><%= @opts[:title] %></p>
           <button class="ng-modal-close" aria-label="Close" phx-click="close" phx-target={@myself}>

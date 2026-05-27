@@ -6,48 +6,56 @@
   phx-hook="RenderConfig"
 >
   <%= if @device && @config do %>
-    <div class="content">
-      <p>
-        <strong>Device added!</strong>
-      </p>
+    <%# ── Config result state ──────────────────────────────────────── %>
+    <div class="ng-device-config">
 
-      <p>
-        To use this configuration, you'll need a WireGuard client installed
-        for your device. See
-        <a target="_blank" href="https://docs.nexguard.binhphuong.io.vn/user-guides/client-instructions/">
-          the NexGuard documentation
-        </a>
-        for a step-by-step guide.
-      </p>
-
-      <p>
-        <strong>NOTE:</strong>
-        This configuration <strong>WILL NOT</strong>
-        be viewable again. Please ensure you've downloaded the
-        configuration file or copied it somewhere safe
-        before closing this window.
-      </p>
-
-      <div id="generating-config">
-        <p>Rendering configuration...</p>
-        <i class="fa fa-spinner fa-spin"></i>
+      <div class="ng-device-config-success">
+        <i class="mdi mdi-check-circle ng-device-config-success__icon"></i>
+        <div>
+          <strong>Device added!</strong>
+          <p>Scan the QR code or download the config file into your WireGuard client.</p>
+        </div>
       </div>
 
-      <p>
-        <a class="ng-primary-btn is-hidden" id="download-config">
-          Download WireGuard Configuration
-        </a>
-      </p>
-      <p>
-        <canvas id="qr-canvas">
-          Generating QR code...
-        </canvas>
-      </p>
-      <p>
+      <div class="ng-device-config-warning">
+        <i class="mdi mdi-alert-outline"></i>
+        <span>This configuration will <strong>not</strong> be shown again — save it now before closing.</span>
+      </div>
+
+      <div id="generating-config" class="ng-device-config-generating">
+        <i class="mdi mdi-loading mdi-spin"></i>
+        <span>Rendering configuration…</span>
+      </div>
+
+      <div class="ng-device-config-actions">
+        <canvas id="qr-canvas" class="ng-device-config-qr"></canvas>
+        <div class="ng-device-config-buttons">
+          <a class="ng-primary-btn is-hidden" id="download-config">
+            <i class="mdi mdi-download"></i> Download .conf
+          </a>
+          <button class="ng-secondary-btn is-hidden" id="copy-config-btn" type="button">
+            <i class="mdi mdi-content-copy"></i> Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="ng-device-config-code">
         <pre id="wg-conf-container" class="is-hidden"><code id="wg-conf" class="language-toml"></code></pre>
-      </p>
+      </div>
+
+      <div class="ng-device-config-footer">
+        <p>
+          Need help? See
+          <a target="_blank" href="https://docs.nexguard.binhphuong.io.vn/user-guides/client-instructions/">
+            the NexGuard setup guide
+          </a>.
+        </p>
+        <.link patch={@return_to} class="ng-primary-btn">Done</.link>
+      </div>
+
     </div>
   <% else %>
+    <%# ── Add Device form state ─────────────────────────────────────── %>
     <div>
       <.form
         :let={f}
@@ -70,197 +78,156 @@
         <div class="ng-field">
           <%= label(f, :name, class: "ng-label") %>
           <%= text_input(f, :name, class: "ng-input #{input_error_class(f, :name)}") %>
-          <p class="ng-field-error">
-            <%= error_tag(f, :name) %>
-          </p>
+          <p class="ng-field-error"><%= error_tag(f, :name) %></p>
         </div>
 
         <div class="ng-field">
           <%= label(f, :description, class: "ng-label") %>
-          <%= textarea(
-            f,
-            :description,
-            placeholder: "Enter an optional description for this device",
+          <%= textarea(f, :description,
+            placeholder: "Optional description",
             class: "pre-wrapped ng-textarea #{input_error_class(f, :description)}"
           ) %>
-          <p class="ng-field-error">
-            <%= error_tag(f, :description) %>
-          </p>
+          <p class="ng-field-error"><%= error_tag(f, :description) %></p>
         </div>
 
         <%= if FzHttp.Devices.authorize_device_configuration(@subject) == :ok do %>
-          <div class="ng-field">
-            <%= label(f, :use_default_allowed_ips, "Use Default Allowed IPs", class: "ng-label") %>
-            <div>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_allowed_ips, true) %> Yes
-              </label>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_allowed_ips, false) %> No
-              </label>
+          <button
+            type="button"
+            class="ng-advanced-toggle"
+            phx-click="toggle_advanced"
+            phx-target={@myself}
+          >
+            <i class={"mdi #{if @show_advanced, do: "mdi-chevron-down", else: "mdi-chevron-right"}"}></i>
+            Advanced settings
+          </button>
+
+          <%= if @show_advanced do %>
+            <div class="ng-advanced-fields">
+
+              <%# Allowed IPs %>
+              <div class="ng-field ng-field--toggle">
+                <div class="ng-field-toggle-header">
+                  <span class="ng-label">Allowed IPs</span>
+                  <label class="ng-toggle">
+                    <%= checkbox(f, :use_default_allowed_ips) %>
+                    <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+                  </label>
+                  <span class="ng-field-toggle-label">Use default</span>
+                </div>
+                <p class="ng-field-hint">Default: <%= Enum.join(@default_client_allowed_ips, ", ") %></p>
+                <%= unless @use_default_allowed_ips do %>
+                  <%= textarea(f, :allowed_ips,
+                    class: "ng-textarea #{input_error_class(f, :allowed_ips)}",
+                    value: list_value(f, :allowed_ips)
+                  ) %>
+                  <p class="ng-field-error"><%= error_tag(f, :allowed_ips) %></p>
+                <% end %>
+              </div>
+
+              <%# DNS %>
+              <div class="ng-field ng-field--toggle">
+                <div class="ng-field-toggle-header">
+                  <span class="ng-label">DNS Servers</span>
+                  <label class="ng-toggle">
+                    <%= checkbox(f, :use_default_dns) %>
+                    <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+                  </label>
+                  <span class="ng-field-toggle-label">Use default</span>
+                </div>
+                <p class="ng-field-hint">Default: <%= Enum.join(@default_client_dns, ", ") %></p>
+                <%= unless @use_default_dns do %>
+                  <%= text_input(f, :dns,
+                    class: "ng-input #{input_error_class(f, :dns)}",
+                    value: list_value(f, :dns)
+                  ) %>
+                  <p class="ng-field-error"><%= error_tag(f, :dns) %></p>
+                <% end %>
+              </div>
+
+              <%# Endpoint %>
+              <div class="ng-field ng-field--toggle">
+                <div class="ng-field-toggle-header">
+                  <span class="ng-label">Server Endpoint</span>
+                  <label class="ng-toggle">
+                    <%= checkbox(f, :use_default_endpoint) %>
+                    <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+                  </label>
+                  <span class="ng-field-toggle-label">Use default</span>
+                </div>
+                <p class="ng-field-hint">Default: <%= @default_client_endpoint %></p>
+                <%= unless @use_default_endpoint do %>
+                  <%= text_input(f, :endpoint,
+                    class: "ng-input #{input_error_class(f, :endpoint)}"
+                  ) %>
+                  <p class="ng-field-error"><%= error_tag(f, :endpoint) %></p>
+                <% end %>
+              </div>
+
+              <%# MTU %>
+              <div class="ng-field ng-field--toggle">
+                <div class="ng-field-toggle-header">
+                  <span class="ng-label">Interface MTU</span>
+                  <label class="ng-toggle">
+                    <%= checkbox(f, :use_default_mtu) %>
+                    <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+                  </label>
+                  <span class="ng-field-toggle-label">Use default</span>
+                </div>
+                <p class="ng-field-hint">Default: <%= @default_client_mtu %></p>
+                <%= unless @use_default_mtu do %>
+                  <%= text_input(f, :mtu,
+                    class: "ng-input #{input_error_class(f, :mtu)}"
+                  ) %>
+                  <p class="ng-field-error"><%= error_tag(f, :mtu) %></p>
+                <% end %>
+              </div>
+
+              <%# Persistent Keepalive %>
+              <div class="ng-field ng-field--toggle">
+                <div class="ng-field-toggle-header">
+                  <span class="ng-label">Persistent Keepalive</span>
+                  <label class="ng-toggle">
+                    <%= checkbox(f, :use_default_persistent_keepalive) %>
+                    <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
+                  </label>
+                  <span class="ng-field-toggle-label">Use default</span>
+                </div>
+                <p class="ng-field-hint">Default: <%= @default_client_persistent_keepalive %>s (0 = disabled)</p>
+                <%= unless @use_default_persistent_keepalive do %>
+                  <%= text_input(f, :persistent_keepalive,
+                    class: "ng-input #{input_error_class(f, :persistent_keepalive)}"
+                  ) %>
+                  <p class="ng-field-error"><%= error_tag(f, :persistent_keepalive) %></p>
+                <% end %>
+              </div>
+
+              <%# Tunnel IPs %>
+              <div class="ng-field">
+                <%= label(f, :ipv4, "Tunnel IPv4 Address", class: "ng-label") %>
+                <%= text_input(f, :ipv4,
+                  placeholder: "Auto-assigned if blank",
+                  class: "ng-input #{input_error_class(f, :ipv4)}"
+                ) %>
+                <p class="ng-field-error"><%= error_tag(f, :ipv4) %></p>
+              </div>
+
+              <div class="ng-field">
+                <%= label(f, :ipv6, "Tunnel IPv6 Address", class: "ng-label") %>
+                <%= text_input(f, :ipv6,
+                  placeholder: "Auto-assigned if blank",
+                  class: "ng-input #{input_error_class(f, :ipv6)}"
+                ) %>
+                <p class="ng-field-error"><%= error_tag(f, :ipv6) %></p>
+              </div>
+
             </div>
-            <p class="ng-field-hint">
-              Default: <%= Enum.join(@default_client_allowed_ips, ", ") %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :allowed_ips, "Allowed IPs", class: "ng-label") %>
-            <%= textarea(f, :allowed_ips,
-              class: "ng-textarea #{input_error_class(f, :allowed_ips)}",
-              disabled: @use_default_allowed_ips,
-              value: list_value(f, :allowed_ips)
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :allowed_ips) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :use_default_dns, "Use Default DNS Servers", class: "ng-label") %>
-            <div>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_dns, true) %> Yes
-              </label>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_dns, false) %> No
-              </label>
-            </div>
-            <p class="ng-field-hint">
-              Default: <%= Enum.join(@default_client_dns, ", ") %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :dns, "DNS Servers", class: "ng-label") %>
-            <%= text_input(f, :dns,
-              class: "ng-input #{input_error_class(f, :dns)}",
-              disabled: @use_default_dns,
-              value: list_value(f, :dns)
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :dns) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :use_default_endpoint, "Use Default Endpoint", class: "ng-label") %>
-            <div>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_endpoint, true) %> Yes
-              </label>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_endpoint, false) %> No
-              </label>
-            </div>
-            <p class="ng-field-hint">
-              Default: <%= @default_client_endpoint %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :endpoint, "Server Endpoint", class: "ng-label") %>
-            <p>The IP of the server this device should connect to.</p>
-            <%= text_input(f, :endpoint,
-              class: "ng-input #{input_error_class(f, :endpoint)}",
-              disabled: @use_default_endpoint
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :endpoint) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :use_default_mtu, "Use Default MTU", class: "ng-label") %>
-            <div>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_mtu, true) %> Yes
-              </label>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_mtu, false) %> No
-              </label>
-            </div>
-            <p class="ng-field-hint">
-              Default: <%= @default_client_mtu %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :mtu, "Interface MTU", class: "ng-label") %>
-            <p>The WireGuard interface MTU for this Device.</p>
-            <%= text_input(f, :mtu,
-              class: "ng-input #{input_error_class(f, :mtu)}",
-              disabled: @use_default_mtu
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :mtu) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :use_default_persistent_keepalive, "Use Default Persistent Keepalive",
-              class: "ng-label"
-            ) %>
-            <div>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_persistent_keepalive, true) %> Yes
-              </label>
-              <label class="ng-radio">
-                <%= radio_button(f, :use_default_persistent_keepalive, false) %> No
-              </label>
-            </div>
-            <p class="ng-field-hint">
-              Default: <%= @default_client_persistent_keepalive %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :persistent_keepalive, "Persistent Keepalive", class: "ng-label") %>
-            <p>
-              Interval for WireGuard <a href="https://www.wireguard.com/quickstart/#nat-and-firewall-traversal-persistence">
-                persistent keepalive</a>. A value of 0 disables this. Leave this disabled
-              unless you're experiencing NAT or firewall traversal problems.
-            </p>
-            <%= text_input(f, :persistent_keepalive,
-              class: "ng-input #{input_error_class(f, :persistent_keepalive)}",
-              disabled: @use_default_persistent_keepalive
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :persistent_keepalive) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :ipv4, "Tunnel IPv4 Address", class: "ng-label") %>
-            <%= text_input(
-              f,
-              :ipv4,
-              placeholder: "Leave blank to let NexGuard assign an IPv4 address",
-              class: "ng-input #{input_error_class(f, :ipv4)}"
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :ipv4) %>
-            </p>
-          </div>
-
-          <div class="ng-field">
-            <%= label(f, :ipv6, "Tunnel IPv6 Address", class: "ng-label") %>
-            <%= text_input(
-              f,
-              :ipv6,
-              placeholder: "Leave blank to let NexGuard assign an IPv6 address",
-              class: "ng-input #{input_error_class(f, :ipv6)}"
-            ) %>
-            <p class="ng-field-error">
-              <%= error_tag(f, :ipv6) %>
-            </p>
-          </div>
+          <% end %>
         <% end %>
 
         <%= if @changeset.action do %>
-          <div class="ng-flash ng-flash--error" style="margin-bottom: 1rem;">
+          <div class="ng-flash ng-flash--error" style="margin-top: 1rem;">
             <i class="mdi mdi-alert-circle-outline ng-flash-icon"></i>
-            <span class="ng-flash-message">Error creating device. Scroll up to view fields with errors.</span>
+            <span class="ng-flash-message">Error creating device. Check the fields above.</span>
           </div>
         <% end %>
       </.form>

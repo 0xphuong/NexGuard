@@ -12,6 +12,7 @@ defmodule FzHttpWeb.DeviceLive.NewFormComponent do
       socket
       |> assign(:device, nil)
       |> assign(:config, nil)
+      |> assign(:show_advanced, false)
 
     {:ok, socket}
   end
@@ -38,6 +39,11 @@ defmodule FzHttpWeb.DeviceLive.NewFormComponent do
       |> assign(use_default_fields(changeset))
 
     {:ok, socket}
+  end
+
+  @impl Phoenix.LiveComponent
+  def handle_event("toggle_advanced", _, socket) do
+    {:noreply, assign(socket, :show_advanced, !socket.assigns.show_advanced)}
   end
 
   @impl Phoenix.LiveComponent
