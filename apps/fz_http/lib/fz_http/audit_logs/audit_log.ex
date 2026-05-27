@@ -21,6 +21,8 @@ defmodule FzHttp.AuditLogs.AuditLog do
     device.delete
     device.vpn.connect
     device.vpn.disconnect
+    vpn.connect
+    vpn.disconnect
     rule.create
     rule.delete
     config.change

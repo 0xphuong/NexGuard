@@ -13,7 +13,8 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
     {"Users", "user"},
     {"Config", "config"},
     {"Devices", "device"},
-    {"Rules", "rule"}
+    {"Rules", "rule"},
+    {"VPN", "vpn"}
   ]
 
   @results [
