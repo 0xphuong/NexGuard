@@ -53,7 +53,7 @@ defmodule FzHttpWeb.SettingLive.Security do
     configuration = Config.fetch_db_config!()
 
     socket =
-      case Config.update_config(configuration, attrs) do
+      case Config.update_config(configuration, attrs, socket.assigns.subject, socket.assigns.remote_ip) do
         {:ok, configuration} ->
           socket
           |> assign(:form_changed, false)
@@ -71,7 +71,7 @@ defmodule FzHttpWeb.SettingLive.Security do
   def handle_event("toggle", %{"config" => key} = params, socket) do
     {:ok, _config} =
       Config.fetch_db_config!()
-      |> Config.update_config(%{key => !!params["value"]}, socket.assigns.subject)
+      |> Config.update_config(%{key => !!params["value"]}, socket.assigns.subject, socket.assigns.remote_ip)
 
     configs = FzHttp.Config.fetch_source_and_configs!(@configs)
     {:noreply, assign(socket, :configs, configs)}
@@ -98,7 +98,7 @@ defmodule FzHttpWeb.SettingLive.Security do
       |> Enum.map(&Map.from_struct/1)
 
     {:ok, _config} =
-      Config.update_config(config, %{field_key => providers}, socket.assigns.subject)
+      Config.update_config(config, %{field_key => providers}, socket.assigns.subject, socket.assigns.remote_ip)
 
     configs = FzHttp.Config.fetch_source_and_configs!(@configs)
 

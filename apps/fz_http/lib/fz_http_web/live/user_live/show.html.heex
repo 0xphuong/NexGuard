@@ -7,6 +7,7 @@
     user: @user,
     current_user: @current_user,
     subject: @subject,
+    remote_ip: @remote_ip,
     action: @live_action,
     form: "user-form"
   ) %>
@@ -18,6 +19,7 @@
     title: "Add Device",
     current_user: @current_user,
     subject: @subject,
+    remote_ip: @remote_ip,
     user: @user,
     id: "create-device-component",
     form: "create-device",
@@ -205,6 +207,8 @@
           id="allowed-to-connect"
           module={FzHttpWeb.UserLive.VPNConnectionComponent}
           user={@user}
+          current_user={@current_user}
+          remote_ip={@remote_ip}
         />
       </div>
       <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />

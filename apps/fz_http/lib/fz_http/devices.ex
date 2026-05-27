@@ -1,5 +1,5 @@
 defmodule FzHttp.Devices do
-  alias FzHttp.{Repo, Config, Auth, Validator}
+  alias FzHttp.{Repo, Config, Auth, Validator, AuditLogs}
   alias FzHttp.{Users, Telemetry}
   alias FzHttp.Devices.{Device, Authorizer}
 
@@ -92,7 +92,7 @@ defmodule FzHttp.Devices do
     |> Device.Changeset.configure_changeset(attrs)
   end
 
-  def create_device_for_user(%Users.User{} = user, attrs \\ %{}, %Auth.Subject{} = subject) do
+  def create_device_for_user(%Users.User{} = user, attrs \\ %{}, %Auth.Subject{} = subject, ip_address \\ nil) do
     with :ok <- authorize_user_device_management(user.id, subject) do
       changeset = Device.Changeset.create_changeset(user, attrs)
 
@@ -106,6 +106,23 @@ defmodule FzHttp.Devices do
       case Repo.insert(changeset) do
         {:ok, device} ->
           Telemetry.add_device()
+
+          case subject.actor do
+            {:user, actor} ->
+              AuditLogs.log("device.create",
+                actor_id: actor.id,
+                actor_email: actor.email,
+                ip_address: ip_address,
+                target_type: "device",
+                target_id: device.id,
+                target_label: device.name,
+                metadata: %{user_id: device.user_id}
+              )
+
+            _ ->
+              :ok
+          end
+
           {:ok, device}
 
         {:error, changeset} ->
@@ -149,10 +166,28 @@ defmodule FzHttp.Devices do
     |> Repo.update()
   end
 
-  def delete_device(%Device{} = device, %Auth.Subject{} = subject) do
-    with :ok <- authorize_user_device_management(device.user_id, subject) do
+  def delete_device(%Device{} = device, %Auth.Subject{} = subject, ip_address \\ nil) do
+    with :ok <- authorize_user_device_management(device.user_id, subject),
+         {:ok, deleted_device} <- Repo.delete(device) do
       Telemetry.delete_device()
-      Repo.delete(device)
+
+      case subject.actor do
+        {:user, actor} ->
+          AuditLogs.log("device.delete",
+            actor_id: actor.id,
+            actor_email: actor.email,
+            ip_address: ip_address,
+            target_type: "device",
+            target_id: device.id,
+            target_label: device.name,
+            metadata: %{user_id: device.user_id}
+          )
+
+        _ ->
+          :ok
+      end
+
+      {:ok, deleted_device}
     end
   end
 

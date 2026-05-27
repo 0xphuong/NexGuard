@@ -3,7 +3,7 @@ defmodule FzHttpWeb.AuthController do
   Implements the CRUD for a Session
   """
   use FzHttpWeb, :controller
-  alias FzHttp.Users
+  alias FzHttp.{AuditLogs, Users}
   alias FzHttp.Auth
   alias FzHttpWeb.Auth.HTML.Authentication
   alias FzHttpWeb.OAuth.PKCE
@@ -23,8 +23,15 @@ defmodule FzHttpWeb.AuthController do
     |> render("request.html", callback_path: path)
   end
 
+  # Ueberauth failed before we even reached the user lookup (bad form input, etc.)
   def callback(%{assigns: %{ueberauth_failure: %{errors: errors}}} = conn, _params) do
     msg = Enum.map_join(errors, ". ", fn error -> error.message end)
+
+    AuditLogs.log("auth.login.failure",
+      ip_address: format_remote_ip(conn.remote_ip),
+      result: "failure",
+      metadata: %{provider: "identity", reason: msg}
+    )
 
     conn
     |> put_flash(:error, msg)
@@ -37,6 +44,16 @@ defmodule FzHttpWeb.AuthController do
         do_sign_in(conn, user, auth)
 
       {:error, reason} when reason in [:not_found, :invalid_credentials] ->
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{
+            provider: "identity",
+            reason: to_string(reason),
+            email: auth.info.email
+          }
+        )
+
         conn
         |> put_flash(
           :error,
@@ -45,6 +62,12 @@ defmodule FzHttpWeb.AuthController do
         |> request(%{})
 
       {:error, reason} ->
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: "identity", reason: to_string(reason)}
+        )
+
         conn
         |> put_flash(:error, "Error signing in: #{reason}")
         |> request(%{})
@@ -80,15 +103,26 @@ defmodule FzHttpWeb.AuthController do
           |> do_sign_in(user, %{provider: provider_id})
 
         {:error, reason} ->
+          AuditLogs.log("auth.login.failure",
+            ip_address: format_remote_ip(conn.remote_ip),
+            result: "failure",
+            metadata: %{provider: provider_id, reason: to_string(reason)}
+          )
+
           conn
           |> put_flash(:error, "Error signing in: #{reason}")
           |> redirect(to: ~p"/")
       end
     else
-      # Error verifying state, claims or fetching tokens
       {:error, error} ->
         msg = "An OpenIDConnect error occurred. Details: #{inspect(error)}"
         Logger.error(msg)
+
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: provider_id, reason: msg}
+        )
 
         conn
         |> put_flash(:error, msg)
@@ -105,6 +139,12 @@ defmodule FzHttpWeb.AuthController do
       do_sign_in(conn, user, %{provider: idp})
     else
       {:error, %{errors: [email: {"is invalid email address", _metadata}]}} ->
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: idp, reason: "invalid_email_from_saml_assertion"}
+        )
+
         conn
         |> put_flash(
           :error,
@@ -113,6 +153,12 @@ defmodule FzHttpWeb.AuthController do
         |> redirect(to: ~p"/")
 
       {:error, reason} when is_binary(reason) ->
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: idp, reason: reason}
+        )
+
         conn
         |> put_flash(:error, reason)
         |> redirect(to: ~p"/")
@@ -153,6 +199,12 @@ defmodule FzHttpWeb.AuthController do
       do_sign_in(conn, user, %{provider: :magic_link})
     else
       {:error, _reason} ->
+        AuditLogs.log("auth.login.failure",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: "magic_link", reason: "invalid_or_expired_token"}
+        )
+
         conn
         |> put_flash(:error, "The magic link is not valid or has expired.")
         |> redirect(to: ~p"/")

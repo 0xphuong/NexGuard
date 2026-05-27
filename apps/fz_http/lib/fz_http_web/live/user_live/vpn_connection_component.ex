@@ -5,7 +5,7 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
   use FzHttpWeb, :live_component
 
   import Ecto.Changeset
-  alias FzHttp.Repo
+  alias FzHttp.{AuditLogs, Repo}
 
   @impl Phoenix.LiveComponent
   def update(assigns, socket) do
@@ -89,6 +89,8 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
   end
 
   defp do_toggle(to_disable, socket) do
+    current_user = socket.assigns.current_user
+
     user =
       socket.assigns.user
       |> change()
@@ -106,6 +108,16 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
           changeset
       end)
       |> Repo.update!()
+
+    action = if to_disable, do: "user.disable", else: "user.enable"
+    AuditLogs.log(action,
+      actor_id: current_user.id,
+      actor_email: current_user.email,
+      ip_address: socket.assigns[:remote_ip],
+      target_type: "user",
+      target_id: user.id,
+      target_label: user.email
+    )
 
     {:noreply, socket |> assign(:user, user) |> assign(:show_confirm, false)}
   end

@@ -103,7 +103,7 @@ defmodule FzHttpWeb.DeviceLive.NewFormComponent do
   end
 
   defp create_device(attrs, socket) do
-    Devices.create_device_for_user(socket.assigns.user, attrs, socket.assigns.subject)
+    Devices.create_device_for_user(socket.assigns.user, attrs, socket.assigns.subject, socket.assigns[:remote_ip])
   end
 
   defp binary_to_list(binary) when is_binary(binary),

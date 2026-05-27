@@ -28,7 +28,7 @@ defmodule FzHttpWeb.UserLive.FormComponent do
 
   @impl Phoenix.LiveComponent
   def handle_event("save", %{"user" => attrs}, %{assigns: %{action: :new}} = socket) do
-    case Users.create_user(:unprivileged, attrs, socket.assigns.subject) do
+    case Users.create_user(:unprivileged, attrs, socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:ok, user} ->
         {:noreply,
          socket

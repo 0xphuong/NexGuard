@@ -1,5 +1,5 @@
 defmodule FzHttp.Rules do
-  alias FzHttp.{Repo, Auth, Validator, Telemetry}
+  alias FzHttp.{Repo, Auth, Validator, Telemetry, AuditLogs}
   alias FzHttp.Rules.{Authorizer, Rule}
 
   def count do
@@ -63,9 +63,19 @@ defmodule FzHttp.Rules do
     Rule.Changeset.update_changeset(rule, attrs)
   end
 
-  def create_rule(attrs, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()) do
-      create_rule(attrs)
+  def create_rule(attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()),
+         {:ok, rule} <- create_rule(attrs) do
+      AuditLogs.log("rule.create",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "rule",
+        target_id: rule.id,
+        target_label: to_string(rule.destination),
+        metadata: %{action: to_string(rule.action)}
+      )
+      {:ok, rule}
     end
   end
 
@@ -78,18 +88,39 @@ defmodule FzHttp.Rules do
     end
   end
 
-  def update_rule(%Rule{} = rule, attrs, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()) do
-      rule
-      |> Rule.Changeset.update_changeset(attrs)
-      |> Repo.update()
+  def update_rule(%Rule{} = rule, attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()),
+         {:ok, updated_rule} <-
+           rule
+           |> Rule.Changeset.update_changeset(attrs)
+           |> Repo.update() do
+      AuditLogs.log("rule.update",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "rule",
+        target_id: updated_rule.id,
+        target_label: to_string(updated_rule.destination),
+        metadata: %{action: to_string(updated_rule.action)}
+      )
+      {:ok, updated_rule}
     end
   end
 
-  def delete_rule(%Rule{} = rule, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()) do
+  def delete_rule(%Rule{} = rule, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_rules_permission()),
+         {:ok, deleted_rule} <- Repo.delete(rule) do
       Telemetry.delete_rule()
-      Repo.delete(rule)
+      AuditLogs.log("rule.delete",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "rule",
+        target_id: rule.id,
+        target_label: to_string(rule.destination),
+        metadata: %{action: to_string(rule.action)}
+      )
+      {:ok, deleted_rule}
     end
   end
 

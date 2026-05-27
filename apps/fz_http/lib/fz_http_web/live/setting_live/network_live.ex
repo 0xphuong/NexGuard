@@ -34,7 +34,7 @@ defmodule FzHttpWeb.SettingLive.Network do
 
     {:ok, _config} =
       Config.fetch_db_config!()
-      |> Config.update_config(%{"gateway_no_masquerade_enabled" => enabled}, socket.assigns.subject)
+      |> Config.update_config(%{"gateway_no_masquerade_enabled" => enabled}, socket.assigns.subject, socket.assigns.remote_ip)
 
     reload_masquerade()
 
@@ -56,7 +56,7 @@ defmodule FzHttpWeb.SettingLive.Network do
     configuration = Config.fetch_db_config!()
 
     socket =
-      case Config.update_config(configuration, attrs) do
+      case Config.update_config(configuration, attrs, socket.assigns.subject, socket.assigns.remote_ip) do
         {:ok, configuration} ->
           reload_masquerade()
 

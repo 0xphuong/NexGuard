@@ -1,5 +1,5 @@
 defmodule FzHttp.Users do
-  alias FzHttp.{Repo, Auth, Validator, Config, Telemetry}
+  alias FzHttp.{Repo, Auth, Validator, Config, Telemetry, AuditLogs}
   alias FzHttp.Users.{Authorizer, User}
   require Ecto.Query
 
@@ -100,9 +100,18 @@ defmodule FzHttp.Users do
     end
   end
 
-  def create_user(role, attrs, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()) do
-      create_user(role, attrs)
+  def create_user(role, attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()),
+         {:ok, user} <- create_user(role, attrs) do
+      AuditLogs.log("user.create",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "user",
+        target_id: user.id,
+        target_label: user.email
+      )
+      {:ok, user}
     end
   end
 
@@ -119,13 +128,26 @@ defmodule FzHttp.Users do
     Ecto.Changeset.change(user)
   end
 
-  def update_user(%User{} = user, attrs, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()) do
-      user
-      |> User.Changeset.update_user_role(attrs, subject)
-      |> User.Changeset.update_user_email(attrs)
-      |> User.Changeset.update_user_password(attrs)
-      |> Repo.update()
+  def update_user(%User{} = user, attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()),
+         {:ok, updated_user} <-
+           user
+           |> User.Changeset.update_user_role(attrs, subject)
+           |> User.Changeset.update_user_email(attrs)
+           |> User.Changeset.update_user_password(attrs)
+           |> Repo.update() do
+      if user.role != updated_user.role do
+        AuditLogs.log("user.role.change",
+          actor_id: actor.id,
+          actor_email: actor.email,
+          ip_address: ip_address,
+          target_type: "user",
+          target_id: updated_user.id,
+          target_label: updated_user.email,
+          metadata: %{old_role: to_string(user.role), new_role: to_string(updated_user.role)}
+        )
+      end
+      {:ok, updated_user}
     end
   end
 
@@ -137,11 +159,21 @@ defmodule FzHttp.Users do
     |> Repo.update()
   end
 
-  def update_self(attrs, %Auth.Subject{actor: {:user, %User{} = user}} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.edit_own_profile_permission()) do
-      user
-      |> User.Changeset.update_user_password(attrs)
-      |> Repo.update()
+  def update_self(attrs, %Auth.Subject{actor: {:user, %User{} = user}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.edit_own_profile_permission()),
+         {:ok, updated_user} <-
+           user
+           |> User.Changeset.update_user_password(attrs)
+           |> Repo.update() do
+      AuditLogs.log("user.password.change",
+        actor_id: user.id,
+        actor_email: user.email,
+        ip_address: ip_address,
+        target_type: "user",
+        target_id: user.id,
+        target_label: user.email
+      )
+      {:ok, updated_user}
     end
   end
 
@@ -153,6 +185,12 @@ defmodule FzHttp.Users do
       {:ok, user} ->
         FzHttp.Telemetry.disable_user()
         FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
+        AuditLogs.log("user.disable",
+          target_type: "user",
+          target_id: user.id,
+          target_label: user.email,
+          metadata: %{reason: "oidc_token_refresh_failed"}
+        )
         {:ok, user}
 
       {:error, reason} ->
@@ -160,11 +198,20 @@ defmodule FzHttp.Users do
     end
   end
 
-  def delete_user(%User{} = user, %Auth.Subject{} = subject) do
+  def delete_user(%User{} = user, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
     with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()),
-         :ok <- ensure_not_last_admin(user) do
+         :ok <- ensure_not_last_admin(user),
+         {:ok, deleted_user} <- Repo.delete(user, stale_error_field: :id) do
       Telemetry.delete_user()
-      Repo.delete(user, stale_error_field: :id)
+      AuditLogs.log("user.delete",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "user",
+        target_id: user.id,
+        target_label: user.email
+      )
+      {:ok, deleted_user}
     end
   end
 

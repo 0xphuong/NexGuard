@@ -85,6 +85,12 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">Account</span>
             <% end %>
           </li>
+          <li>
+            <%= live_redirect(to: ~p"/settings/audit_log", class: nav_class(@path, "/settings/audit_log")) do %>
+              <span class="icon"><i class="mdi mdi-clipboard-text-clock-outline"></i></span>
+              <span class="menu-item-label">Audit Log</span>
+            <% end %>
+          </li>
         </ul>
 
         <p class="menu-label ng-sidebar-label">Diagnostics</p>

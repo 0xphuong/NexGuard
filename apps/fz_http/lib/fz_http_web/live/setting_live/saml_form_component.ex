@@ -197,7 +197,8 @@ defmodule FzHttpWeb.SettingLive.SAMLFormComponent do
         Config.update_config(
           config,
           %{saml_identity_providers: saml_identity_providers},
-          socket.assigns.subject
+          socket.assigns.subject,
+          socket.assigns[:remote_ip]
         )
 
       socket =

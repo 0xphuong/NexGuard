@@ -32,7 +32,7 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Show do
   def handle_event("delete_device", _params, socket) do
     device = socket.assigns.device
 
-    case Devices.delete_device(device, socket.assigns.subject) do
+    case Devices.delete_device(device, socket.assigns.subject, socket.assigns.remote_ip) do
       {:ok, _deleted_device} ->
         {:noreply, redirect(socket, to: ~p"/user_devices")}
 

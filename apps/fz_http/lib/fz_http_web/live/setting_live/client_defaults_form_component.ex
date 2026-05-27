@@ -33,7 +33,7 @@ defmodule FzHttpWeb.SettingLive.ClientDefaultsFormComponent do
     configuration = Config.fetch_db_config!()
 
     socket =
-      case Config.update_config(configuration, configuration_params) do
+      case Config.update_config(configuration, configuration_params, socket.assigns.subject, socket.assigns[:remote_ip]) do
         {:ok, configuration} ->
           socket
           |> assign(:changeset, Config.change_config(configuration))

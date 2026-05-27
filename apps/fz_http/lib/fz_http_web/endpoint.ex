@@ -1,7 +1,6 @@
 defmodule FzHttpWeb.Endpoint do
   use Phoenix.Endpoint, otp_app: :fz_http
   alias FzHttpWeb.ProxyHeaders
-  alias FzHttpWeb.HeaderHelpers
   alias FzHttpWeb.Session
 
   plug FzHttpWeb.Plug.PathPrefix
@@ -70,11 +69,7 @@ defmodule FzHttpWeb.Endpoint do
   plug Plug.MethodOverride
   plug Plug.Head
   plug(:session)
-
-  if HeaderHelpers.proxied?() do
-    plug ProxyHeaders
-  end
-
+  plug ProxyHeaders
   plug FzHttpWeb.Router
 
   defp session(conn, _opts) do

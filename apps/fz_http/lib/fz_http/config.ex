@@ -1,5 +1,5 @@
 defmodule FzHttp.Config do
-  alias FzHttp.{Repo, Auth}
+  alias FzHttp.{Repo, Auth, AuditLogs}
   alias FzHttp.Config.Authorizer
   alias FzHttp.Config.{Definition, Definitions, Validator, Errors, Fetcher}
   alias FzHttp.Config.Configuration
@@ -124,19 +124,40 @@ defmodule FzHttp.Config do
     Configuration.Changeset.changeset(config, attrs)
   end
 
-  def update_config(%Configuration{} = config, attrs, %Auth.Subject{} = subject) do
-    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.configure_permission()) do
-      update_config(config, attrs)
+  def update_config(%Configuration{} = config, attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.configure_permission()),
+         {:ok, updated_config} <- update_config(config, attrs) do
+      AuditLogs.log("config.change",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "configuration",
+        target_id: updated_config.id,
+        target_label: "system",
+        metadata: %{changed_keys: changed_config_keys(config, updated_config)}
+      )
+      {:ok, updated_config}
     end
   end
 
   def update_config(%Configuration{} = config, attrs) do
     changeset = Configuration.Changeset.changeset(config, attrs)
 
-    with {:ok, config} <- Repo.update(changeset) do
-      FzHttp.Auth.SAML.StartProxy.refresh(config.saml_identity_providers)
-      {:ok, config}
+    with {:ok, updated_config} <- Repo.update(changeset) do
+      FzHttp.Auth.SAML.StartProxy.refresh(updated_config.saml_identity_providers)
+      {:ok, updated_config}
     end
+  end
+
+  defp changed_config_keys(%Configuration{} = old, %Configuration{} = new) do
+    skip = MapSet.new([:id, :inserted_at, :updated_at])
+
+    fields = Configuration.__schema__(:fields) ++ Configuration.__schema__(:embeds)
+
+    fields
+    |> Enum.reject(&MapSet.member?(skip, &1))
+    |> Enum.filter(&(Map.get(old, &1) != Map.get(new, &1)))
+    |> Enum.map(&to_string/1)
   end
 
   def put_config!(key, value) do

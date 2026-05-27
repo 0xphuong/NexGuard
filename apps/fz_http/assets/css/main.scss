@@ -2659,3 +2659,140 @@ pre {
   font-size: 0.75rem;
   color: #64748b;
 }
+
+// ── Audit Log ────────────────────────────────────────────────────────
+
+.ng-audit-header-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  flex-shrink: 0;
+}
+
+.ng-audit-retention-badge,
+.ng-audit-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem;
+  font-size: 0.8rem;
+  color: #475569;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.ng-audit-filters {
+  display: flex;
+  gap: 0.625rem;
+  margin-bottom: 1rem;
+}
+
+.ng-audit-filter-select {
+  height: 2.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0 0.75rem;
+  font-size: 0.875rem;
+  color: #334155;
+  cursor: pointer;
+  box-sizing: border-box;
+
+  &:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+}
+
+.ng-audit-table {
+  .ng-audit-ts { white-space: nowrap; font-size: 0.8125rem; }
+  .ng-audit-actor { font-weight: 500; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+
+.ng-audit-empty {
+  text-align: center;
+  padding: 3rem 1rem !important;
+  color: #94a3b8;
+  font-size: 0.9rem;
+
+  .mdi { font-size: 1.5rem; display: block; margin-bottom: 0.5rem; }
+}
+
+// Action category badges
+.ng-action-badge {
+  display: inline-block;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  white-space: nowrap;
+  font-weight: 600;
+
+  &--auth   { background: #eff6ff; color: #1d4ed8; }
+  &--user   { background: #f0fdf4; color: #15803d; }
+  &--config { background: #fff7ed; color: #c2410c; }
+  &--device { background: #f0fdfa; color: #0f766e; }
+  &--rule   { background: #faf5ff; color: #7c3aed; }
+  &--api    { background: #fef9c3; color: #92400e; }
+}
+
+// Result badges
+.ng-result-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.2rem 0.5rem;
+  border-radius: 5px;
+  white-space: nowrap;
+  text-transform: capitalize;
+
+  &--success { background: #f0fdf4; color: #16a34a; }
+  &--failure { background: #fef2f2; color: #dc2626; }
+}
+
+// Pagination
+.ng-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.ng-pagination-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 2rem;
+  padding: 0 0.875rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  color: #475569;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+
+  &:hover:not(:disabled) {
+    background: #f8fafc;
+    border-color: #cbd5e1;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.ng-pagination-info {
+  font-size: 0.875rem;
+  color: #64748b;
+  font-weight: 500;
+}

@@ -1,0 +1,142 @@
+<%# ── Page Header ────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Audit Log</h1>
+      <p class="ng-page-subtitle">Immutable record of all security-relevant events.</p>
+    </div>
+    <div class="ng-audit-header-meta">
+      <span class="ng-audit-retention-badge">
+        <i class="mdi mdi-clock-outline"></i>
+        Retained for <%= @retention_days %> days
+      </span>
+      <span class="ng-audit-count-badge">
+        <i class="mdi mdi-format-list-bulleted"></i>
+        <%= @total %> events
+      </span>
+    </div>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── Filters ──────────────────────────────────────────────────── %>
+  <.form
+    :let={_f}
+    for={%{}}
+    phx-change="filter"
+    class="ng-audit-filters"
+  >
+    <select name="category" class="ng-audit-filter-select">
+      <%= for {label, value} <- @categories do %>
+        <option value={value} selected={value == @category}><%= label %></option>
+      <% end %>
+    </select>
+
+    <select name="result" class="ng-audit-filter-select">
+      <%= for {label, value} <- @results do %>
+        <option value={value} selected={value == @result_filter}><%= label %></option>
+      <% end %>
+    </select>
+  </.form>
+
+  <%# ── Table ───────────────────────────────────────────────────── %>
+  <div class="ng-table-wrap">
+    <table class="ng-table ng-audit-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Result</th>
+          <th>Target</th>
+          <th>IP</th>
+        </tr>
+      </thead>
+      <tbody>
+        <%= if Enum.empty?(@logs) do %>
+          <tr>
+            <td colspan="6" class="ng-audit-empty">
+              <i class="mdi mdi-clipboard-text-clock-outline"></i>
+              No events match the current filters.
+            </td>
+          </tr>
+        <% else %>
+          <%= for log <- @logs do %>
+            <tr>
+              <%# Time %>
+              <td class="ng-td-muted ng-audit-ts">
+                <span
+                  id={"ts-#{log.id}"}
+                  phx-hook="FormatTimestamp"
+                  data-timestamp={DateTime.to_iso8601(log.inserted_at)}
+                >…</span>
+              </td>
+
+              <%# Actor %>
+              <td class="ng-audit-actor">
+                <%= format_actor(log.actor_id, log.actor_email) %>
+              </td>
+
+              <%# Action %>
+              <td>
+                <span class={"ng-action-badge ng-action-badge--#{action_category(log.action)}"}>
+                  <%= log.action %>
+                </span>
+              </td>
+
+              <%# Result %>
+              <td>
+                <span class={"ng-result-badge ng-result-badge--#{log.result}"}>
+                  <%= if log.result == "success" do %>
+                    <i class="mdi mdi-check-circle"></i>
+                  <% else %>
+                    <i class="mdi mdi-alert-circle"></i>
+                  <% end %>
+                  <%= log.result %>
+                </span>
+              </td>
+
+              <%# Target %>
+              <td class="ng-td-muted">
+                <%= format_target(log.target_type, log.target_id, log.target_label) || "—" %>
+              </td>
+
+              <%# IP %>
+              <td class="ng-td-mono ng-td-muted">
+                <%= log.ip_address || "—" %>
+              </td>
+            </tr>
+          <% end %>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+
+  <%# ── Pagination ───────────────────────────────────────────────── %>
+  <%= if @total_pages > 1 do %>
+    <div class="ng-pagination">
+      <button
+        class="ng-pagination-btn"
+        phx-click="prev_page"
+        disabled={@page <= 1}
+      >
+        <i class="mdi mdi-chevron-left"></i>
+        Prev
+      </button>
+      <span class="ng-pagination-info">
+        Page <%= @page %> of <%= @total_pages %>
+      </span>
+      <button
+        class="ng-pagination-btn"
+        phx-click="next_page"
+        disabled={@page >= @total_pages}
+      >
+        Next
+        <i class="mdi mdi-chevron-right"></i>
+      </button>
+    </div>
+  <% end %>
+
+</section>

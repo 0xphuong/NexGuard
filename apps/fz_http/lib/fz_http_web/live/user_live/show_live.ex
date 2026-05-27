@@ -63,7 +63,7 @@ defmodule FzHttpWeb.UserLive.Show do
     role = mote_target_role(socket.assigns.user)
 
     with {:ok, user} <- Users.fetch_user_by_id(user_id, socket.assigns.subject),
-         {:ok, user} <- Users.update_user(user, %{role: role}, socket.assigns.subject) do
+         {:ok, user} <- Users.update_user(user, %{role: role}, socket.assigns.subject, socket.assigns.remote_ip) do
       FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
 
       {:noreply,
@@ -94,7 +94,7 @@ defmodule FzHttpWeb.UserLive.Show do
     else
       {:ok, user} = Users.fetch_user_by_id(user_id, socket.assigns.subject)
 
-      case Users.delete_user(user, socket.assigns.subject) do
+      case Users.delete_user(user, socket.assigns.subject, socket.assigns.remote_ip) do
         {:ok, _} ->
           FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
 

@@ -18,6 +18,7 @@ defmodule FzHttpWeb.JSON.UserController do
   since this field is only for internal use by automatic user disabling mechanism on OIDC/SAML errors.
   """
   use FzHttpWeb, :controller
+  import FzHttpWeb.ControllerHelpers, only: [format_remote_ip: 1]
   alias FzHttp.Users
   alias FzHttpWeb.Auth.JSON.Authentication
 
@@ -60,7 +61,7 @@ defmodule FzHttpWeb.JSON.UserController do
   def create(conn, %{"user" => %{"role" => "admin"} = attrs}) do
     subject = Authentication.get_current_subject(conn)
 
-    with {:ok, %Users.User{} = user} <- Users.create_user(:admin, attrs, subject) do
+    with {:ok, %Users.User{} = user} <- Users.create_user(:admin, attrs, subject, format_remote_ip(conn.remote_ip)) do
       conn
       |> put_status(:created)
       |> put_resp_header("location", ~p"/v0/users/#{user}")
@@ -71,7 +72,7 @@ defmodule FzHttpWeb.JSON.UserController do
   def create(conn, %{"user" => attrs}) do
     subject = Authentication.get_current_subject(conn)
 
-    with {:ok, %Users.User{} = user} <- Users.create_user(:unprivileged, attrs, subject) do
+    with {:ok, %Users.User{} = user} <- Users.create_user(:unprivileged, attrs, subject, format_remote_ip(conn.remote_ip)) do
       conn
       |> put_status(:created)
       |> put_resp_header("location", ~p"/v0/users/#{user}")
@@ -97,7 +98,7 @@ defmodule FzHttpWeb.JSON.UserController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, %Users.User{} = user} <- Users.fetch_user_by_id_or_email(id_or_email, subject),
-         {:ok, %Users.User{} = user} <- Users.update_user(user, attrs, subject) do
+         {:ok, %Users.User{} = user} <- Users.update_user(user, attrs, subject, format_remote_ip(conn.remote_ip)) do
       render(conn, "show.json", user: user)
     end
   end
@@ -107,7 +108,7 @@ defmodule FzHttpWeb.JSON.UserController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, %Users.User{} = user} <- Users.fetch_user_by_id_or_email(id_or_email, subject),
-         {:ok, %Users.User{}} <- Users.delete_user(user, subject) do
+         {:ok, %Users.User{}} <- Users.delete_user(user, subject, format_remote_ip(conn.remote_ip)) do
       conn
       |> put_resp_content_type("application/json")
       |> send_resp(:no_content, "")

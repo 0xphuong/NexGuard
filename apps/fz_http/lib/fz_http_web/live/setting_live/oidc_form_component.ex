@@ -184,7 +184,8 @@ defmodule FzHttpWeb.SettingLive.OIDCFormComponent do
         Config.update_config(
           config,
           %{openid_connect_providers: openid_connect_providers},
-          socket.assigns.subject
+          socket.assigns.subject,
+          socket.assigns[:remote_ip]
         )
 
       socket =

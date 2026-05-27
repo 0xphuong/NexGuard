@@ -13,6 +13,7 @@
   <%= live_component(
     FzHttpWeb.SettingLive.ClientDefaultsFormComponent,
     subject: @subject,
+    remote_ip: @remote_ip,
     changeset: @changeset,
     id: :client_defaults_form_component
   ) %>

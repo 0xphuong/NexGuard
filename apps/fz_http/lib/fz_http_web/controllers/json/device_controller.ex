@@ -4,6 +4,7 @@ defmodule FzHttpWeb.JSON.DeviceController do
   This endpoint allows an administrator to manage Devices.
   """
   use FzHttpWeb, :controller
+  import FzHttpWeb.ControllerHelpers, only: [format_remote_ip: 1]
   alias FzHttp.{Users, Devices}
   alias FzHttpWeb.Auth.JSON.Authentication
 
@@ -24,7 +25,7 @@ defmodule FzHttpWeb.JSON.DeviceController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, user} <- Users.fetch_user_by_id(attrs["user_id"], subject),
-         {:ok, device} <- Devices.create_device_for_user(user, attrs, subject) do
+         {:ok, device} <- Devices.create_device_for_user(user, attrs, subject, format_remote_ip(conn.remote_ip)) do
       defaults = Devices.defaults()
 
       conn
@@ -60,7 +61,7 @@ defmodule FzHttpWeb.JSON.DeviceController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, device} <- Devices.fetch_device_by_id(id, subject),
-         {:ok, _device} <- Devices.delete_device(device, subject) do
+         {:ok, _device} <- Devices.delete_device(device, subject, format_remote_ip(conn.remote_ip)) do
       send_resp(conn, :no_content, "")
     end
   end

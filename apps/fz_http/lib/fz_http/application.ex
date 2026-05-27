@@ -36,6 +36,7 @@ defmodule FzHttp.Application do
       FzHttp.Repo.Notifier,
       FzHttp.Server,
       FzHttp.VpnSessionScheduler,
+      FzHttp.AuditLog.RetentionScheduler,
       FzHttp.Auth,
       FzHttpWeb.Endpoint,
 

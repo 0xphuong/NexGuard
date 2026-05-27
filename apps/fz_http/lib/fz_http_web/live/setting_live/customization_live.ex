@@ -46,7 +46,7 @@ defmodule FzHttpWeb.SettingLive.Customization do
   def handle_event("save", %{"default" => "true"}, socket) do
     {:ok, config} =
       Config.fetch_db_config!()
-      |> Config.update_config(%{logo: nil}, socket.assigns.subject)
+      |> Config.update_config(%{logo: nil}, socket.assigns.subject, socket.assigns.remote_ip)
 
     {:noreply, assign(socket, :logo, config.logo)}
   end
@@ -55,7 +55,7 @@ defmodule FzHttpWeb.SettingLive.Customization do
   def handle_event("save", %{"url" => url}, socket) do
     {:ok, config} =
       Config.fetch_db_config!()
-      |> Config.update_config(%{logo: %{"url" => url}}, socket.assigns.subject)
+      |> Config.update_config(%{logo: %{"url" => url}}, socket.assigns.subject, socket.assigns.remote_ip)
 
     {:noreply, assign(socket, :logo, config.logo)}
   end
@@ -75,7 +75,8 @@ defmodule FzHttpWeb.SettingLive.Customization do
           Config.fetch_db_config!()
           |> Config.update_config(
             %{logo: %{"data" => data, "type" => entry.client_type}},
-            socket.assigns.subject
+            socket.assigns.subject,
+            socket.assigns.remote_ip
           )
 
         {:ok, config}

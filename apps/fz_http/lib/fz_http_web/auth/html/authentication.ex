@@ -5,7 +5,7 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
   use Guardian, otp_app: :fz_http
   use FzHttpWeb, :controller
   alias FzHttp.Auth
-  alias FzHttp.{Config, Telemetry, Users}
+  alias FzHttp.{AuditLogs, Config, Telemetry, Users}
   alias FzHttp.Users.User
 
   @guardian_token_name "guardian_default_token"
@@ -62,6 +62,13 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
     subject = Auth.fetch_subject!(user, nil, nil)
     %{provider: provider_id} = auth
 
+    AuditLogs.log("auth.login.success",
+      actor_id: user.id,
+      actor_email: user.email,
+      ip_address: format_remote_ip(conn.remote_ip),
+      metadata: %{provider: to_string(provider_id)}
+    )
+
     conn
     |> Plug.Conn.put_session("login_method", provider_id)
     |> Plug.Conn.put_session("logged_in_at", DateTime.utc_now())
@@ -69,6 +76,18 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
   end
 
   def sign_out(conn) do
+    case get_current_subject(conn) do
+      %{actor: {:user, user}} ->
+        AuditLogs.log("auth.logout",
+          actor_id: user.id,
+          actor_email: user.email,
+          ip_address: format_remote_ip(conn.remote_ip)
+        )
+
+      _ ->
+        :ok
+    end
+
     with provider_id when not is_nil(provider_id) <- Plug.Conn.get_session(conn, "login_method"),
          token when not is_nil(token) <- Plug.Conn.get_session(conn, "id_token"),
          {:ok, config} <- Auth.fetch_oidc_provider_config(provider_id),

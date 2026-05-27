@@ -193,6 +193,7 @@ defmodule FzHttpWeb.Router do
       live "/settings/account/api_token", SettingLive.Account, :new_api_token
       live "/settings/account/api_token/:api_token_id", SettingLive.Account, :show_api_token
       live "/settings/customization", SettingLive.Customization, :show
+      live "/settings/audit_log", SettingLive.AuditLog, :show
       live "/diagnostics/connectivity_checks", ConnectivityCheckLive.Index, :index
       live "/notifications", NotificationsLive.Index, :index
     end

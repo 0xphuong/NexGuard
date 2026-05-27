@@ -16,7 +16,7 @@ defmodule FzHttpWeb.SettingLive.Unprivileged.AccountFormComponent do
   end
 
   def handle_event("save", %{"user" => attrs}, socket) do
-    case Users.update_self(attrs, socket.assigns.subject) do
+    case Users.update_self(attrs, socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:ok, _user} ->
         {:noreply,
          socket

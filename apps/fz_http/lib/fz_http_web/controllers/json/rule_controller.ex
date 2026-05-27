@@ -4,6 +4,7 @@ defmodule FzHttpWeb.JSON.RuleController do
   This endpoint allows an adminisrator to manage Rules.
   """
   use FzHttpWeb, :controller
+  import FzHttpWeb.ControllerHelpers, only: [format_remote_ip: 1]
   alias FzHttp.Rules
   alias FzHttpWeb.Auth.JSON.Authentication
 
@@ -22,7 +23,7 @@ defmodule FzHttpWeb.JSON.RuleController do
   def create(conn, %{"rule" => attrs}) do
     subject = Authentication.get_current_subject(conn)
 
-    with {:ok, rule} <- Rules.create_rule(attrs, subject) do
+    with {:ok, rule} <- Rules.create_rule(attrs, subject, format_remote_ip(conn.remote_ip)) do
       conn
       |> put_status(:created)
       |> put_resp_header("location", ~p"/v0/rules/#{rule}")
@@ -44,7 +45,7 @@ defmodule FzHttpWeb.JSON.RuleController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, rule} <- Rules.fetch_rule_by_id(id, subject),
-         {:ok, rule} <- Rules.update_rule(rule, attrs, subject) do
+         {:ok, rule} <- Rules.update_rule(rule, attrs, subject, format_remote_ip(conn.remote_ip)) do
       render(conn, "show.json", rule: rule)
     end
   end
@@ -54,7 +55,7 @@ defmodule FzHttpWeb.JSON.RuleController do
     subject = Authentication.get_current_subject(conn)
 
     with {:ok, rule} <- Rules.fetch_rule_by_id(id, subject),
-         {:ok, _rule} <- Rules.delete_rule(rule, subject) do
+         {:ok, _rule} <- Rules.delete_rule(rule, subject, format_remote_ip(conn.remote_ip)) do
       send_resp(conn, :no_content, "")
     end
   end

@@ -4,6 +4,7 @@ defmodule FzHttpWeb.LiveAuth do
   """
   import Phoenix.Component
   import FzHttpWeb.AuthorizationHelpers
+  import FzHttpWeb.ControllerHelpers, only: [extract_live_ip: 1]
   alias FzHttpWeb.Auth.HTML.Authentication
   alias FzHttp.Auth
   require Logger
@@ -14,6 +15,7 @@ defmodule FzHttpWeb.LiveAuth do
         socket
         |> assign_new(:subject, fn -> subject end)
         |> assign_new(:current_user, fn -> user end)
+        |> assign_new(:remote_ip, fn -> extract_live_ip(socket) end)
         |> authorize_role(role)
 
       nil ->

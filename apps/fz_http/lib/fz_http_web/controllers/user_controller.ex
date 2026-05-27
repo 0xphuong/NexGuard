@@ -3,6 +3,7 @@ defmodule FzHttpWeb.UserController do
   Implements synchronous User requests.
   """
   use FzHttpWeb, :controller
+  import FzHttpWeb.ControllerHelpers, only: [format_remote_ip: 1]
   alias FzHttp.Users
   alias FzHttpWeb.Auth.HTML.Authentication
   require Logger
@@ -10,7 +11,7 @@ defmodule FzHttpWeb.UserController do
   def delete(conn, _params) do
     %{actor: {:user, user}} = subject = Authentication.get_current_subject(conn)
 
-    case Users.delete_user(user, subject) do
+    case Users.delete_user(user, subject, format_remote_ip(conn.remote_ip)) do
       {:ok, _user} ->
         FzHttpWeb.Endpoint.broadcast("users_socket:#{user.id}", "disconnect", %{})
         Authentication.sign_out(conn)

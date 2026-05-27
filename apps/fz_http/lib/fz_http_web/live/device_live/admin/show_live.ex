@@ -36,7 +36,7 @@ defmodule FzHttpWeb.DeviceLive.Admin.Show do
   end
 
   def handle_event("delete_device", _params, socket) do
-    case Devices.delete_device(socket.assigns.device, socket.assigns.subject) do
+    case Devices.delete_device(socket.assigns.device, socket.assigns.subject, socket.assigns.remote_ip) do
       {:ok, _deleted_device} ->
         {:noreply, redirect(socket, to: ~p"/devices")}
 

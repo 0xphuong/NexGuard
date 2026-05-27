@@ -26,7 +26,7 @@ defmodule FzHttpWeb.JSON.ConfigurationController do
     configuration = Config.fetch_db_config!()
 
     with {:ok, %Config.Configuration{} = configuration} <-
-           Config.update_config(configuration, params, subject) do
+           Config.update_config(configuration, params, subject, format_remote_ip(conn.remote_ip)) do
       render(conn, "show.json", configuration: configuration)
     end
   end

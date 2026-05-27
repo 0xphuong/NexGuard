@@ -34,7 +34,7 @@ defmodule FzHttpWeb.RuleLive.RuleListComponent do
 
   @impl Phoenix.LiveComponent
   def handle_event("add_rule", %{"rule" => attrs}, socket) do
-    case Rules.create_rule(attrs, socket.assigns.subject) do
+    case Rules.create_rule(attrs, socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:ok, _rule} ->
         socket =
           socket
@@ -50,7 +50,7 @@ defmodule FzHttpWeb.RuleLive.RuleListComponent do
   @impl Phoenix.LiveComponent
   def handle_event("delete_rule", %{"rule_id" => rule_id}, socket) do
     with {:ok, rule} <- Rules.fetch_rule_by_id(rule_id, socket.assigns.subject),
-         {:ok, _rule} <- Rules.delete_rule(rule, socket.assigns.subject) do
+         {:ok, _rule} <- Rules.delete_rule(rule, socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:noreply, assign(socket, rule_list: rule_list(socket.assigns))}
     else
       {:error, msg} ->
