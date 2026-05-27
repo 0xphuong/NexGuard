@@ -3,7 +3,7 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   Paginated, filterable view of the audit log.
   """
   use FzHttpWeb, :live_view
-  alias FzHttp.AuditLogs
+  alias FzHttp.{AuditLogs, Config}
 
   @page_size AuditLogs.page_size()
 
@@ -33,13 +33,30 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
       |> assign(:page, 1)
       |> assign(:categories, @categories)
       |> assign(:results, @results)
-      |> assign(:retention_days, Application.get_env(:fz_http, :audit_log_retention_days, 90))
+      |> assign(:retention_days, Config.fetch_config!(:audit_log_retention_days))
       |> load_logs()
 
     {:ok, socket}
   end
 
   @impl Phoenix.LiveView
+  def handle_event("update_retention", %{"retention" => %{"days" => days_str}}, socket) do
+    days = String.to_integer(days_str)
+
+    case Config.update_config(Config.fetch_db_config!(), %{audit_log_retention_days: days}, socket.assigns.subject, socket.assigns[:remote_ip]) do
+      {:ok, _config} ->
+        socket =
+          socket
+          |> assign(:retention_days, days)
+          |> put_flash(:info, "Retention policy updated to #{days} days.")
+
+        {:noreply, socket}
+
+      {:error, _changeset} ->
+        {:noreply, put_flash(socket, :error, "Invalid retention value (must be 1–3650 days).")}
+    end
+  end
+
   def handle_event("filter", %{"category" => category, "result" => result}, socket) do
     socket =
       socket
@@ -100,4 +117,5 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
 
   defp maybe_add(filters, _key, ""), do: filters
   defp maybe_add(filters, key, value), do: [{key, value} | filters]
+
 end

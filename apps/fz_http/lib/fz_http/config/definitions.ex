@@ -140,6 +140,10 @@ defmodule FzHttp.Config.Definitions do
        [
          :telemetry_enabled,
          :telemetry_id
+       ]},
+      {"Audit Log",
+       [
+         :audit_log_retention_days
        ]}
     ]
   end
@@ -836,6 +840,25 @@ defmodule FzHttp.Config.Definitions do
       %{"post_mark" => value} -> Dumper.keyword(value)
       %{"sendmail" => value} -> Dumper.keyword(value)
       value -> Dumper.keyword(value)
+    end
+  )
+
+  ##############################################
+  ## Audit Log
+  ##############################################
+
+  @doc """
+  Number of days to retain audit log entries. Entries older than this are purged daily.
+
+  Must be between 1 and 3650 days (10 years).
+  """
+  defconfig(:audit_log_retention_days, :integer,
+    default: 90,
+    changeset: fn changeset, key ->
+      Ecto.Changeset.validate_number(changeset, key,
+        greater_than_or_equal_to: 1,
+        less_than_or_equal_to: 3650
+      )
     end
   )
 

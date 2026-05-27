@@ -1,16 +1,14 @@
 defmodule FzHttp.AuditLog.RetentionScheduler do
   @moduledoc """
   Runs once per day and deletes audit log entries older than the configured
-  retention window. Configure via:
-
-      config :fz_http, :audit_log_retention_days, 90
+  retention window. The retention period is read from `FzHttp.Config` at
+  purge time, so changes made via the UI take effect on the next daily run.
   """
   use GenServer
   alias FzHttp.AuditLogs
   require Logger
 
   @interval :timer.hours(24)
-  @default_retention_days 90
 
   def start_link(_), do: GenServer.start_link(__MODULE__, %{})
 
@@ -22,7 +20,7 @@ defmodule FzHttp.AuditLog.RetentionScheduler do
 
   @impl GenServer
   def handle_info(:purge, state) do
-    days = Application.get_env(:fz_http, :audit_log_retention_days, @default_retention_days)
+    days = FzHttp.Config.fetch_config!(:audit_log_retention_days)
     cutoff = DateTime.add(DateTime.utc_now(), -days * 86_400)
     {count, _} = AuditLogs.purge_before(cutoff)
 

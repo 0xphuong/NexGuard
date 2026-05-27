@@ -34,6 +34,8 @@ defmodule FzHttp.Config.Configuration do
     # See https://github.com/firezone/firezone/issues/1236
     field :vpn_session_duration, :integer, read_after_writes: true
 
+    field :audit_log_retention_days, :integer
+
     embeds_one :logo, Logo, on_replace: :delete
 
     embeds_many :openid_connect_providers,

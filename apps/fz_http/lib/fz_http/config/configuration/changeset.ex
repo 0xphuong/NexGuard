@@ -19,6 +19,7 @@ defmodule FzHttp.Config.Configuration.Changeset do
       default_client_dns
       default_client_allowed_ips
       vpn_session_duration
+      audit_log_retention_days
     ]a
 
   @spec changeset(

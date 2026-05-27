@@ -2684,6 +2684,51 @@ pre {
   white-space: nowrap;
 }
 
+.ng-audit-retention-form {
+  display: inline-flex;
+  align-items: center;
+}
+
+.ng-audit-retention-input {
+  width: 3.5rem;
+  border: none;
+  background: transparent;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #475569;
+  text-align: center;
+  padding: 0;
+  outline: none;
+
+  &:focus {
+    border-bottom: 1px solid #94a3b8;
+  }
+
+  // Remove number input spinners
+  &::-webkit-outer-spin-button,
+  &::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  -moz-appearance: textfield;
+}
+
+.ng-audit-retention-save {
+  display: inline-flex;
+  align-items: center;
+  background: none;
+  border: none;
+  padding: 0 0 0 0.25rem;
+  cursor: pointer;
+  color: #64748b;
+  font-size: 0.85rem;
+  line-height: 1;
+
+  &:hover {
+    color: #0f172a;
+  }
+}
+
 .ng-audit-filters {
   display: flex;
   gap: 0.625rem;
