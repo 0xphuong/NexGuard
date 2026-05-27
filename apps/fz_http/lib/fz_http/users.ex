@@ -217,6 +217,9 @@ defmodule FzHttp.Users do
 
   def vpn_session_expired?(user) do
     cond do
+      is_nil(user.last_signed_in_at) && Config.fetch_config!(:require_mfa) ->
+        true
+
       is_nil(user.last_signed_in_at) ->
         false
 

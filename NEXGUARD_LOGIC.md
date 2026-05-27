@@ -160,10 +160,163 @@ Bridge giữa fz_http và fz_vpn/fz_wall:
 | `:load_settings` | http → wall | Tải users/devices/rules khởi động |
 | `:update_device_stats` | vpn → http | Push stats WireGuard lên DB |
 
-#### 3.6 VPN Session Scheduler
+#### 3.6 VPN Session Logic
 
-- Kiểm tra các VPN sessions đã expired
-- Đồng bộ device list với fz_vpn
+##### Config liên quan
+
+| Field DB | Đơn vị | Default | Ý nghĩa |
+|---|---|---|---|
+| `vpn_session_duration` | giây (integer) | `0` | `0` = không bao giờ expire |
+| `require_mfa` | boolean | `false` | Force MFA cho tất cả users |
+
+`vpn_sessions_expire?()` trả về `true` khi `0 < duration < 2_147_483_647`.
+
+---
+
+##### Luồng khi user đăng nhập
+
+**Trường hợp `require_mfa = false`:**
+```
+Nhập password thành công
+  → Authentication.sign_in()
+      → Users.update_last_signed_in()   ← last_signed_in_at = NOW()
+      → Guardian token vào session
+  → Redirect vào app
+```
+
+**Trường hợp `require_mfa = true`:**
+```
+Nhập password thành công
+  → Authentication.sign_in()
+      → update_last_signed_in() bị BỎ QUA  ← last_signed_in_at không đổi
+      → Guardian token vào session
+      → logged_in_at = NOW() (session key riêng)
+  → LiveMFA hook kiểm tra: logged_in_at > mfa.last_used_at?
+      YES → redirect /mfa/auth/:id
+      NO  → cho vào app
+
+Hoàn thành MFA verify (auth_live.ex):
+  → MFA.use_method()                    ← cập nhật mfa.last_used_at
+  → Users.update_last_signed_in()       ← last_signed_in_at = NOW() (lần này mới set)
+  → Redirect vào app
+
+Đăng ký MFA lần đầu (register_component.ex):
+  → MFA.create_method()
+  → Users.update_last_signed_in()       ← last_signed_in_at = NOW()
+  → Redirect vào app
+```
+
+**Điểm mấu chốt:** `last_signed_in_at` chỉ được set sau khi hoàn thành MFA khi `require_mfa = true`. Đây là mốc duy nhất để VPN enforcement dùng.
+
+---
+
+##### `Device.Query.only_active/1` — quyết định peer nào được add vào WireGuard
+
+```elixir
+cond do
+  # Case 1: Session có expiry
+  vpn_sessions_expire?() ->
+    if require_mfa do
+      # nil = chưa làm MFA bao giờ → DENY
+      not is_nil(last_signed_in_at)
+        AND last_signed_in_at + duration > now()
+    else
+      # nil = chưa login bao giờ → ALLOW (behavior gốc)
+      is_nil(last_signed_in_at)
+        OR last_signed_in_at + duration > now()
+    end
+
+  # Case 2: Không có session expiry, nhưng require_mfa
+  require_mfa ->
+    not is_nil(last_signed_in_at)   # phải đã làm MFA ít nhất 1 lần
+
+  # Case 3: Không có gì cả → tất cả active
+  true ->
+    true
+end
+```
+
+Ngoài ra: `user.disabled_at IS NULL` luôn được check.
+
+---
+
+##### Ma trận hành vi VPN
+
+| `require_mfa` | `vpn_session_duration` | `last_signed_in_at` | VPN active? |
+|---|---|---|---|
+| false | 0 | bất kỳ | ✅ Luôn active |
+| false | > 0 | nil (chưa login) | ✅ Active (nil bypass) |
+| false | > 0 | set, chưa hết hạn | ✅ Active |
+| false | > 0 | set, đã hết hạn | ❌ Bị remove |
+| **true** | **0** | **nil** | **❌ Blocked (chưa MFA)** |
+| **true** | **0** | **set** | **✅ Active mãi mãi** |
+| **true** | **> 0** | **nil** | **❌ Blocked** |
+| **true** | **> 0** | **set, chưa hết hạn** | **✅ Active** |
+| **true** | **> 0** | **set, đã hết hạn** | **❌ Bị remove → phải re-MFA** |
+
+**Lưu ý:** Để mỗi lần re-login đều phải re-verify MFA mới có VPN, cần `vpn_session_duration > 0`. Với `vpn_session_duration = 0`, chỉ cần làm MFA 1 lần đầu, sau đó VPN active mãi.
+
+---
+
+##### VpnSessionScheduler (`lib/fz_http/vpn_session_scheduler.ex`)
+
+```
+Mỗi 60 giây:
+  Events.set_config()
+    → Devices.to_peer_list()
+        → Device.Query.only_active()    ← lọc theo logic trên
+    → FzVpn.Server.set_config(peer_list)
+        → apply_config_diff(old, new)
+            → xóa peer không còn trong new list
+            → add peer mới trong new list
+```
+
+Tức là VPN peer bị add/remove trong vòng tối đa **60 giây** sau khi MFA hoàn thành hoặc session expire.
+
+---
+
+##### VPN Status trên UI (`vpn_status_component.ex`)
+
+```elixir
+cond do
+  user.disabled_at                          → "Disabled"
+  expired && user.last_signed_in_at         → "Expired" (session timeout)
+  expired && is_nil(user.last_signed_in_at) → "Expired" (chưa MFA bao giờ)
+  !expired                                  → "Enabled"
+end
+```
+
+`vpn_session_expired?(user)`:
+- `last_signed_in_at = nil` + `require_mfa = true` → `true` (hiện "Expired")
+- `last_signed_in_at = nil` + `require_mfa = false` → `false` (hiện "Enabled")
+- `vpn_sessions_expire? = false` → `false`
+- Còn lại: so sánh `last_signed_in_at + duration` với `now()`
+
+---
+
+##### Device tạo bởi admin cho user chưa login
+
+Khi admin tạo device cho user mới (`last_signed_in_at = nil`, `require_mfa = true`):
+1. `Repo.insert` → PostgreSQL trigger `devices_changed` → `Repo.Notifier`
+2. `Events.add("devices", device)` → `set_config(to_peer_list())`
+3. `only_active()` → user.last_signed_in_at IS NULL → device **không vào peer list**
+4. WireGuard peer **không được add** → VPN không kết nối được
+5. Sau khi user đăng nhập và hoàn thành MFA → `last_signed_in_at = NOW()` → scheduler 60s tiếp theo add peer → VPN hoạt động
+
+---
+
+##### Bảo mật bổ sung — MFA method ownership check (`auth_live.ex`)
+
+`handle_params` kiểm tra method thuộc về `current_user` trước khi load:
+```elixir
+with {:ok, method} <- MFA.fetch_method_by_id(id),
+     true <- method.user_id == socket.assigns.current_user.id do
+  ...
+else
+  _ -> {:halt, redirect(socket, to: ~p"/")}
+end
+```
+Ngăn user dùng method UUID của user khác để bypass MFA challenge.
 
 #### 3.7 Web Layer (`lib/fz_http_web/`)
 

@@ -26,19 +26,37 @@ defmodule FzHttp.Devices.Device.Query do
   end
 
   def only_active(queryable \\ all()) do
-    dynamic =
-      if FzHttp.Config.vpn_sessions_expire?() do
-        vpn_session_duration = FzHttp.Config.fetch_config!(:vpn_session_duration)
-        vpn_session_interval = %Postgrex.Interval{days: 0, months: 0, secs: vpn_session_duration}
+    require_mfa = FzHttp.Config.fetch_config!(:require_mfa)
 
-        dynamic(
-          [user: user],
-          is_nil(user.last_signed_in_at) or
-            fragment("? + ?::interval", user.last_signed_in_at, ^vpn_session_interval) >
-              fragment("now()")
-        )
-      else
-        true
+    dynamic =
+      cond do
+        FzHttp.Config.vpn_sessions_expire?() ->
+          vpn_session_duration = FzHttp.Config.fetch_config!(:vpn_session_duration)
+          vpn_session_interval = %Postgrex.Interval{days: 0, months: 0, secs: vpn_session_duration}
+
+          if require_mfa do
+            # last_signed_in_at is only set after MFA, so nil means MFA never completed
+            dynamic(
+              [user: user],
+              not is_nil(user.last_signed_in_at) and
+                fragment("? + ?::interval", user.last_signed_in_at, ^vpn_session_interval) >
+                  fragment("now()")
+            )
+          else
+            dynamic(
+              [user: user],
+              is_nil(user.last_signed_in_at) or
+                fragment("? + ?::interval", user.last_signed_in_at, ^vpn_session_interval) >
+                  fragment("now()")
+            )
+          end
+
+        require_mfa ->
+          # No session expiry but MFA required: VPN active only after first MFA completion
+          dynamic([user: user], not is_nil(user.last_signed_in_at))
+
+        true ->
+          true
       end
 
     queryable

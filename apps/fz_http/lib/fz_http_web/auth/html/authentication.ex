@@ -5,8 +5,7 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
   use Guardian, otp_app: :fz_http
   use FzHttpWeb, :controller
   alias FzHttp.Auth
-  alias FzHttp.Telemetry
-  alias FzHttp.Users
+  alias FzHttp.{Config, Telemetry, Users}
   alias FzHttp.Users.User
 
   @guardian_token_name "guardian_default_token"
@@ -57,7 +56,9 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
 
   def sign_in(conn, user, auth) do
     Telemetry.login()
-    Users.update_last_signed_in(user, auth)
+    unless Config.fetch_config!(:require_mfa) do
+      Users.update_last_signed_in(user, auth)
+    end
     subject = Auth.fetch_subject!(user, nil, nil)
     %{provider: provider_id} = auth
 

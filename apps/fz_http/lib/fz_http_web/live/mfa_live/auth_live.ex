@@ -5,6 +5,7 @@ defmodule FzHttpWeb.MFALive.Auth do
   use FzHttpWeb, :live_view
   import FzHttpWeb.ControllerHelpers
   alias FzHttp.Auth.MFA
+  alias FzHttp.{Users, Config}
 
   @page_title "Multi-factor Authentication"
 
@@ -21,7 +22,8 @@ defmodule FzHttpWeb.MFALive.Auth do
   end
 
   def handle_params(%{"id" => id}, _uri, socket) do
-    with {:ok, method} <- MFA.fetch_method_by_id(id) do
+    with {:ok, method} <- MFA.fetch_method_by_id(id),
+         true <- method.user_id == socket.assigns.current_user.id do
       changeset = MFA.use_method_changeset(method)
 
       socket =
@@ -31,7 +33,7 @@ defmodule FzHttpWeb.MFALive.Auth do
 
       {:noreply, socket}
     else
-      {:error, :not_found} -> {:halt, redirect(socket, to: ~p"/")}
+      _ -> {:halt, redirect(socket, to: ~p"/")}
     end
   end
 
@@ -119,8 +121,11 @@ defmodule FzHttpWeb.MFALive.Auth do
   def handle_event("verify", attrs, socket) do
     case MFA.use_method(socket.assigns.method, attrs) do
       {:ok, _method} ->
-        root_path_for_user = root_path_for_user(socket.assigns.current_user)
-        socket = push_redirect(socket, to: root_path_for_user)
+        if Config.fetch_config!(:require_mfa) do
+          Users.update_last_signed_in(socket.assigns.current_user, %{provider: :mfa})
+        end
+
+        socket = push_redirect(socket, to: root_path_for_user(socket.assigns.current_user))
         {:noreply, socket}
 
       {:error, changeset} ->

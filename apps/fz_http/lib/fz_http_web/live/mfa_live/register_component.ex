@@ -4,6 +4,7 @@ defmodule FzHttpWeb.MFA.RegisterComponent do
   """
   use FzHttpWeb, :live_component
   alias FzHttp.Auth.MFA
+  alias FzHttp.{Users, Config}
 
   @steps [
     {:pick_type, fields: ~w[type]a},
@@ -97,6 +98,10 @@ defmodule FzHttpWeb.MFA.RegisterComponent do
 
     case MFA.create_method(params, socket.assigns.user.id) do
       {:ok, _method} ->
+        if Config.fetch_config!(:require_mfa) do
+          Users.update_last_signed_in(socket.assigns.user, %{provider: :mfa})
+        end
+
         socket =
           socket
           |> put_flash(:info, "MFA method added!")
