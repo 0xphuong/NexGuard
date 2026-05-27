@@ -6,9 +6,9 @@
 ) do %>
   <span class="icon" style="position: relative;">
     <%= if @count == 0 do %>
-      <i class="mdi mdi-bell-outline" style="color: #64748b;"></i>
+      <i class="mdi mdi-bell-outline ng-bell-icon"></i>
     <% else %>
-      <i class="mdi mdi-bell-ring" style="color: #dc2626;"></i>
+      <i class="mdi mdi-bell-ring ng-bell-icon--active"></i>
       <span class="ng-notif-count"><%= @count %></span>
     <% end %>
   </span>

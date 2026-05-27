@@ -10,7 +10,7 @@
     <div class="modal-card">
       <header class="modal-card-head">
         <p class="modal-card-title">
-          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
           Delete <%= if @pending_delete.type == "openid_connect_providers", do: "OIDC Provider", else: "SAML Provider" %>
         </p>
         <button class="ng-modal-close" aria-label="Close" phx-click="cancel_provider_delete">
@@ -18,35 +18,22 @@
         </button>
       </header>
       <section class="modal-card-body">
-        <p style="color:#1e293b;margin-bottom:0.875rem">
-          You are about to delete the following provider:
-        </p>
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
-                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
-                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
-          <%= @pending_delete.label %>
-        </div>
-        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
-          This will also:
-        </p>
-        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+        <p class="ng-modal-intro">You are about to delete the following provider:</p>
+        <div class="ng-modal-entity"><%= @pending_delete.label %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
           <li>Remove this provider from the login page immediately</li>
           <li>Revoke all active SSO sessions for users authenticated via this provider</li>
         </ul>
-        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
-          This action cannot be undone.
-        </p>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
       </section>
       <footer class="modal-card-foot">
-        <button class="ng-secondary-btn" phx-click="cancel_provider_delete">
-          Cancel
-        </button>
+        <button class="ng-secondary-btn" phx-click="cancel_provider_delete">Cancel</button>
         <button
-          class="ng-danger-btn"
+          class="ng-danger-btn ng-danger-btn--filled"
           phx-click="delete"
           phx-value-key={@pending_delete.key}
           phx-value-type={@pending_delete.type}
-          style="background:#dc2626;color:#fff"
         >
           <i class="mdi mdi-trash-can-outline"></i> Delete Provider
         </button>
@@ -360,7 +347,7 @@
             <%= for provider <- config_value(openid_connect_providers) do %>
               <tr>
                 <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
-                <td style="font-weight: 500;"><%= provider.label %></td>
+                <td class="ng-td-label"><%= provider.label %></td>
                 <td class="ng-td-mono ng-td-muted"><%= provider.client_id %></td>
                 <td class="ng-td-muted"><%= provider.discovery_document_uri %></td>
                 <td class="ng-td-muted"><%= provider.scope %></td>
@@ -436,7 +423,7 @@
             <%= for provider <- config_value(saml_identity_providers) do %>
               <tr>
                 <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
-                <td style="font-weight: 500;"><%= provider.label %></td>
+                <td class="ng-td-label"><%= provider.label %></td>
                 <td class="ng-td-muted">
                   <div class="ng-metadata-preview"><%= provider.metadata %></div>
                 </td>

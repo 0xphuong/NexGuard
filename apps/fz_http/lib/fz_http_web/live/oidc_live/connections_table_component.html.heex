@@ -8,7 +8,7 @@
     <div class="modal-card">
       <header class="modal-card-head">
         <p class="modal-card-title">
-          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
           Delete OIDC Connection
         </p>
         <button class="ng-modal-close" aria-label="Close" phx-click="cancel_conn_delete" phx-target={@myself}>
@@ -16,15 +16,9 @@
         </button>
       </header>
       <section class="modal-card-body">
-        <p style="color:#1e293b;margin-bottom:0.875rem">
-          Delete the connection to:
-        </p>
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
-                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
-                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
-          <%= @pending_conn_delete.provider %>
-        </div>
-        <p style="color:#475569;font-size:0.875rem;line-height:1.6">
+        <p class="ng-modal-intro">Delete the connection to:</p>
+        <div class="ng-modal-entity"><%= @pending_conn_delete.provider %></div>
+        <p class="ng-modal-desc">
           Deleting this connection will prevent VPN sessions from being disabled for OIDC errors from this provider until the connection is re-established.
         </p>
       </section>
@@ -33,11 +27,10 @@
           Cancel
         </button>
         <button
-          class="ng-danger-btn"
+          class="ng-danger-btn ng-danger-btn--filled"
           phx-click="delete"
           phx-value-id={@pending_conn_delete.id}
           phx-target={@myself}
-          style="background:#dc2626;color:#fff"
         >
           <i class="mdi mdi-delete-outline"></i> Delete Connection
         </button>

@@ -7,7 +7,7 @@
     <div class="modal-card">
       <header class="modal-card-head">
         <p class="modal-card-title">
-          <i class="mdi mdi-alert-octagon" style="color:#dc2626;margin-right:0.4rem"></i>
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
           Delete Device
         </p>
         <button class="ng-modal-close" aria-label="Close" phx-click="cancel_device_delete">
@@ -15,34 +15,18 @@
         </button>
       </header>
       <section class="modal-card-body">
-        <p style="color:#1e293b;margin-bottom:0.875rem">
-          You are about to permanently delete:
-        </p>
-        <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:6px;
-                    padding:0.625rem 0.875rem;margin-bottom:1.125rem;
-                    font-family:'Fira Mono',monospace;font-size:0.9375rem;color:#991b1b">
-          <%= @device.name %>
-        </div>
-        <p style="color:#475569;font-size:0.875rem;margin-bottom:0.5rem">
-          This will also:
-        </p>
-        <ul style="color:#475569;font-size:0.875rem;padding-left:1.25rem;margin-bottom:1rem;line-height:1.75">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @device.name %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
           <li>Immediately disconnect this device from the VPN</li>
           <li>Remove all associated WireGuard configuration</li>
         </ul>
-        <p style="color:#dc2626;font-size:0.8125rem;font-weight:600">
-          This action cannot be undone.
-        </p>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
       </section>
       <footer class="modal-card-foot">
-        <button class="ng-secondary-btn" phx-click="cancel_device_delete">
-          Cancel
-        </button>
-        <button
-          class="ng-danger-btn"
-          phx-click="delete_device"
-          style="background:#dc2626;color:#fff"
-        >
+        <button class="ng-secondary-btn" phx-click="cancel_device_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete_device">
           <i class="mdi mdi-delete"></i> Delete Device
         </button>
       </footer>
@@ -67,16 +51,16 @@
       <div style="display:flex;align-items:center;gap:0.5rem">
         <%= if @device.latest_handshake do %>
           <span class="ng-status-badge ng-status-badge--active">
-            <i class="mdi mdi-circle" style="font-size:0.5rem"></i> Connected
+            <i class="mdi mdi-circle ng-status-dot"></i> Connected
           </span>
         <% else %>
           <span class="ng-status-badge ng-status-badge--inactive">
-            <i class="mdi mdi-circle" style="font-size:0.5rem"></i> Never connected
+            <i class="mdi mdi-circle ng-status-dot"></i> Never connected
           </span>
         <% end %>
         <%= if @device.description do %>
           <span class="ng-breadcrumb-sep">·</span>
-          <span style="font-size:0.8125rem;color:#64748b"><%= @device.description %></span>
+          <span class="ng-td-muted"><%= @device.description %></span>
         <% end %>
       </div>
     </div>

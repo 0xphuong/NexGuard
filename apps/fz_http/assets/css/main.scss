@@ -482,6 +482,7 @@ pre {
 .modal-card-foot {
   display: flex;
   justify-content: flex-end;
+  gap: 0.625rem;
   background: #f8fafc;
   border-top: 1px solid #e2e8f0;
   padding: 1rem 1.5rem;
@@ -490,6 +491,78 @@ pre {
     min-width: 100px;
   }
 }
+
+// ── Modal body content helpers ─────────────────────────────────
+
+.ng-modal-title-icon {
+  color: #dc2626;
+  margin-right: 0.4rem;
+}
+
+.ng-modal-intro {
+  color: #1e293b;
+  margin-bottom: 0.875rem;
+}
+
+.ng-modal-entity {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.625rem 0.875rem;
+  margin-bottom: 1.125rem;
+  font-family: 'Fira Mono', monospace;
+  font-size: 0.9375rem;
+  color: #991b1b;
+  word-break: break-all;
+}
+
+.ng-modal-desc {
+  color: #475569;
+  font-size: 0.875rem;
+  line-height: 1.6;
+}
+
+.ng-modal-cons {
+  color: #475569;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
+}
+
+.ng-modal-list {
+  color: #475569;
+  font-size: 0.875rem;
+  padding-left: 1.25rem;
+  margin-bottom: 1rem;
+  line-height: 1.75;
+}
+
+.ng-modal-warn {
+  color: #dc2626;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+// Promote/Demote role transition display
+.ng-mote-transition {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+}
+
+.ng-mote-badge {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 5px;
+  padding: 0.25rem 0.625rem;
+  color: #475569;
+  font-weight: 600;
+
+  &--target { color: #1e293b; }
+}
+
+.ng-mote-arrow { color: #94a3b8; }
 
 /* ── Flash Notifications ──────────────────────────────────────── */
 
@@ -797,6 +870,11 @@ pre {
   }
 }
 
+.ng-btn--sm {
+  font-size: 0.8rem;
+  padding: 0.35rem 0.875rem;
+}
+
 .ng-inline-link {
   color: #2563eb;
   text-decoration: none;
@@ -811,6 +889,13 @@ pre {
   font-size: 0.8125rem;
   color: #334155;
 }
+
+.ng-td-label { font-weight: 500; }
+
+.ng-status-dot { font-size: 0.5rem; }
+
+.ng-bell-icon { color: #64748b; }
+.ng-bell-icon--active { color: #dc2626; }
 
 .ng-device-icon {
   color: #94a3b8;
@@ -1790,6 +1875,16 @@ pre {
   }
 
   .mdi { font-size: 0.875rem; }
+
+  &--filled {
+    background: #dc2626;
+    color: #ffffff;
+
+    &:hover:not(:disabled) {
+      background: #b91c1c;
+      color: #ffffff;
+    }
+  }
 }
 
 .ng-modal-form-hint {
