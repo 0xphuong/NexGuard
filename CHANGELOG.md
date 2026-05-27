@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2026-05-28
+
+### Changed
+
+- **Add Device modal redesigned** — wider layout (640px), advanced WireGuard settings collapsed behind "Advanced settings" toggle (hidden by default); Yes/No radio pairs replaced with `ng-toggle` switches; advanced section expands inline without page scroll
+- **Device config result redesigned** — after generating a config: green success banner, amber one-time-view warning, QR code and Download button side-by-side, dark config block with Copy button, Done link to close without X button
+
+### Fixed
+
+- **QR code squished after Generate Configuration** — canvas element was being compressed horizontally inside flex container due to `height: auto` not maintaining aspect ratio on `<canvas>`; fixed with explicit `width: 140px; height: 140px; flex-shrink: 0`
+- **"Save" text not centered in modal buttons** (Add Token, Add MFA Method, Add User) — `submit()` helper generated `<input type="submit">` which ignores `display: inline-flex; align-items: center` (no child nodes); replaced with `<button type="submit">` across all modals via shared `submit_button.html.heex`
+- **Spinner icon** on config generation was using deprecated Font Awesome class (`fa fa-spinner fa-spin`); replaced with MDI (`mdi mdi-loading mdi-spin`) to match the rest of the design system
+
+[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.3.1...HEAD
+[1.3.1]: https://github.com/0xphuong/NexGuard/compare/v1.3.0...v1.3.1
+
+---
+
 ## [1.3.0] - 2026-05-27
 
 ### Added
@@ -40,7 +58,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Page header shows read-only `N-day retention` and total event count badges
 - Sidebar: **Audit Log** entry added under Settings
 
-[Unreleased]: https://github.com/0xphuong/NexGuard/compare/v1.3.0...HEAD
 [1.3.0]: https://github.com/0xphuong/NexGuard/compare/v1.2.3...v1.3.0
 
 ---
