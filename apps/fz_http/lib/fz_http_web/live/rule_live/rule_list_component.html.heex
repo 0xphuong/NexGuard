@@ -15,59 +15,10 @@
       phx-change="change"
       phx-target={@myself}
       phx-submit="add_rule"
-      class="ng-rule-form"
     >
       <%= hidden_input(f, :action, value: @action) %>
 
-      <div class="ng-rule-form-row">
-        <div class="ng-rule-field">
-          <%= label(f, :destination, "Destination", class: "ng-rule-label") %>
-          <%= text_input(f, :destination,
-            class: "ng-rule-input #{input_error_class(f, :destination)}",
-            placeholder: "10.0.0.0/8"
-          ) %>
-          <p class="ng-rule-error"><%= error_tag(f, :destination) %></p>
-        </div>
-
-        <div class="ng-rule-field">
-          <%= label(f, "User", class: "ng-rule-label") %>
-          <%= select(f, :user_id, user_options(@users),
-            prompt: "All users",
-            class: "ng-rule-select"
-          ) %>
-          <p class="ng-rule-error"></p>
-        </div>
-
-        <div class="ng-rule-field">
-          <%= label(f, :port_type, "Protocol", class: "ng-rule-label") %>
-          <%= select(f, :port_type, port_type_options(),
-            prompt: "All",
-            class: "ng-rule-select",
-            title: if(!@port_rules_supported, do: "Kernel 5.6.9 required for port-based rules."),
-            disabled: !@port_rules_supported
-          ) %>
-          <p class="ng-rule-error"><%= error_tag(f, :port_type) %></p>
-        </div>
-
-        <div class="ng-rule-field">
-          <%= label(f, :port_range, "Port Range", class: "ng-rule-label") %>
-          <%= text_input(f, :port_range,
-            class: "ng-rule-input #{input_error_class(f, :port_range)}",
-            placeholder: "23000-24000",
-            disabled: FzHttp.Validator.empty?(@changeset, :port_type)
-          ) %>
-          <p class="ng-rule-error"><%= error_tag(f, :port_range) %></p>
-        </div>
-
-        <div class="ng-rule-field ng-rule-field--action">
-          <label class="ng-rule-label">&nbsp;</label>
-          <%= submit "Add", class: "ng-rule-add-btn ng-rule-add-btn--#{@action}" %>
-        </div>
-      </div>
-    </.form>
-
-    <%= if length(@rule_list) > 0 do %>
-      <div class="ng-table-wrap ng-rule-table-wrap">
+      <div class="ng-table-wrap">
         <table class="ng-table">
           <thead>
             <tr>
@@ -78,40 +29,84 @@
               <th></th>
             </tr>
           </thead>
-          <tbody id={"#{@action}-rules"}>
-            <%= for rule <- @rule_list do %>
-              <tr class={if rule.port_range != nil && !@port_rules_supported, do: "ng-row-disabled"}>
-                <td class="ng-td-mono"><%= rule.destination %></td>
-                <td class="ng-td-muted"><%= @users[rule.user_id] || "All users" %></td>
-                <td class="ng-td-muted"><%= port_type_display(rule.port_type) || "All" %></td>
-                <td class="ng-td-muted"><%= rule.port_range || "—" %></td>
-                <td class="ng-td-center">
-                  <a
-                    href="#"
-                    class="ng-delete-link"
-                    phx-click="delete_rule"
-                    phx-value-rule_id={rule.id}
-                    phx-target={@myself}
-                  >
-                    <i class="mdi mdi-trash-can-outline"></i>
-                  </a>
+          <tbody>
+            <tr class="ng-rule-input-row">
+              <td>
+                <%= text_input(f, :destination,
+                  class: "ng-rule-input #{input_error_class(f, :destination)}",
+                  placeholder: "10.0.0.0/8"
+                ) %>
+                <p class="ng-rule-error"><%= error_tag(f, :destination) %></p>
+              </td>
+              <td>
+                <%= select(f, :user_id, user_options(@users),
+                  prompt: "All users",
+                  class: "ng-rule-select"
+                ) %>
+                <p class="ng-rule-error"></p>
+              </td>
+              <td>
+                <%= select(f, :port_type, port_type_options(),
+                  prompt: "All",
+                  class: "ng-rule-select",
+                  title: if(!@port_rules_supported, do: "Kernel 5.6.9 required for port-based rules."),
+                  disabled: !@port_rules_supported
+                ) %>
+                <p class="ng-rule-error"><%= error_tag(f, :port_type) %></p>
+              </td>
+              <td>
+                <%= text_input(f, :port_range,
+                  class: "ng-rule-input #{input_error_class(f, :port_range)}",
+                  placeholder: "23000-24000",
+                  disabled: FzHttp.Validator.empty?(@changeset, :port_type)
+                ) %>
+                <p class="ng-rule-error"><%= error_tag(f, :port_range) %></p>
+              </td>
+              <td class="ng-td-center">
+                <%= submit "Add", class: "ng-rule-add-btn ng-rule-add-btn--#{@action}" %>
+              </td>
+            </tr>
+
+            <%= if length(@rule_list) > 0 do %>
+              <%= for rule <- @rule_list do %>
+                <tr class={if rule.port_range != nil && !@port_rules_supported, do: "ng-row-disabled"}>
+                  <td class="ng-td-mono"><%= rule.destination %></td>
+                  <td class="ng-td-muted"><%= @users[rule.user_id] || "All users" %></td>
+                  <td class="ng-td-muted"><%= port_type_display(rule.port_type) || "All" %></td>
+                  <td class="ng-td-muted"><%= rule.port_range || "—" %></td>
+                  <td class="ng-td-center">
+                    <a
+                      href="#"
+                      class="ng-delete-link"
+                      phx-click="delete_rule"
+                      phx-value-rule_id={rule.id}
+                      phx-target={@myself}
+                    >
+                      <i class="mdi mdi-trash-can-outline"></i>
+                    </a>
+                  </td>
+                </tr>
+              <% end %>
+            <% else %>
+              <tr>
+                <td colspan="5">
+                  <div class="ng-rule-empty">
+                    <i class="mdi mdi-playlist-remove"></i>
+                    No rules yet
+                  </div>
                 </td>
               </tr>
             <% end %>
           </tbody>
         </table>
       </div>
-      <%= if !@port_rules_supported && Enum.any?(@rule_list, fn rule -> rule.port_range != nil end) do %>
-        <p class="ng-rule-warning">
-          <i class="mdi mdi-alert-outline"></i>
-          Port-based rules require Linux Kernel 5.6.9 or greater.
-        </p>
-      <% end %>
-    <% else %>
-      <div class="ng-rule-empty">
-        <i class="mdi mdi-playlist-remove"></i>
-        No rules yet
-      </div>
+    </.form>
+
+    <%= if !@port_rules_supported && Enum.any?(@rule_list, fn rule -> rule.port_range != nil end) do %>
+      <p class="ng-rule-warning">
+        <i class="mdi mdi-alert-outline"></i>
+        Port-based rules require Linux Kernel 5.6.9 or greater.
+      </p>
     <% end %>
   </div>
 </div>

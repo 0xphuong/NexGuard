@@ -926,46 +926,27 @@ pre {
   gap: 1rem;
 }
 
-.ng-rule-form {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 1rem;
+.ng-rule-input-row td {
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  vertical-align: top;
 }
 
-.ng-rule-form-row {
-  display: grid;
-  grid-template-columns: 2fr 1.5fr 1fr 1fr auto;
-  gap: 0.75rem;
-  align-items: end;
-
-  @media (max-width: 1200px) { grid-template-columns: 1fr 1fr; }
-}
-
-.ng-rule-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-
-  &--action { justify-content: flex-end; }
-}
-
-.ng-rule-label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #64748b;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-}
-
-.ng-rule-input {
-  padding: 0.5rem 0.75rem;
+.ng-rule-input,
+.ng-rule-select {
+  height: 2.25rem;
+  box-sizing: border-box;
+  padding: 0 0.75rem;
   border: 1px solid #e2e8f0;
   border-radius: 6px;
   background: #ffffff;
   font-size: 0.875rem;
   font-family: inherit;
   color: #1e293b;
+  width: 100%;
+}
+
+.ng-rule-input {
   transition: border-color 0.15s, box-shadow 0.15s;
 
   &::placeholder { color: #94a3b8; }
@@ -980,14 +961,6 @@ pre {
 }
 
 .ng-rule-select {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  background: #ffffff;
-  font-size: 0.875rem;
-  font-family: inherit;
-  color: #1e293b;
-  width: 100%;
   appearance: auto;
   cursor: pointer;
 
@@ -1017,9 +990,6 @@ pre {
   margin: 0;
 }
 
-.ng-rule-table-wrap {
-  margin-top: 0;
-}
 
 .ng-row-disabled {
   opacity: 0.5;
