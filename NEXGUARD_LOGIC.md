@@ -1026,7 +1026,52 @@ nft 'delete set inet nexguard user<UUID>_ip6_accept'
 | `meta iifname wg-nexguard` | Có trong mọi filter rule → chỉ áp dụng cho WireGuard traffic |
 | Handle-based deletion | `nft -a list` rồi regex lấy handle; re-scan sau mỗi lần xóa |
 | IP normalization | CIDR: `CIDR.parse()` → chuẩn hóa; single IP: `:inet.ntoa()` |
-| `port_based_rules_supported` | Config flag bật/tắt L4 sets — nếu tắt chỉ có 4 sets/user thay vì 8 |
+| `port_based_rules_supported` | Config flag bật/tắt L4 sets — cần **kernel ≥ 5.6.9** (xem mục dưới); nếu tắt chỉ có 4 sets/user thay vì 8 |
+
+---
+
+### Yêu cầu kernel cho L4 sets (`port_based_rules_supported`)
+
+L4 sets dùng nftables **concatenated sets với interval flag** — mỗi element là tuple 3 chiều `(IP, protocol, port)`:
+
+```
+type ipv4_addr . inet_proto . inet_service
+flags interval
+```
+
+Định nghĩa thực tế tại `apps/fz_wall/lib/fz_wall/cli/helpers/nft.ex:256-260`:
+
+```elixir
+defp filter_set_type(:ip,  false), do: "ipv4_addr"
+defp filter_set_type(:ip6, false), do: "ipv6_addr"
+defp filter_set_type(ip_type, true),
+  do: "#{filter_set_type(ip_type, false)} . inet_proto . inet_service"
+```
+
+Để lookup được tuple kiểu này, kernel cần engine **`nft_set_pipapo`** ("PIle PAcket POlicies").
+
+| Kernel | Trạng thái |
+|---|---|
+| **< 5.6** | Không có `pipapo`. nftables chỉ match được set 1 chiều (chỉ IP, hoặc chỉ port). Không hỗ trợ tuple. |
+| **5.6.0 – 5.6.8** | `pipapo` đã có nhưng lookup interval bị bug — tuple với port range silently mismatch hoặc crash. **Không production-ready.** |
+| **≥ 5.6.9** | Stable kernel đầu tiên có đầy đủ fix interval-lookup của `pipapo` (backport từ Pablo Neira). L4 sets chạy đúng. |
+| **≥ 5.10 LTS** | Khuyến nghị — đã merge thêm nhiều fix khác cho `pipapo`. |
+
+**Fallback khi kernel cũ** (`port_based_rules_supported=false`):
+
+- Chỉ tạo **4 sets/user** (IP-only) thay vì 8 — bỏ 4 sets `*_layer4`
+- UI ẩn các field `port_type` / `port_range` khi tạo Rule (`apps/fz_http/lib/fz_http/rules/rule/changeset.ex:10-22`)
+- Rule chỉ filter được theo IP/CIDR — không thể tách "cho phép 10.0.0.0/24:443" với "chặn 10.0.0.0/24 còn lại"
+- 4 global rules `*_layer4` ở `forward` chain cũng không được tạo
+
+Verify nhanh trên host:
+
+```bash
+uname -r                                     # ≥ 5.6.9?
+nft list ruleset | grep -c inet_service      # >0 nếu L4 sets đang được tạo
+```
+
+**Reference**: Pablo Neira Ayuso, [*Pipapo: pile packet policies*](https://lwn.net/Articles/812060/), LWN 2020 — background về tại sao tuple lookup phức tạp hơn IP lookup và lý do `pipapo` cần fix riêng cho interval.
 
 ---
 
