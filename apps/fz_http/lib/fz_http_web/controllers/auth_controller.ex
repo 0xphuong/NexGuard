@@ -110,6 +110,8 @@ defmodule FzHttpWeb.AuthController do
           )
 
           conn
+          |> State.delete_cookie()
+          |> PKCE.delete_cookie()
           |> put_flash(:error, "Error signing in: #{reason}")
           |> redirect(to: ~p"/")
       end
@@ -125,6 +127,8 @@ defmodule FzHttpWeb.AuthController do
         )
 
         conn
+        |> State.delete_cookie()
+        |> PKCE.delete_cookie()
         |> put_flash(:error, msg)
         |> redirect(to: ~p"/")
     end
@@ -242,6 +246,8 @@ defmodule FzHttpWeb.AuthController do
 
   defp do_sign_in(conn, user, auth) do
     conn
+    |> State.delete_cookie()
+    |> PKCE.delete_cookie()
     |> Authentication.sign_in(user, auth)
     |> configure_session(renew: true)
     |> put_session(:live_socket_id, "users_socket:#{user.id}")

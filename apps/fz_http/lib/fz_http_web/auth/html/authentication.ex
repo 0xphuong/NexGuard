@@ -7,6 +7,8 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
   alias FzHttp.Auth
   alias FzHttp.{AuditLogs, Config, Telemetry, Users}
   alias FzHttp.Users.User
+  alias FzHttpWeb.OAuth.PKCE
+  alias FzHttpWeb.OIDC.State
 
   @guardian_token_name "guardian_default_token"
 
@@ -98,12 +100,16 @@ defmodule FzHttpWeb.Auth.HTML.Authentication do
            }) do
       conn
       |> __MODULE__.Plug.sign_out()
+      |> State.delete_cookie()
+      |> PKCE.delete_cookie()
       |> Plug.Conn.configure_session(drop: true)
       |> Phoenix.Controller.redirect(external: end_session_uri)
     else
       _ ->
         conn
         |> __MODULE__.Plug.sign_out()
+        |> State.delete_cookie()
+        |> PKCE.delete_cookie()
         |> Plug.Conn.configure_session(drop: true)
         |> Phoenix.Controller.redirect(to: ~p"/")
     end

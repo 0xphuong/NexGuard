@@ -28,6 +28,8 @@ defmodule FzHttpWeb.OIDC.State do
     FzHttp.Crypto.rand_string()
   end
 
+  def delete_cookie(conn), do: delete_resp_cookie(conn, @oidc_state_key)
+
   defp cookie_opts do
     [
       max_age: @oidc_state_valid_duration,

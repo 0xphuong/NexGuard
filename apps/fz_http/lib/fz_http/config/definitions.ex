@@ -201,7 +201,11 @@ defmodule FzHttp.Config.Definitions do
   You can see all supported options at https://ninenines.eu/docs/en/cowboy/2.5/manual/cowboy_http/.
   """
   defconfig(:phoenix_http_protocol_options, :map,
-    default: %{},
+    default: %{
+      max_header_value_length: 16_384,
+      max_header_name_length: 256,
+      max_headers: 100
+    },
     dump: &Dumper.keyword/1
   )
 

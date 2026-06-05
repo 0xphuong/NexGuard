@@ -8,6 +8,7 @@ defmodule FzHttpWeb.Router do
   pipeline :browser do
     plug :accepts, ["html"]
     plug :fetch_session
+    plug FzHttpWeb.Plug.CookieHygiene
     plug :fetch_live_flash
     plug :put_root_layout, {FzHttpWeb.LayoutView, :root}
     plug :protect_from_forgery

@@ -38,6 +38,8 @@ defmodule FzHttpWeb.OAuth.PKCE do
     :crypto.hash(:sha256, verifier) |> Base.url_encode64(padding: false)
   end
 
+  def delete_cookie(conn), do: delete_resp_cookie(conn, @pkce_key)
+
   defp cookie_opts do
     [
       max_age: @pkce_valid_duration,
