@@ -27,9 +27,17 @@ defmodule FzHttp.Devices.StatsUpdater do
           attrs = %{
             rx_bytes: String.to_integer(data.rx_bytes),
             tx_bytes: String.to_integer(data.tx_bytes),
-            remote_ip: new_remote_ip,
-            latest_handshake: new_handshake
+            remote_ip: new_remote_ip
           }
+
+          # Skip latest_handshake when peer hasn't handshaken yet, so we don't
+          # clobber the previous good value with 1970-01-01.
+          attrs =
+            if new_handshake do
+              Map.put(attrs, :latest_handshake, new_handshake)
+            else
+              attrs
+            end
 
           {resp, _} = Devices.update_metrics(device, attrs)
 
@@ -77,6 +85,12 @@ defmodule FzHttp.Devices.StatsUpdater do
   defp connected?(%DateTime{} = ts) do
     DateTime.diff(DateTime.utc_now(), ts) < @connected_threshold_secs
   end
+
+  # WireGuard returns latest_handshake=0 for peers that have never completed a
+  # handshake (e.g. right after a peer is freshly added). Treat that as "no
+  # handshake yet" so the caller can skip the field instead of overwriting a
+  # previously good timestamp with 1970-01-01.
+  defp latest_handshake("0"), do: nil
 
   defp latest_handshake(epoch) do
     epoch

@@ -8,6 +8,14 @@ defmodule FzHttp.Devices do
     |> Repo.aggregate(:count)
   end
 
+  # True when the device has at least one real WireGuard handshake. Treats
+  # epoch-zero timestamps (1970-01-01) as "never" — they can appear in legacy
+  # rows where stats_updater overwrote a good value with `DateTime.from_unix!(0)`
+  # before the bug fix landed.
+  def has_handshaken?(%Device{latest_handshake: nil}), do: false
+  def has_handshaken?(%Device{latest_handshake: %DateTime{year: year}}) when year < 2000, do: false
+  def has_handshaken?(%Device{latest_handshake: %DateTime{}}), do: true
+
   def count_by_user_id(user_id) do
     Device.Query.by_user_id(user_id)
     |> Repo.aggregate(:count)

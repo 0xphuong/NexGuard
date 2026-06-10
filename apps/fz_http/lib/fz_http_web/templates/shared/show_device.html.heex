@@ -49,7 +49,7 @@
         <h1 class="ng-page-title" style="margin:0"><%= @device.name %></h1>
       </div>
       <div style="display:flex;align-items:center;gap:0.5rem">
-        <%= if @device.latest_handshake do %>
+        <%= if FzHttp.Devices.has_handshaken?(@device) do %>
           <span class="ng-status-badge ng-status-badge--active">
             <i class="mdi mdi-circle ng-status-dot"></i> Connected
           </span>
