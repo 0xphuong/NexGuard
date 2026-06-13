@@ -11,6 +11,10 @@ defmodule FzHttp.AuditLogs.AuditLog do
     auth.mfa.enroll
     auth.mfa.delete
     auth.session.expired
+    auth.native.code_issued
+    auth.native.token_exchange
+    auth.native.refresh
+    auth.native.revoke
     user.create
     user.delete
     user.role.change

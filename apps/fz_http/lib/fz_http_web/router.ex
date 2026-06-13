@@ -21,6 +21,18 @@ defmodule FzHttpWeb.Router do
     plug FzHttpWeb.Plug.RequireMFA
   end
 
+  # Unauthenticated JSON pipeline for native client token + refresh endpoints.
+  # Trust is established by the request body (one-time code or refresh_token hash).
+  pipeline :api_public do
+    plug :accepts, ["json"]
+  end
+
+  # Native bearer-auth pipeline for authenticated native client endpoints.
+  pipeline :api_native_auth do
+    plug :accepts, ["json"]
+    plug FzHttpWeb.Plug.NativeAuthBearer
+  end
+
   pipeline :browser_static do
     plug :accepts, ["html", "xml"]
   end
@@ -76,6 +88,16 @@ defmodule FzHttpWeb.Router do
       get "/:provider/callback", AuthController, :oidc_callback
       get "/:provider", AuthController, :redirect_oidc_auth_uri
     end
+  end
+
+  # Native client browser bridge — stores PKCE state then delegates to OIDC
+  scope "/auth/native", FzHttpWeb do
+    pipe_through [
+      :browser,
+      :require_unauthenticated
+    ]
+
+    get "/begin", NativeAuthController, :begin
   end
 
   # SAML auth routes
@@ -207,6 +229,23 @@ defmodule FzHttpWeb.Router do
     resources "/users", UserController, except: [:new, :edit]
     resources "/devices", DeviceController, except: [:new, :edit]
     resources "/rules", RuleController, except: [:new, :edit]
+  end
+
+  # Native client token + refresh (unauthenticated; trust via code/refresh_token in body)
+  scope "/api/v1/native", FzHttpWeb.API.V1 do
+    pipe_through :api_public
+
+    post "/token", NativeAuthController, :token
+    post "/refresh", NativeAuthController, :refresh
+    post "/revoke", NativeAuthController, :revoke
+  end
+
+  # Native client device endpoints (Bearer-authenticated)
+  scope "/api/v1/devices", FzHttpWeb.API.V1 do
+    pipe_through :api_native_auth
+
+    post "/enroll", DeviceController, :enroll
+    get "/me/config", DeviceController, :me_config
   end
 
   scope "/browser", FzHttpWeb do

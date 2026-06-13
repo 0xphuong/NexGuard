@@ -3,7 +3,7 @@ defmodule FzHttpWeb.AuthController do
   Implements the CRUD for a Session
   """
   use FzHttpWeb, :controller
-  alias FzHttp.{AuditLogs, Users}
+  alias FzHttp.{AuditLogs, Config, NativeAuth, Users}
   alias FzHttp.Auth
   alias FzHttpWeb.Auth.HTML.Authentication
   alias FzHttpWeb.OAuth.PKCE
@@ -245,12 +245,76 @@ defmodule FzHttpWeb.AuthController do
   end
 
   defp do_sign_in(conn, user, auth) do
-    conn
-    |> State.delete_cookie()
-    |> PKCE.delete_cookie()
-    |> Authentication.sign_in(user, auth)
-    |> configure_session(renew: true)
-    |> put_session(:live_socket_id, "users_socket:#{user.id}")
-    |> redirect(to: root_path_for_user(user))
+    case get_session(conn, :native_flow) do
+      %{"state" => st, "code_challenge" => cc, "redirect_uri" => ru} ->
+        complete_native_flow(conn, user, auth, st, cc, ru)
+
+      _ ->
+        conn
+        |> State.delete_cookie()
+        |> PKCE.delete_cookie()
+        |> Authentication.sign_in(user, auth)
+        |> configure_session(renew: true)
+        |> put_session(:live_socket_id, "users_socket:#{user.id}")
+        |> redirect(to: root_path_for_user(user))
+    end
+  end
+
+  defp auth_provider_label(%{provider: p}) when not is_nil(p), do: to_string(p)
+  defp auth_provider_label(_), do: "unknown"
+
+  defp complete_native_flow(conn, user, auth, state, code_challenge, redirect_uri) do
+    provider_label = auth_provider_label(auth)
+
+    case NativeAuth.create_code(user, code_challenge, redirect_uri) do
+      {:ok, code} ->
+        # Mirror the side-effects of Authentication.sign_in/3 so portal "last sign in"
+        # and audit query for "auth.login.success" cover native sign-ins too.
+        unless Config.fetch_config!(:require_mfa) do
+          Users.update_last_signed_in(user, auth)
+        end
+
+        AuditLogs.log("auth.login.success",
+          actor_id: user.id,
+          actor_email: user.email,
+          ip_address: format_remote_ip(conn.remote_ip),
+          metadata: %{provider: provider_label, native: true}
+        )
+
+        AuditLogs.log("auth.native.code_issued",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "success",
+          metadata: %{provider: provider_label, user_id: user.id}
+        )
+
+        target =
+          redirect_uri <>
+            "?code=" <>
+            URI.encode_www_form(code) <>
+            "&state=" <> URI.encode_www_form(state)
+
+        conn
+        |> delete_session(:native_flow)
+        |> State.delete_cookie()
+        |> PKCE.delete_cookie()
+        |> configure_session(drop: true)
+        |> redirect(external: target)
+
+      {:error, reason} ->
+        Logger.error("native_auth code creation failed", reason: inspect(reason))
+
+        AuditLogs.log("auth.native.code_issued",
+          ip_address: format_remote_ip(conn.remote_ip),
+          result: "failure",
+          metadata: %{provider: provider_label, reason: inspect(reason)}
+        )
+
+        conn
+        |> delete_session(:native_flow)
+        |> State.delete_cookie()
+        |> PKCE.delete_cookie()
+        |> put_flash(:error, "Could not complete native sign-in: #{inspect(reason)}")
+        |> redirect(to: ~p"/")
+    end
   end
 end

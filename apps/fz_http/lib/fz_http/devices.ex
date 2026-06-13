@@ -284,4 +284,46 @@ defmodule FzHttp.Devices do
       :default_client_persistent_keepalive
     ])
   end
+
+  @doc """
+  Idempotent enroll for native clients. Lookup `(user_id, name)`:
+    - not found       → create new device + sync VPN/firewall
+    - found, same key → return existing (no-op)
+    - found, new key  → update public_key (app re-installed) + resync VPN
+
+  Returns `{:ok, device}` or `{:error, changeset}`.
+  """
+  def find_or_create_for_user(%Users.User{} = user, name, public_key)
+      when is_binary(name) and is_binary(public_key) do
+    case Repo.get_by(Device, user_id: user.id, name: name) do
+      nil ->
+        attrs = %{name: name, public_key: public_key}
+
+        changeset =
+          Device.Changeset.create_changeset(user, attrs)
+          |> Device.Changeset.configure_changeset(%{})
+
+        with {:ok, device} <- Repo.insert(changeset) do
+          Telemetry.add_device()
+          FzHttp.Events.add("devices", device)
+          {:ok, device}
+        end
+
+      %Device{public_key: ^public_key} = device ->
+        {:ok, device}
+
+      %Device{} = device ->
+        changeset =
+          device
+          |> Ecto.Changeset.cast(%{public_key: public_key}, [:public_key])
+          |> Ecto.Changeset.validate_required([:public_key])
+          |> Ecto.Changeset.validate_length(:public_key, is: 44)
+          |> Ecto.Changeset.unique_constraint(:public_key)
+
+        with {:ok, updated} <- Repo.update(changeset) do
+          FzHttp.Events.set_config()
+          {:ok, updated}
+        end
+    end
+  end
 end
