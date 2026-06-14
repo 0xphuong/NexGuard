@@ -5,6 +5,7 @@ defmodule FzHttpWeb.AuthController do
   use FzHttpWeb, :controller
   alias FzHttp.{AuditLogs, Config, NativeAuth, Users}
   alias FzHttp.Auth
+  alias FzHttp.Auth.MFA
   alias FzHttpWeb.Auth.HTML.Authentication
   alias FzHttpWeb.OAuth.PKCE
   alias FzHttpWeb.OIDC.State
@@ -176,6 +177,34 @@ defmodule FzHttpWeb.AuthController do
     Authentication.sign_out(conn)
   end
 
+  @doc """
+  Finalize the native auth flow AFTER an MFA challenge has been completed via
+  the web LiveView. Reads the deferred `:native_flow` session, issues the
+  one-time code, drops the temporary browser session, and redirects to the
+  client's `nexguard-connect://` scheme.
+
+  Only reachable when the user is browser-authenticated (route is in the
+  authenticated scope), which is the case immediately after MFA verify.
+  """
+  def native_finalize(conn, _params) do
+    user = Authentication.get_current_subject(conn) |> current_user_from_subject()
+
+    case {user, get_session(conn, :native_flow)} do
+      {nil, _} ->
+        conn |> put_flash(:error, "Session expired.") |> redirect(to: ~p"/")
+
+      {_user, nil} ->
+        conn |> put_flash(:error, "No native sign-in in progress.") |> redirect(to: ~p"/")
+
+      {%Users.User{} = user,
+       %{"state" => state, "code_challenge" => cc, "redirect_uri" => ru}} ->
+        complete_native_flow(conn, user, %{provider: :mfa}, state, cc, ru)
+    end
+  end
+
+  defp current_user_from_subject(%Auth.Subject{actor: {:user, %Users.User{} = user}}), do: user
+  defp current_user_from_subject(_), do: nil
+
   def reset_password(conn, _params) do
     render(conn, "reset_password.html")
   end
@@ -247,7 +276,21 @@ defmodule FzHttpWeb.AuthController do
   defp do_sign_in(conn, user, auth) do
     case get_session(conn, :native_flow) do
       %{"state" => st, "code_challenge" => cc, "redirect_uri" => ru} ->
-        complete_native_flow(conn, user, auth, st, cc, ru)
+        if MFA.has_methods?(user) do
+          # MFA required — sign user into the browser session (Guardian) so the
+          # MFA LiveView can authenticate them, then redirect to the MFA challenge.
+          # `:native_flow` stays in the session; MFA LiveView reads it on success
+          # and redirects to /auth/native/finalize which completes the native
+          # flow (creates the code, drops the browser session, redirects to scheme).
+          conn
+          |> State.delete_cookie()
+          |> PKCE.delete_cookie()
+          |> Authentication.sign_in(user, auth)
+          |> configure_session(renew: true)
+          |> redirect(to: mfa_entry_path(user))
+        else
+          complete_native_flow(conn, user, auth, st, cc, ru)
+        end
 
       _ ->
         conn
@@ -257,6 +300,13 @@ defmodule FzHttpWeb.AuthController do
         |> configure_session(renew: true)
         |> put_session(:live_socket_id, "users_socket:#{user.id}")
         |> redirect(to: root_path_for_user(user))
+    end
+  end
+
+  defp mfa_entry_path(user) do
+    case MFA.fetch_last_used_method_by_user_id(user.id) do
+      {:ok, method} -> ~p"/mfa/auth/#{method.id}"
+      _ -> ~p"/mfa/types"
     end
   end
 

@@ -9,6 +9,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.0.1] - 2026-06-14
+
+MFA support for the native client auth flow introduced in 2.0.0.
+
+### Added
+
+- **MFA challenge for native sign-in**. When a user with at least one
+  registered MFA method completes the OIDC step of the native flow,
+  `do_sign_in/3` now redirects through the existing web MFA LiveView
+  (`/mfa/auth/<last-used-method-id>`) instead of issuing the one-time code
+  immediately. After the TOTP verifies, the LiveView redirects to a new
+  `GET /auth/native/finalize` controller action which reads the deferred
+  `:native_flow` session, creates the auth code, drops the browser session,
+  and redirects to `nexguard-connect://callback`. Native clients reuse the
+  portal's MFA UI — no native MFA UI required
+  (`apps/fz_http/lib/fz_http_web/controllers/auth_controller.ex`,
+  `apps/fz_http/lib/fz_http_web/live/mfa_live/auth_live.ex`,
+  `apps/fz_http/lib/fz_http_web/router.ex`).
+- **`FzHttp.Auth.MFA.has_methods?/1`** helper — quick existence check used by
+  the native-flow MFA branch (`apps/fz_http/lib/fz_http/auth/mfa.ex`).
+
+### Notes
+
+- VPN session timer starts only after MFA passes (matches portal behavior):
+  `Users.update_last_signed_in/2` is called in the MFA verify handler when
+  `require_mfa` is enabled, so the 24-hour native-client refresh window is
+  anchored on the MFA moment, not the OIDC moment.
+- Native clients did not have to change — server still hands them a one-time
+  code at the same `nexguard-connect://callback` URL after MFA.
+
+[2.0.1]: https://github.com/0xphuong/NexGuard/compare/v2.0.0...v2.0.1
+
+---
+
 ## [1.3.4] - 2026-06-10
 
 ### Fixed

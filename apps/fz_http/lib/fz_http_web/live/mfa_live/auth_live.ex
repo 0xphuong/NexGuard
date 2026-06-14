@@ -10,8 +10,13 @@ defmodule FzHttpWeb.MFALive.Auth do
   @page_title "Multi-factor Authentication"
 
   @impl Phoenix.LiveView
-  def mount(_params, _session, socket) do
-    {:ok, assign(socket, :page_title, @page_title)}
+  def mount(_params, session, socket) do
+    socket =
+      socket
+      |> assign(:page_title, @page_title)
+      |> assign(:native_flow, session["native_flow"])
+
+    {:ok, socket}
   end
 
   @impl Phoenix.LiveView
@@ -125,7 +130,18 @@ defmodule FzHttpWeb.MFALive.Auth do
           Users.update_last_signed_in(socket.assigns.current_user, %{provider: :mfa})
         end
 
-        socket = push_redirect(socket, to: root_path_for_user(socket.assigns.current_user))
+        # Native flow: MFA was triggered by /auth/native/begin → after success
+        # we finalize the native auth code instead of going to the dashboard.
+        target =
+          case socket.assigns[:native_flow] do
+            %{"state" => _, "code_challenge" => _, "redirect_uri" => _} ->
+              ~p"/auth/native/finalize"
+
+            _ ->
+              root_path_for_user(socket.assigns.current_user)
+          end
+
+        socket = push_redirect(socket, to: target)
         {:noreply, socket}
 
       {:error, changeset} ->

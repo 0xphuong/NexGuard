@@ -163,6 +163,11 @@ defmodule FzHttpWeb.Router do
     delete "/sign_out", AuthController, :delete
     delete "/user", UserController, :delete
 
+    # Native flow finalize — called after MFA challenge completes for native
+    # clients. Creates the one-time auth code + drops session + redirects to
+    # nexguard-connect:// scheme. Requires browser authentication.
+    get "/auth/native/finalize", AuthController, :native_finalize
+
     # Unprivileged Live routes
     live_session(
       :unprivileged,

@@ -40,6 +40,24 @@ defmodule FzHttp.Auth.MFA do
     |> Repo.list()
   end
 
+  @doc "Whether the user has at least one MFA method registered."
+  def has_methods?(%Users.User{id: user_id}), do: has_methods?(user_id)
+
+  def has_methods?(user_id) when is_binary(user_id) do
+    if Validator.valid_uuid?(user_id) do
+      Method.Query.by_user_id(user_id)
+      |> Method.Query.with_limit(1)
+      |> Repo.list()
+      |> case do
+        {:ok, []} -> false
+        {:ok, [_ | _]} -> true
+        _ -> false
+      end
+    else
+      false
+    end
+  end
+
   def create_method_changeset(attrs \\ %{}, user_id) do
     Method.Changeset.create_changeset(user_id, attrs)
   end
