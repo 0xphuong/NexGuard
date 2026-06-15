@@ -23,6 +23,9 @@ defmodule FzHttp.AuditLogs.AuditLog do
     user.password.change
     device.create
     device.delete
+    device.ip.change
+    device.approve
+    device.revoke_approval
     device.vpn.connect
     device.vpn.disconnect
     vpn.connect

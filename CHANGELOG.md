@@ -9,6 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.0] - 2026-06-14
+
+Admin-facing controls for native devices: per-device IP override and explicit
+approval workflow before a self-enrolled device can connect.
+
+### Added
+
+- **Admin IP override**. Admin can change a device's tunnel IPv4/IPv6 from the
+  device detail page. New `Devices.admin_update_device/4` runs the existing
+  CIDR / exclusion / uniqueness validation, calls `Events.set_config/0` to
+  resync the running WG peer list immediately, and audits the change. UI shows
+  a "Network Configuration" card on the device detail page (admin only) with
+  inline edit form + post-save banner reminding the admin that the user must
+  sign out and sign in on the NexGuard Connect client to pick up the new
+  address locally (`apps/fz_http/lib/fz_http/devices.ex`,
+  `apps/fz_http/lib/fz_http/devices/device/changeset.ex`,
+  `apps/fz_http/lib/fz_http_web/templates/shared/show_device.html.heex`,
+  `apps/fz_http/lib/fz_http_web/live/device_live/admin/show_live.ex`).
+- **Device approval workflow**. New native-client enrollments arrive with
+  `status="pending"` and are excluded from the WG peer list (`Device.Query.only_active/1`)
+  until an admin clicks "Approve Device" in the portal. Pattern matches
+  Tailscale's "approve new device" gate. Existing devices created before this
+  feature default to `"approved"` (migration default), so no disruption to
+  current users; admin-created devices via the portal also default to
+  `"approved"` since the admin act IS the approval (only self-enrolled native
+  clients start pending).
+  - `POST /api/v1/devices/enroll` and `GET /api/v1/devices/me/config`
+    responses now carry a `status` field so clients can show a "Pending
+    Approval" screen instead of trying to connect.
+  - `Devices.approve_device/3` and `Devices.revoke_approval/3` — admin-only,
+    update status + stamp `approved_at` + `approved_by_id`, trigger
+    `Events.set_config/0` to push the WG kernel update, and audit.
+  - Portal UI: status badge per device on the index list, plus an "Approval"
+    card on the device detail page with NexGuard-styled confirmation modals
+    (no browser-native `window.confirm` — matches the existing delete-device
+    modal pattern).
+- **Audit log actions**: `device.ip.change`, `device.approve`,
+  `device.revoke_approval`. The IP-change audit metadata carries `old_ipv4` /
+  `new_ipv4` for forensic.
+
+### Changed
+
+- `Device.Query.only_active/1` now filters by `status == "approved"` in
+  addition to user-session and MFA checks. Pending devices are silently
+  excluded from the WG peer list — no special handling needed at the tunnel
+  level (cryptokey routing rejects them automatically since the peer doesn't
+  exist on the kernel interface).
+
+[2.1.0]: https://github.com/0xphuong/NexGuard/compare/v2.0.1...v2.1.0
+
+---
+
 ## [2.0.1] - 2026-06-14
 
 MFA support for the native client auth flow introduced in 2.0.0.

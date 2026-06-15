@@ -1,3 +1,74 @@
+<%# ── Approve Device Confirmation Modal ──────────────────────────────────── %>
+<%= if assigns[:show_approve_confirm] do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_approve_device"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_approve_device"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-check-circle ng-modal-title-icon" style="color:#16a34a"></i>
+          Approve Device
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_approve_device">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to approve:</p>
+        <div class="ng-modal-entity"><%= @device.name %></div>
+        <p class="ng-modal-cons">This will:</p>
+        <ul class="ng-modal-list">
+          <li>Allow <strong><%= @user.email %></strong> to connect to the VPN from this device</li>
+          <li>Add the device to the active WireGuard peer list immediately</li>
+        </ul>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_approve_device">Cancel</button>
+        <button class="ng-primary-btn" phx-click="approve_device">
+          <i class="mdi mdi-check"></i> Approve Device
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Revoke Approval Confirmation Modal ─────────────────────────────────── %>
+<%= if assigns[:show_revoke_confirm] do %>
+  <div class="modal is-active"
+       phx-window-keydown="cancel_revoke_approval"
+       phx-key="escape">
+    <div class="modal-background" phx-click="cancel_revoke_approval"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon" style="color:#f59e0b"></i>
+          Revoke Approval
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_revoke_approval">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to revoke approval for:</p>
+        <div class="ng-modal-entity"><%= @device.name %></div>
+        <p class="ng-modal-cons">This will:</p>
+        <ul class="ng-modal-list">
+          <li>Immediately disconnect the device from the VPN</li>
+          <li>Remove it from the active WireGuard peer list</li>
+          <li>Block <strong><%= @user.email %></strong> from reconnecting until you approve again</li>
+        </ul>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_revoke_approval">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="revoke_approval">
+          <i class="mdi mdi-close"></i> Revoke Approval
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Delete Device Confirmation Modal ───────────────────────────────────── %>
 <%= if assigns[:show_device_confirm] do %>
   <div class="modal is-active"
@@ -108,6 +179,131 @@
 
   <%# ── Details ─────────────────────────────────────────────────────────────── %>
   <%= render(FzHttpWeb.SharedView, "device_details.html", assigns) %>
+
+  <%# ── Admin: Approval status ──────────────────────────────────────────────── %>
+  <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) do %>
+    <div class="ng-settings-card" style="margin-top:1.5rem">
+      <div style="padding:1.25rem 1.5rem">
+        <%= if @device.status == "pending" do %>
+          <div style="display:flex;align-items:flex-start;gap:1rem">
+            <div style="flex-shrink:0;width:40px;height:40px;background:#fef3c7;border-radius:8px;display:flex;align-items:center;justify-content:center">
+              <i class="mdi mdi-clock-outline" style="color:#92400e;font-size:1.25rem"></i>
+            </div>
+            <div style="flex:1">
+              <h3 style="margin:0 0 0.25rem 0;font-size:0.9375rem;font-weight:600;color:#92400e">
+                Pending Admin Approval
+              </h3>
+              <p style="margin:0 0 0.75rem 0;color:#64748b;font-size:0.8125rem;line-height:1.5">
+                This device was self-enrolled by <strong><%= @user.email %></strong>
+                and cannot connect to the VPN until you approve it.
+              </p>
+              <button
+                class="ng-primary-btn"
+                phx-click="confirm_approve_device"
+              >
+                <i class="mdi mdi-check"></i> Approve Device
+              </button>
+            </div>
+          </div>
+        <% else %>
+          <div style="display:flex;align-items:flex-start;gap:1rem">
+            <div style="flex-shrink:0;width:40px;height:40px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center">
+              <i class="mdi mdi-check-circle" style="color:#16a34a;font-size:1.25rem"></i>
+            </div>
+            <div style="flex:1">
+              <h3 style="margin:0 0 0.25rem 0;font-size:0.9375rem;font-weight:600;color:#166534">
+                Approved
+              </h3>
+              <p style="margin:0 0 0.75rem 0;color:#64748b;font-size:0.8125rem;line-height:1.5">
+                <%= if @device.approved_at do %>
+                  Approved
+                  <span
+                    id={"device-#{@device.id}-approved-at"}
+                    data-timestamp={@device.approved_at}
+                    phx-hook="FormatTimestamp"
+                  >…</span>.
+                <% else %>
+                  Approved by default (created via admin portal).
+                <% end %>
+                Revoke to require re-approval — the device will be removed from
+                the WireGuard peer list immediately.
+              </p>
+              <button
+                class="ng-secondary-btn"
+                phx-click="confirm_revoke_approval"
+              >
+                <i class="mdi mdi-close"></i> Revoke Approval
+              </button>
+            </div>
+          </div>
+        <% end %>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ── Admin: Network Configuration (edit tunnel IPs) ──────────────────────── %>
+  <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) and assigns[:ip_changeset] do %>
+    <div class="ng-settings-card" style="margin-top:1.5rem">
+      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #f1f5f9">
+        <h2 style="margin:0 0 0.25rem 0;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem">
+          <i class="mdi mdi-ip-network" style="color:#64748b"></i> Network Configuration
+        </h2>
+        <p style="margin:0;color:#64748b;font-size:0.8125rem">
+          Change the tunnel IP assigned to this device. Must be within the configured
+          WireGuard network range and not in use by another device. The user must
+          sign out and sign in on their NexGuard Connect client to apply changes.
+        </p>
+      </div>
+      <div style="padding:1.25rem 1.5rem">
+        <%= if assigns[:ip_update_message] do %>
+          <div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.75rem 1rem;background:#dcfce7;border:1px solid #86efac;border-radius:6px;margin-bottom:1rem">
+            <i class="mdi mdi-check-circle" style="color:#16a34a;font-size:1.25rem;flex-shrink:0"></i>
+            <span style="color:#166534;font-size:0.875rem;line-height:1.4;flex:1">
+              <%= @ip_update_message %>
+            </span>
+            <button
+              type="button"
+              phx-click="dismiss_ip_update_message"
+              style="background:none;border:none;cursor:pointer;color:#166534;padding:0;display:flex;align-items:center"
+              title="Dismiss"
+            >
+              <i class="mdi mdi-close"></i>
+            </button>
+          </div>
+        <% end %>
+        <.form :let={f} for={@ip_changeset} id="device-ip-form" phx-submit="update_ip">
+          <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv4_enabled) do %>
+            <div class="ng-field">
+              <%= label(f, :ipv4, "Tunnel IPv4 Address", class: "ng-label") %>
+              <%= text_input(f, :ipv4,
+                value: to_string(@device.ipv4),
+                placeholder: "e.g. 100.64.0.5",
+                class: "ng-input #{input_error_class(@ip_changeset, :ipv4)}"
+              ) %>
+              <p class="ng-field-error"><%= error_tag(@ip_changeset, :ipv4) %></p>
+            </div>
+          <% end %>
+          <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv6_enabled) do %>
+            <div class="ng-field">
+              <%= label(f, :ipv6, "Tunnel IPv6 Address", class: "ng-label") %>
+              <%= text_input(f, :ipv6,
+                value: to_string(@device.ipv6),
+                placeholder: "e.g. fd00::5",
+                class: "ng-input #{input_error_class(@ip_changeset, :ipv6)}"
+              ) %>
+              <p class="ng-field-error"><%= error_tag(@ip_changeset, :ipv6) %></p>
+            </div>
+          <% end %>
+          <div style="margin-top:1rem">
+            <%= submit("Update IP",
+              phx_disable_with: "Updating…",
+              class: "ng-primary-btn"
+            ) %>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
 
   <%# ── Danger Zone ─────────────────────────────────────────────────────────── %>
   <%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>

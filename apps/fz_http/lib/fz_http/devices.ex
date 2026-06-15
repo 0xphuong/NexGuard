@@ -168,6 +168,48 @@ defmodule FzHttp.Devices do
     end
   end
 
+  @doc """
+  Admin-only update that may change tunnel IPs in addition to name/description.
+  Triggers a WG peer-list re-sync via `Events.set_config/0` so the new IP is
+  applied to the running interface immediately. Clients still need to sign
+  out + sign in to pick up the new config locally.
+  """
+  def admin_update_device(%Device{} = device, attrs, %Auth.Subject{} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_devices_permission()),
+         changeset <- Device.Changeset.admin_update_changeset(device, attrs),
+         {:ok, updated} <- Repo.update(changeset) do
+      # Re-sync WG peer list with new IPs so server-side routing is correct.
+      FzHttp.Events.set_config()
+
+      # Audit only when IPs actually changed (skip noise on name/description edits).
+      if to_string(device.ipv4) != to_string(updated.ipv4) or
+           to_string(device.ipv6) != to_string(updated.ipv6) do
+        case subject.actor do
+          {:user, actor} ->
+            AuditLogs.log("device.ip.change",
+              actor_id: actor.id,
+              actor_email: actor.email,
+              ip_address: ip_address,
+              target_type: "device",
+              target_id: updated.id,
+              target_label: updated.name,
+              metadata: %{
+                old_ipv4: to_string(device.ipv4),
+                new_ipv4: to_string(updated.ipv4),
+                old_ipv6: to_string(device.ipv6),
+                new_ipv6: to_string(updated.ipv6)
+              }
+            )
+
+          _ ->
+            :ok
+        end
+      end
+
+      {:ok, updated}
+    end
+  end
+
   def update_metrics(%Device{} = device, attrs) do
     device
     |> Device.Changeset.metrics_changeset(attrs)
@@ -297,14 +339,21 @@ defmodule FzHttp.Devices do
       when is_binary(name) and is_binary(public_key) do
     case Repo.get_by(Device, user_id: user.id, name: name) do
       nil ->
-        attrs = %{name: name, public_key: public_key}
+        # New native-client enrollment requires admin approval. Existing
+        # devices created via the admin portal keep the schema default of
+        # "approved" since the admin creating them IS the approval.
+        attrs = %{name: name, public_key: public_key, status: "pending"}
 
         changeset =
           Device.Changeset.create_changeset(user, attrs)
           |> Device.Changeset.configure_changeset(%{})
+          |> Ecto.Changeset.put_change(:status, "pending")
 
         with {:ok, device} <- Repo.insert(changeset) do
           Telemetry.add_device()
+          # Pending devices intentionally NOT pushed to the WG peer list yet —
+          # Events.set_config + only_active filter handles this — but call it
+          # anyway in case a stale entry exists for the same public_key.
           FzHttp.Events.add("devices", device)
           {:ok, device}
         end
@@ -324,6 +373,99 @@ defmodule FzHttp.Devices do
           FzHttp.Events.set_config()
           {:ok, updated}
         end
+    end
+  end
+
+  @doc """
+  Approve a pending device. Admin-only. Sets `status="approved"`, stamps the
+  approver, and triggers a WG peer-list resync so the device shows up in the
+  kernel interface immediately. No-op (returns `{:ok, device}`) if already
+  approved.
+  """
+  def approve_device(%Device{} = device, %Auth.Subject{} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_devices_permission()) do
+      if device.status == "approved" do
+        {:ok, device}
+      else
+        actor_id =
+          case subject.actor do
+            {:user, %Users.User{id: id}} -> id
+            _ -> nil
+          end
+
+        changeset =
+          device
+          |> Ecto.Changeset.change(%{
+            status: "approved",
+            approved_at: DateTime.utc_now(),
+            approved_by_id: actor_id
+          })
+
+        with {:ok, updated} <- Repo.update(changeset) do
+          FzHttp.Events.set_config()
+
+          case subject.actor do
+            {:user, actor} ->
+              AuditLogs.log("device.approve",
+                actor_id: actor.id,
+                actor_email: actor.email,
+                ip_address: ip_address,
+                target_type: "device",
+                target_id: updated.id,
+                target_label: updated.name,
+                metadata: %{user_id: updated.user_id}
+              )
+
+            _ ->
+              :ok
+          end
+
+          {:ok, updated}
+        end
+      end
+    end
+  end
+
+  @doc """
+  Revoke approval of an already-approved device. Admin-only. Sets back to
+  `"pending"` and removes the device from the active WG peer list. Useful as
+  a safety net when an admin mistakenly approves a device.
+  """
+  def revoke_approval(%Device{} = device, %Auth.Subject{} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_devices_permission()) do
+      if device.status == "pending" do
+        {:ok, device}
+      else
+        changeset =
+          device
+          |> Ecto.Changeset.change(%{
+            status: "pending",
+            approved_at: nil,
+            approved_by_id: nil
+          })
+
+        with {:ok, updated} <- Repo.update(changeset) do
+          FzHttp.Events.set_config()
+
+          case subject.actor do
+            {:user, actor} ->
+              AuditLogs.log("device.revoke_approval",
+                actor_id: actor.id,
+                actor_email: actor.email,
+                ip_address: ip_address,
+                target_type: "device",
+                target_id: updated.id,
+                target_label: updated.name,
+                metadata: %{user_id: updated.user_id}
+              )
+
+            _ ->
+              :ok
+          end
+
+          {:ok, updated}
+        end
+      end
     end
   end
 end

@@ -56,6 +56,7 @@ defmodule FzHttpWeb.API.V1.DeviceController do
     %{
       device_id: device.id,
       device_name: device.name,
+      status: device.status,
       wg_quick_config: WireguardConfigView.render("device.conf", device: device)
     }
   end

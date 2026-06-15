@@ -5,6 +5,7 @@
       <%= if @show_user do %>
         <th>User</th>
       <% end %>
+      <th>Status</th>
       <th>Tunnel IPs</th>
       <th>Remote IP</th>
       <th>Last Handshake</th>
@@ -30,6 +31,17 @@
             ) %>
           </td>
         <% end %>
+        <td>
+          <%= if device.status == "pending" do %>
+            <span class="ng-status-badge ng-status-badge--inactive" style="background:#fef3c7;color:#92400e">
+              <i class="mdi mdi-clock-outline ng-status-dot"></i> Pending
+            </span>
+          <% else %>
+            <span class="ng-status-badge ng-status-badge--active">
+              <i class="mdi mdi-check-circle ng-status-dot"></i> Approved
+            </span>
+          <% end %>
+        </td>
         <td class="ng-td-mono">
           <div><%= device.ipv4 %></div>
           <div class="ng-td-muted"><%= device.ipv6 %></div>

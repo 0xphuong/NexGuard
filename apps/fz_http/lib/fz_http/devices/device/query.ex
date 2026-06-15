@@ -62,6 +62,7 @@ defmodule FzHttp.Devices.Device.Query do
     queryable
     |> with_preloaded_user()
     |> where([user: user], is_nil(user.disabled_at))
+    |> where([devices: devices], devices.status == "approved")
     |> where([user: user], ^dynamic)
   end
 

@@ -28,7 +28,13 @@ defmodule FzHttp.Devices.Device do
     field(:tx_bytes, :integer)
     field(:latest_handshake, :utc_datetime_usec)
 
+    # Admin approval workflow. New native enrollments default to "pending";
+    # devices created via the portal default to "approved" (admin act = approval).
+    field(:status, :string, default: "approved")
+    field(:approved_at, :utc_datetime_usec)
+
     belongs_to(:user, FzHttp.Users.User)
+    belongs_to(:approved_by, FzHttp.Users.User, foreign_key: :approved_by_id)
 
     timestamps()
   end

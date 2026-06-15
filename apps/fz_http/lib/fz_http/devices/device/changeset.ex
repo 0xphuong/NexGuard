@@ -83,6 +83,27 @@ defmodule FzHttp.Devices.Device.Changeset do
     |> validate_required(@required_fields)
   end
 
+  @admin_update_fields ~w[name description ipv4 ipv6]a
+
+  @doc """
+  Admin-only update changeset — allows changing the device's tunnel IPs
+  (`ipv4`, `ipv6`) in addition to name/description. Reuses the CIDR /
+  exclusion / uniqueness validation so an admin can't assign the server's
+  own IP or one already taken by another device.
+  """
+  def admin_update_changeset(device, attrs) do
+    device
+    |> cast(attrs, @admin_update_fields)
+    |> changeset()
+    |> validate_required(@required_fields)
+    |> validate_exclusion(:ipv4, [ipv4_address()])
+    |> validate_exclusion(:ipv6, [ipv6_address()])
+    |> validate_in_cidr(:ipv4, wireguard_network(:ipv4))
+    |> validate_in_cidr(:ipv6, wireguard_network(:ipv6))
+    |> unique_constraint(:ipv4)
+    |> unique_constraint(:ipv6)
+  end
+
   def metrics_changeset(device, attrs) do
     device
     |> cast(attrs, @metrics_fields)
