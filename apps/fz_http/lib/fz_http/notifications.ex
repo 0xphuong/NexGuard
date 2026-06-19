@@ -50,6 +50,16 @@ defmodule FzHttp.Notifications do
   def clear_at(nil, index), do: clear_at(index)
   def clear_at(pid, index), do: GenServer.call(pid, {:clear_at, index})
 
+  @doc """
+  Clear any notification whose payload has `device_id == id`. Used when an
+  admin approves / revokes / deletes a device so the matching "pending
+  approval" notification disappears from the list without manual dismiss.
+  """
+  def clear_for_device(device_id), do: clear_for_device(__MODULE__, device_id)
+  def clear_for_device(nil, device_id), do: clear_for_device(device_id)
+  def clear_for_device(pid, device_id),
+    do: GenServer.call(pid, {:clear_for_device, device_id})
+
   defp broadcast(notifications) do
     PubSub.broadcast(
       FzHttp.PubSub,
@@ -95,6 +105,16 @@ defmodule FzHttp.Notifications do
   def handle_call({:clear_at, index}, _from, notifications) do
     {_, new_notifications} = List.pop_at(notifications, index)
     broadcast(new_notifications)
+
+    {:reply, :ok, new_notifications}
+  end
+
+  @impl GenServer
+  def handle_call({:clear_for_device, device_id}, _from, notifications) do
+    new_notifications =
+      Enum.reject(notifications, fn n -> Map.get(n, :device_id) == device_id end)
+
+    if new_notifications != notifications, do: broadcast(new_notifications)
 
     {:reply, :ok, new_notifications}
   end

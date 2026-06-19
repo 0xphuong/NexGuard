@@ -9,6 +9,56 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.1.1] - 2026-06-19
+
+Admin-facing notifications for the device approval workflow. The
+in-portal notification system existed (badge + Notifications page) but
+was only ever fired for VPN config-sync errors. Now it surfaces the
+event admins actually need to act on: a self-enrolled device sitting
+in `pending` state waiting for them.
+
+### Added
+
+- **Pending-device notification** fires from
+  `Devices.find_or_create_for_user/3` when a new native enrollment
+  lands in `pending`. The Notifications GenServer broadcasts via
+  PubSub, so the navbar badge + Notifications page light up in real
+  time — no refresh needed. Payload carries `device_id` so subsequent
+  state changes can target it precisely
+  (`apps/fz_http/lib/fz_http/devices.ex`,
+  `apps/fz_http/lib/fz_http/notifications.ex`).
+- **`Notifications.clear_for_device/1`** API + GenServer handler.
+  Clears every notification whose payload has `device_id == id`.
+- **`:warning` and `:info` icon variants** on the Notifications page
+  (`apps/fz_http/lib/fz_http_web/live/notifications_live/index_live.ex`).
+  CSS classes `ng-notif-icon--warning` / `--info` were already in
+  `main.scss` from prior design work, so no styling change needed.
+
+### Changed
+
+- **`Devices.approve_device/3`** now calls
+  `Notifications.clear_for_device/1` after the status transitions to
+  approved — the pending banner disappears from the admin's list
+  without a manual dismiss.
+- **`Devices.revoke_approval/3`** fires a fresh pending-approval
+  notification when an admin demotes an already-approved device. The
+  text differs slightly ("was revoked and is back to pending
+  approval") so the admin sees this is a re-arm, not a duplicate of
+  the original enrollment.
+- **`Devices.delete_device/3`** clears any pending notification for
+  the deleted device — a stale "pending approval" banner for a row
+  that no longer exists would be a UI bug.
+
+### Notes
+
+- Notifications are still in-memory only (GenServer state). They are
+  wiped on app restart — consistent with the existing behavior of the
+  notification subsystem. Persistence is a separate concern.
+- Future polish (deferred): email / webhook out when a pending device
+  appears, for teams where admins don't sit in the portal all day.
+
+---
+
 ## [2.1.0] - 2026-06-14
 
 Admin-facing controls for native devices: per-device IP override and explicit

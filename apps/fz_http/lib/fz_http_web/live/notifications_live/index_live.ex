@@ -46,4 +46,20 @@ defmodule FzHttpWeb.NotificationsLive.Index do
     </span>
     """
   end
+
+  defp icon(:warning, assigns) do
+    ~H"""
+    <span class="ng-notif-icon ng-notif-icon--warning">
+      <i class="mdi mdi-alert-outline"></i>
+    </span>
+    """
+  end
+
+  defp icon(:info, assigns) do
+    ~H"""
+    <span class="ng-notif-icon ng-notif-icon--info">
+      <i class="mdi mdi-information-outline"></i>
+    </span>
+    """
+  end
 end

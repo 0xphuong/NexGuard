@@ -220,6 +220,7 @@ defmodule FzHttp.Devices do
     with :ok <- authorize_user_device_management(device.user_id, subject),
          {:ok, deleted_device} <- Repo.delete(device) do
       Telemetry.delete_device()
+      FzHttp.Notifications.clear_for_device(deleted_device.id)
 
       case subject.actor do
         {:user, actor} ->
@@ -355,6 +356,20 @@ defmodule FzHttp.Devices do
           # Events.set_config + only_active filter handles this — but call it
           # anyway in case a stale entry exists for the same public_key.
           FzHttp.Events.add("devices", device)
+
+          # Tell admins about it. The Notifications GenServer broadcasts via
+          # PubSub so the navbar badge + Notifications page update in real
+          # time without a refresh. `device_id` lets approve / revoke clear
+          # this entry automatically.
+          FzHttp.Notifications.add(%{
+            type: :warning,
+            device_id: device.id,
+            message:
+              "Device \"#{device.name}\" is pending approval. Approve it in Devices.",
+            timestamp: DateTime.utc_now(),
+            user: user.email
+          })
+
           {:ok, device}
         end
 
@@ -403,6 +418,7 @@ defmodule FzHttp.Devices do
 
         with {:ok, updated} <- Repo.update(changeset) do
           FzHttp.Events.set_config()
+          FzHttp.Notifications.clear_for_device(updated.id)
 
           case subject.actor do
             {:user, actor} ->
@@ -446,6 +462,17 @@ defmodule FzHttp.Devices do
 
         with {:ok, updated} <- Repo.update(changeset) do
           FzHttp.Events.set_config()
+
+          # Re-arm pending-approval notification — device is back to pending.
+          user = FzHttp.Users.fetch_user_by_id!(updated.user_id)
+          FzHttp.Notifications.add(%{
+            type: :warning,
+            device_id: updated.id,
+            message:
+              "Device \"#{updated.name}\" was revoked and is back to pending approval.",
+            timestamp: DateTime.utc_now(),
+            user: user.email
+          })
 
           case subject.actor do
             {:user, actor} ->
