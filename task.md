@@ -14,6 +14,7 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v2.4.0** (2026-06-21) | L7-C network plumbing: `FzWall.CLI.Helpers.Tproxy` installs `l7_prerouting` nftables chain on `:l7_enabled_changed` (TPROXY to `127.0.0.1:8443`), fwmark + loopback routing primitives installed at every fz_wall boot, `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts` atomically on every Applications mutation, opt-in `docker-compose.coredns.yml` overlay with CoreDNS 1.11 sidecar + Corefile. Dormant by default — keep `l7_enabled = false` until L7-D's proxy daemon ships |
 | **v2.3.0** (2026-06-21) | L7-B Phases 1–5: JWT signing infrastructure (`l7_signing_keys` + bootstrap), `GET /.well-known/jwks.json`, `GET /internal/sessions/by_vpn_ip/:ip` (identity payload + ETag + 30 s cache), `FzHttp.L7.BundleBuilder` (debounced signed bundle compile + ETS LKG ring), `GET /internal/bundle.json` (ETag + `?since` long-poll), `nexguard:l7:{groups,identity,bundle}` PubSub wiring. Phase 6 (mTLS) deferred to L7-D so cert provisioning ships with the proxy daemon that consumes it. Endpoints exist but no consumer yet |
 | **v2.2.0** (2026-06-21) | L7-A: admin data + UI for upcoming L7 proxy — access groups + applications with full L7 rules editor + cert upload + org kill switch. Proxy ships dormant in 2.2.0; data plane lands in L7-B → L7-F |
 | **v2.1.1** (2026-06-19) | Admin notifications for pending device approvals — in-portal badge + Notifications page fire on enrollment, auto-clear on approve/revoke/delete |
@@ -26,7 +27,7 @@ Connect client. Headline releases:
 
 ## ⏳ Pending — ready to implement when prioritized
 
-### 🚧 ZTNA L7 — Phase 3 next (network plumbing)
+### 🚧 ZTNA L7 — Phase 4 next (L7 proxy daemon, biggest)
 
 Layer 7 identity-aware access. L3/L4 enforcement is shipped (nftables
 + WG); L7 adds HTTP-method / path / header / MFA-age policy via a
@@ -52,7 +53,7 @@ ADR-014 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguar
 |---|---|---|---|---|---|
 | **L7-A** | Foundation | DB schema + contexts + admin UI for groups, apps, L7 rules editor, org toggle | 5-7 days | server `v2.2.0` | ✅ **shipped 2026-06-21** |
 | **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ✅ **shipped 2026-06-21** (Phase 6 mTLS deferred to L7-D) |
-| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ⏳ **next** |
+| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ✅ **shipped 2026-06-21** |
 | **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ⏳ |
 | **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` | ⏳ |
 | **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate, leaf per app — **only if any app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` | ⏳ |
@@ -153,17 +154,17 @@ shipping alone in v2.3.0 since there's no consumer yet.
 
 #### L7-C summary checklist — Network plumbing (server `v2.4.0`, ~3-4 days)
 
-- [ ] **C-1**: Extend `fz_wall` with TPROXY chain — install when `l7_enabled = true`, remove on toggle off
-- [ ] **C-2**: PubSub subscriber in `fz_wall` listening for `{:l7_enabled_changed, bool}` to install/remove chain in real time
-- [ ] **C-3**: Route table 100 + `ip rule add fwmark 0x1 lookup 100` setup on boot
-- [ ] **C-4**: CoreDNS container added to `docker-compose.prod.yml`
-- [ ] **C-5**: `FzHttp.L7.CoreDnsHosts` generates `/etc/nexguard/internal-hosts` from declared `enabled = true` apps
-- [ ] **C-6**: CoreDNS `reload` plugin watching the hosts file (1 s)
-- [ ] **C-7**: PubSub subscriber regenerates hosts file on `:apps_changed`
-- [ ] **C-8**: VIP routing verification — packet to 10.99.0.x correctly steered to `:8443`
-- [ ] **C-9**: Integration test using `nft list ruleset` + actual TCP connection to a mock VIP
-- [ ] **C-10**: Runbook for kernel ≥ 5.6.9 + IPv6-disabled until L7-D handles dual stack
-- [ ] **C-11**: Tag `v2.4.0` + docs
+- [x] **C-1**: `FzWall.CLI.Helpers.Tproxy.install_l7_chain/0` + `remove_l7_chain/0` — idempotent `l7_prerouting` chain hooked at `prerouting / priority mangle` with a single TPROXY rule matching `wg-nexguard` ingress for `10.99.0.0/16` on TCP 80/443
+- [x] **C-2**: `FzWall.Server` subscribes to `nexguard:l7:settings` and installs/removes the chain on `{:l7_enabled_changed, bool}`. Boot also calls `OrgSettings.l7_enabled?/0` and reinstalls if the toggle is already on
+- [x] **C-3**: `FzWall.CLI.Helpers.Tproxy.install_fwmark_route/0` adds `ip route add local 0.0.0.0/0 dev lo table 100` + `ip rule add fwmark 0x1 lookup 100` at every fz_wall boot (zero-cost when no marks flow)
+- [x] **C-4**: Opt-in `docker-compose.coredns.yml` overlay adds CoreDNS 1.11 with shared bind mount; activated via `docker compose -f docker-compose.prod.yml -f docker-compose.coredns.yml up -d`
+- [x] **C-5**: `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts` atomically (tmp + rename) from `Applications.list_enabled_for_bundle/0`
+- [x] **C-6**: `coredns/Corefile` uses `hosts` plugin with `reload 1s` + 30 s TTL + fallthrough to 1.1.1.1 + 8.8.8.8
+- [x] **C-7**: `CoreDnsHosts` subscribes to `nexguard:l7:apps`; regenerates the file on every `:apps_changed`
+- [ ] **C-8**: VIP routing verification — packet to 10.99.0.x correctly steered to `:8443`. **DEFERRED** to L7-D where there's a real listener; v2.4.0 verifies only that the chain + rules exist (runbook step)
+- [ ] **C-9**: Integration test using `nft list ruleset` + actual TCP connection to a mock VIP. **DEFERRED** to L7-D for the same reason — needs a real listener
+- [x] **C-10**: Runbook `docs/migrations/v2.4.0.md` — kernel ≥ 5.6.9 pre-flight, port 53 / systemd-resolved collision, IPv4-only caveat, verify TPROXY plumbing, kill-switch behavior, full rollback recipe
+- [x] **C-11**: Dockerfile `ARG VERSION` `2.3.0` → `2.4.0`, CHANGELOG `[2.4.0]` entry, NEXGUARD_LOGIC.md already documents the PubSub + endpoint contract from L7-B. **Tag + push deferred** to manual user step
 
 ---
 

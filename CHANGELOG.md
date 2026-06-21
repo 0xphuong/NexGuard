@@ -9,6 +9,96 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.4.0] - 2026-06-21
+
+L7 ZTNA Phase 3 — **network plumbing for the upcoming L7 proxy
+daemon**. nftables TPROXY chain, fwmark + loopback routing, and an
+opt-in CoreDNS sidecar with a Phoenix-side hosts-file generator. As
+with v2.3.0, **no end-user behaviour change**: the L7 proxy daemon
+(L7-D) hasn't shipped yet, so flipping `org_settings.l7_enabled = true`
+would redirect declared-VIP traffic into a closed port. **Keep the
+toggle off until L7-D ships.**
+
+### Added
+
+#### fz_wall TPROXY chain (C-1 / C-2 / C-3)
+
+- **`FzWall.CLI.Helpers.Tproxy`** module shells out to `nft` + `ip`:
+  - `install_l7_chain/0` — adds an `l7_prerouting` chain hooked at
+    `prerouting / priority mangle`. The single rule matches packets
+    arriving on the WireGuard interface destined for any IP in
+    `10.99.0.0/16` on TCP 80 or 443, marks them with `0x1`, and
+    `tproxy to 127.0.0.1:8443`. Idempotent.
+  - `remove_l7_chain/0` — flush + delete the chain. Safe to call
+    when it doesn't exist.
+  - `install_fwmark_route/0` — adds the loopback routing table
+    (`ip route add local 0.0.0.0/0 dev lo table 100`) + the rule
+    (`ip rule add fwmark 0x1 lookup 100`) that makes the TPROXY
+    socket actually receive marked packets. Zero-cost when no marks
+    flow, so installed at every fz_wall boot regardless of toggle.
+- **`FzWall.Server`** now subscribes to `nexguard:l7:settings`. On
+  `{:l7_enabled_changed, true}` it calls `install_l7_chain/0`; on
+  `false` it calls `remove_l7_chain/0`. Boot time also queries
+  `FzHttp.OrgSettings.l7_enabled?/0` and reinstalls the chain
+  immediately if the toggle is already on (handles container
+  restart while L7 is active).
+
+#### CoreDNS hosts generator (C-5 / C-6 / C-7)
+
+- **`FzHttp.L7.CoreDnsHosts`** GenServer writes
+  `/etc/nexguard/internal-hosts` from
+  `Applications.list_enabled_for_bundle/0`. Atomic write (tmp file
+  + rename) so CoreDNS's `reload 1s` poll never sees a partial
+  state. Subscribes to `nexguard:l7:apps`; regenerates on every
+  Applications mutation. Singleton-with-override convention so
+  tests pass a unique `:path`.
+- Added to the `:full` supervision tree after `BundleBuilder`.
+
+#### CoreDNS opt-in compose overlay (C-4)
+
+- **`docker-compose.coredns.yml`** — opt-in overlay activating a
+  CoreDNS 1.11 sidecar. Adds a shared host bind mount
+  (`${FZ_INSTALL_DIR:-.}/coredns-hosts → /etc/nexguard`) so the
+  Phoenix-side generator and the CoreDNS reader see the same file.
+- **`coredns/Corefile`** — hosts plugin with `reload 1s` for the
+  declared VIPs, `forward . 1.1.1.1 8.8.8.8` fallthrough for
+  everything else, 30 s cache.
+
+#### Runbook + docs (C-10 / C-11)
+
+- **`docs/migrations/v2.4.0.md`** — pre-flight (kernel ≥ 5.6.9 +
+  port 53 collision with systemd-resolved), apply (with vs without
+  the overlay), verification steps, kill-switch behavior, and a
+  full rollback recipe.
+- **`NEXGUARD_LOGIC.md`** §17 — runbook details linked from this
+  changelog cover the chain + Corefile shape.
+
+### Operational caveats
+
+- **Dormant by default.** `l7_enabled = false` ⇒ TPROXY chain is
+  not installed; the `Tproxy` helper compiles into the binary but
+  never shells out unless someone flips the toggle.
+- **No L7 proxy yet.** Flipping `l7_enabled = true` before L7-D
+  ships will break traffic to declared VIP apps. Real-user impact
+  is bounded to traffic that resolves a declared `hostname` via
+  the CoreDNS overlay (otherwise the VIPs are unreachable anyway).
+- **IPv4 only.** Both the TPROXY rule and the hosts-file output
+  are IPv4-only. IPv6 support lands with L7-D's dual-stack proxy.
+- **Port 53 collision.** If running the CoreDNS overlay,
+  systemd-resolved must be released from :53 first — runbook walks
+  the operator through the safe path.
+
+### Tests
+
+- `test/fz_http/l7/coredns_hosts_test.exs` — atomic write, header,
+  sorted `<vip> <hostname>` rendering, parent-dir creation, and
+  `:apps_changed` end-to-end regenerate.
+- nftables shell-out paths in `FzWall.CLI.Helpers.Tproxy` go
+  through the existing Live/Sandbox adapter; the Sandbox stubs are
+  no-ops so the umbrella test suite still runs cleanly on macOS.
+
+---
+
 ## [2.3.0] - 2026-06-21
 
 L7 ZTNA Phase 2 — the **server-side data plane** the upcoming L7
