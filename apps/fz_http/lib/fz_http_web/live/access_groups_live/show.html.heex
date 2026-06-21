@@ -32,6 +32,39 @@
   </div>
 <% end %>
 
+<%# ── Remove-Member Confirmation Modal ──────────────────────────────────── %>
+<%= if @remove_member_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_remove_member" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_remove_member"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-account-minus-outline ng-modal-title-icon"></i>
+          Remove Member
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_remove_member">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">Remove this user from the group:</p>
+        <div class="ng-modal-entity"><%= @remove_member_confirm.email %></div>
+        <p class="ng-modal-desc">
+          <strong><%= @remove_member_confirm.email %></strong> will lose access to any
+          L7-managed application that requires <em><%= @group.name %></em>.
+          You can re-add them later.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_remove_member">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="remove_member">
+          <i class="mdi mdi-account-minus-outline"></i> Remove from group
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Hero / page header ───────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -188,9 +221,8 @@
                   <button
                     class="ng-dismiss-btn"
                     title="Remove from group"
-                    phx-click="remove_member"
+                    phx-click="confirm_remove_member"
                     phx-value-user-id={m.user_id}
-                    data-confirm={"Remove #{m.user.email} from #{@group.name}?"}
                   >
                     <i class="mdi mdi-account-minus-outline"></i>
                   </button>

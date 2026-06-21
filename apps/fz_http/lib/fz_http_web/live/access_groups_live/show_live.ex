@@ -15,6 +15,7 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
       {:ok,
        socket
        |> assign(:show_delete_confirm, false)
+       |> assign(:remove_member_confirm, nil)
        |> load_group_assigns(group)}
     else
       {:error, :not_found} ->
@@ -90,23 +91,35 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
     end
   end
 
-  def handle_event("remove_member", %{"user-id" => user_id}, socket) do
+  def handle_event("confirm_remove_member", %{"user-id" => user_id}, socket) do
     case Repo.get(Users.User, user_id) do
       nil ->
         {:noreply, put_flash(socket, :error, "User not found.")}
 
       user ->
-        case AccessGroups.remove_member(socket.assigns.group, user, socket.assigns.subject,
-                                         socket.assigns[:remote_ip]) do
-          {:ok, :removed} ->
-            {:noreply,
-             socket
-             |> load_group_assigns(socket.assigns.group)
-             |> put_flash(:info, "#{user.email} removed.")}
+        {:noreply, assign(socket, :remove_member_confirm, user)}
+    end
+  end
 
-          {:error, _} ->
-            {:noreply, put_flash(socket, :error, "Could not remove member.")}
-        end
+  def handle_event("cancel_remove_member", _, socket),
+    do: {:noreply, assign(socket, :remove_member_confirm, nil)}
+
+  def handle_event("remove_member", _params, %{assigns: %{remove_member_confirm: user}} = socket)
+      when not is_nil(user) do
+    case AccessGroups.remove_member(socket.assigns.group, user, socket.assigns.subject,
+                                     socket.assigns[:remote_ip]) do
+      {:ok, :removed} ->
+        {:noreply,
+         socket
+         |> assign(:remove_member_confirm, nil)
+         |> load_group_assigns(socket.assigns.group)
+         |> put_flash(:info, "#{user.email} removed.")}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:remove_member_confirm, nil)
+         |> put_flash(:error, "Could not remove member.")}
     end
   end
 

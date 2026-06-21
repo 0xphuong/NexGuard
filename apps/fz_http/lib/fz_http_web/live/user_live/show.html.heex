@@ -108,6 +108,39 @@
   </div>
 <% end %>
 
+<%# ── Remove-from-Group Confirmation Modal ────────────────────────────────── %>
+<%= if @remove_group_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_remove_from_group" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_remove_from_group"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-account-minus-outline ng-modal-title-icon"></i>
+          Remove from Group
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_remove_from_group">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">Remove this user from the group:</p>
+        <div class="ng-modal-entity"><%= @remove_group_confirm.name %></div>
+        <p class="ng-modal-desc">
+          <strong><%= @user.email %></strong> will lose access to any L7-managed
+          application that requires <em><%= @remove_group_confirm.name %></em>.
+          You can re-add them later.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_remove_from_group">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="remove_from_group">
+          <i class="mdi mdi-account-minus-outline"></i> Remove from group
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Page Header ──────────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -239,9 +272,8 @@
                   <button
                     class="ng-dismiss-btn"
                     title="Remove from group"
-                    phx-click="remove_from_group"
+                    phx-click="confirm_remove_from_group"
                     phx-value-group_id={g.id}
-                    data-confirm={"Remove #{@user.email} from #{g.name}?"}
                   >
                     <i class="mdi mdi-account-minus-outline"></i>
                   </button>
