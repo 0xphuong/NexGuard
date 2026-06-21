@@ -243,14 +243,22 @@ defmodule FzHttp.Applications.Application.Changeset do
   defp list_of_strings?(_), do: false
 
   defp validate_required_for_enable(changeset) do
+    # Pull fields into bindings BEFORE the cond — Elixir's cond
+    # clause heads are single boolean expressions and don't accept
+    # `var = expr; condition` sequences.
+    rules       = get_field(changeset, :l7_rules) || []
+    cert_source = get_field(changeset, :cert_source)
+    cert_pem    = get_field(changeset, :cert_pem)
+
     cond do
-      rules = get_field(changeset, :l7_rules); is_list(rules) and rules == [] ->
+      rules == [] ->
         add_error(changeset, :enabled, "cannot enable without at least one L7 rule")
 
-      get_field(changeset, :cert_source) == :upload and is_nil(get_field(changeset, :cert_pem)) ->
+      cert_source == :upload and is_nil(cert_pem) ->
         add_error(changeset, :enabled, "cannot enable without an uploaded certificate")
 
-      true -> changeset
+      true ->
+        changeset
     end
   end
 
