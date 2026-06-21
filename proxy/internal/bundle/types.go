@@ -59,15 +59,15 @@ type App struct {
 	StripHeaders    []string `json:"strip_headers"`
 }
 
-// Rule is one entry in an App's l7_rules array. The shape here mirrors
-// what the admin UI emits — kept as a string-typed map so additions on
-// the server side don't require a proxy redeploy to parse.
+// Rule is one entry in an App's l7_rules array. Schema per ADR-008.
+// `Method` is an array — admins commonly grant multiple verbs at
+// once. An empty array means the rule matches every method.
 type Rule struct {
-	Action                 string   `json:"action"`
-	Method                 string   `json:"method,omitempty"`
-	PathPrefix             string   `json:"path_prefix,omitempty"`
-	RequireGroups          []string `json:"require_groups,omitempty"`
-	RequireMFAAgeSeconds   *int     `json:"require_mfa_age_seconds,omitempty"`
+	Action               string   `json:"action"`
+	Method               []string `json:"method,omitempty"`
+	PathPrefix           string   `json:"path_prefix,omitempty"`
+	RequireGroups        []string `json:"require_groups,omitempty"`
+	RequireMFAAgeSeconds *int     `json:"require_mfa_age_seconds,omitempty"`
 }
 
 type Header struct {
@@ -79,6 +79,16 @@ type Group struct {
 	ID      string   `json:"id"`
 	Name    string   `json:"name"`
 	UserIDs []string `json:"user_ids"`
+}
+
+// IsMember reports whether userID is part of this group.
+func (g *Group) IsMember(userID string) bool {
+	for _, u := range g.UserIDs {
+		if u == userID {
+			return true
+		}
+	}
+	return false
 }
 
 // FindAppByVIP returns the app declared at the given virtual IP, or
