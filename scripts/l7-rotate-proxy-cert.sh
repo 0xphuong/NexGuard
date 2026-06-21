@@ -99,10 +99,20 @@ archive_existing internal-server.pem internal-server.key
 
 echo "[server] generating ${LEAF_KEY_BITS}-bit RSA + signing"
 openssl genrsa -out internal-server.key "$LEAF_KEY_BITS" 2>/dev/null
+# SANs:
+#   * DNS:nexguard-internal — proxy uses this when reaching Caddy from
+#     inside the nexguard container's net namespace (via the bridge
+#     gateway, since `extra_hosts` is rejected with network_mode:service).
+#   * DNS:localhost + IP:127.0.0.1 — operator curl from host (network_mode: host on Caddy).
+#   * IP:172.25.0.1 — Docker bridge gateway as seen from inside nexguard
+#     container. Matches the default nexguard-network subnet 172.25.0.0/16.
+#     Override SERVER_EXTRA_SAN if your bridge gateway differs.
+SERVER_SAN=${SERVER_EXTRA_SAN:-"DNS:nexguard-internal,DNS:localhost,IP:127.0.0.1,IP:172.25.0.1"}
+
 openssl req -new -nodes \
   -key internal-server.key \
   -subj "$SERVER_SUBJ" \
-  -addext "subjectAltName=DNS:nexguard-internal,DNS:localhost,IP:127.0.0.1" \
+  -addext "subjectAltName=${SERVER_SAN}" \
   -out internal-server.csr
 
 openssl x509 -req \
@@ -110,7 +120,7 @@ openssl x509 -req \
   -CA internal-ca.pem -CAkey internal-ca.key \
   -CAcreateserial \
   -days "$LEAF_VALIDITY_DAYS" \
-  -extfile <(printf "subjectAltName=DNS:nexguard-internal,DNS:localhost,IP:127.0.0.1\nextendedKeyUsage=serverAuth\n") \
+  -extfile <(printf "subjectAltName=%s\nextendedKeyUsage=serverAuth\n" "$SERVER_SAN") \
   -out internal-server.pem 2>/dev/null
 
 rm -f internal-server.csr

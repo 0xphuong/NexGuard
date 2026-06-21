@@ -2,48 +2,53 @@
 #
 # Activate alongside the main prod compose:
 #
-#   docker compose -f docker-compose.prod.yml -f docker-compose.coredns.yml up -d
+#   docker compose -f docker-compose.prod.yml \
+#                  -f docker-compose.coredns.yml \
+#                  -f docker-compose.proxy.yml up -d
 #
-# Adds a CoreDNS sidecar that serves DNS for VPN clients:
-#   * Declared L7 application hostnames    → virtual IP (10.99.0.0/16)
-#   * Everything else                      → upstream forwarders
+# CoreDNS sidecar that serves DNS for VPN clients. Resolution order:
+#   1. Declared L7 application hostnames → virtual IP from the hosts
+#      file written by `FzHttp.L7.CoreDnsHosts` inside the nexguard
+#      container at /etc/nexguard/internal-hosts. The bind mount is
+#      SHARED with the nexguard service so both containers see the
+#      same file.
+#   2. Everything else → forwarded to ${COREDNS_FORWARD_TO}. Set this
+#      in .env to your internal DNS (e.g. 10.0.235.250) so internal
+#      non-L7 names AND public queries both keep working — the
+#      internal resolver handles internal + forwards public upstream.
 #
-# Both nexguard and coredns containers mount the host path
-# `${FZ_INSTALL_DIR:-.}/coredns-hosts` as `/etc/nexguard`. The Phoenix
-# `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts`
-# from inside the nexguard container; CoreDNS reads it read-only from
-# the same path inside its container thanks to the shared bind mount.
+# `network_mode: service:nexguard` joins the nexguard container's
+# network namespace so CoreDNS sees the `wg-nexguard` interface and
+# can receive queries from VPN clients targeting the gateway's WG
+# IP. (The earlier `network_mode: host` design didn't work —
+# wg-nexguard lives in the nexguard container's namespace and is
+# invisible from the host.)
 #
-# `network_mode: host` lets CoreDNS bind directly to gateway interfaces
-# at port 53 (the only realistic way to answer queries from WireGuard
-# clients configured with `DNS = <gateway-wg-ip>`). On hosts where
-# systemd-resolved is already on :53, disable its stub or rebind:
-#
-#   sudo systemctl stop systemd-resolved
-#   sudo systemctl disable systemd-resolved
-#
-# Until L7-D ships there's no consumer for the VIP responses, so
-# activating this overlay only adds CoreDNS as a generic upstream
-# resolver — it does NOT break anything. The hosts file is empty
-# unless an admin marks at least one Application as `enabled = true`.
+# Port 53 inside the shared namespace is NOT touched by the host's
+# systemd-resolved, so the old systemd-resolved-disable dance is no
+# longer required.
 
 version: '3.7'
 
 services:
   nexguard:
     volumes:
-      # Shared bind mount so the Phoenix-side hosts generator and the
-      # CoreDNS container see the same file path. The host directory
-      # is created on first up if it doesn't exist.
+      # Shared bind mount: nexguard writes /etc/nexguard/internal-hosts,
+      # CoreDNS reads it read-only via /etc/nexguard. The host
+      # directory is auto-created on first `up`.
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard
 
   coredns:
     image: coredns/coredns:1.11.3
     command: ["-conf", "/Corefile"]
+    environment:
+      # Upstream resolver for anything not in the L7 hosts file.
+      # Set in .env: COREDNS_FORWARD_TO=10.0.235.250
+      COREDNS_FORWARD_TO: ${COREDNS_FORWARD_TO:-1.1.1.1 8.8.8.8}
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
-    network_mode: "host"
+    network_mode: "service:nexguard"
     cap_add:
       - NET_BIND_SERVICE
     depends_on:

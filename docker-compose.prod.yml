@@ -32,10 +32,39 @@ services:
       - /bin/sh
       - -c
       - |
+        # mTLS internal control plane (ADR-007, L7-D). Only loaded
+        # when certs are provisioned (run scripts/l7-rotate-proxy-cert.sh).
+        # Otherwise Caddy boots with only the public portal site so
+        # a fresh install / pre-L7-D deployment keeps working.
+        #
+        # Global block goes FIRST (Caddy syntax requirement). Even
+        # when the mTLS site isn't loaded, the global block stays —
+        # `servers :13443 {...}` is harmless when no site uses :13443.
+        if [ -f /etc/nexguard/l7-certs/internal-server.pem ] \
+           && [ -f /etc/nexguard/l7-certs/internal-server.key ] \
+           && [ -f /etc/nexguard/l7-certs/internal-ca.pem ]; then
+          # Global option: relax the strict SNI-Host check on the
+          # :13443 listener. The L7 proxy daemon connects via the
+          # bridge gateway IP (no SNI sent for IP literals per RFC
+          # 6066), but Caddy default would 421 because Host doesn't
+          # match an SNI-derived cert identity. Disabling
+          # strict_sni_host is safe here — :13443 has exactly one
+          # mTLS-gated site so Host-based site selection is moot.
+          cat <<EOF > /etc/caddy/Caddyfile
+        {
+          servers :13443 {
+            strict_sni_host insecure_off
+          }
+        }
+        EOF
+        else
+          : > /etc/caddy/Caddyfile
+        fi
+
         # Public portal. /internal/* is HARD-BLOCKED here so an
         # external client can never reach the secret-bearing
         # control-plane endpoints regardless of mTLS state.
-        cat <<EOF > /etc/caddy/Caddyfile
+        cat <<EOF >> /etc/caddy/Caddyfile
         ${EXTERNAL_URL} {
           log
           @internal path /internal/* /internal
@@ -44,10 +73,7 @@ services:
         }
         EOF
 
-        # mTLS internal control plane (ADR-007, L7-D). Only loaded
-        # when certs are provisioned (run scripts/l7-rotate-proxy-cert.sh).
-        # Otherwise Caddy boots with only the public portal site so
-        # a fresh install / pre-L7-D deployment keeps working.
+        # mTLS internal control plane site — same gate as above.
         if [ -f /etc/nexguard/l7-certs/internal-server.pem ] \
            && [ -f /etc/nexguard/l7-certs/internal-server.key ] \
            && [ -f /etc/nexguard/l7-certs/internal-ca.pem ]; then
