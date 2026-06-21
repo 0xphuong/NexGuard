@@ -1460,6 +1460,11 @@ freshness.
   "compiled_at":    "2026-06-21T...Z",
   "org_settings":   { "l7_enabled": true },
   "jwks":           [ /* active + grace RS256 public JWKs */ ],
+  "signing_key":    {
+    "kid":         "<uuid matching one jwks entry>",
+    "algorithm":   "RS256",
+    "private_pem": "-----BEGIN RSA PRIVATE KEY-----\n..."
+  },
   "apps": [
     {
       "id":                "<uuid>",
@@ -1485,3 +1490,11 @@ freshness.
 ships in the bundle; `key_pem` (Cloak-encrypted column) never
 leaves the app process. `inject_headers` / `strip_headers` are
 emitted as `[]` until the `applications` schema gains those columns.
+
+`signing_key.private_pem` is the **private** half of
+`l7_signing_keys.private_pem`, decrypted in-process by
+`FzHttp.L7.JwtSigner.active_signing_material/0`. The L7 proxy
+(L7-D) uses it to sign `X-NexGuard-Identity-Jwt` on every request.
+This makes the entire bundle response a secret-bearing artifact —
+the same threat model as the per-app `cert_pem` entries — and is
+the reason `/internal/bundle.json` is gated behind `:api_internal`.

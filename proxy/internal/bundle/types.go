@@ -9,13 +9,24 @@ package bundle
 // Bundle is the full policy snapshot the proxy reads on startup and
 // re-reads on every {:bundle_updated, version} broadcast.
 type Bundle struct {
-	SchemaVersion int                    `json:"schema_version"`
-	BundleVersion int                    `json:"bundle_version"`
-	CompiledAt    string                 `json:"compiled_at"`
-	OrgSettings   OrgSettings            `json:"org_settings"`
-	JWKS          []JWK                  `json:"jwks"`
-	Apps          []App                  `json:"apps"`
-	Groups        []Group                `json:"groups"`
+	SchemaVersion int         `json:"schema_version"`
+	BundleVersion int         `json:"bundle_version"`
+	CompiledAt    string      `json:"compiled_at"`
+	OrgSettings   OrgSettings `json:"org_settings"`
+	JWKS          []JWK       `json:"jwks"`
+	// SigningKey is the active key's PRIVATE half — the proxy uses it
+	// to sign X-NexGuard-Identity-Jwt on every request. Treat the
+	// whole Bundle as a secret-bearing artifact.
+	SigningKey SigningKey `json:"signing_key"`
+	Apps       []App      `json:"apps"`
+	Groups     []Group    `json:"groups"`
+}
+
+// SigningKey carries the proxy's RS256 signing material.
+type SigningKey struct {
+	Kid        string `json:"kid"`
+	Algorithm  string `json:"algorithm"`
+	PrivatePEM string `json:"private_pem"`
 }
 
 type OrgSettings struct {

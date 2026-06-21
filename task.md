@@ -177,7 +177,7 @@ shipping alone in v2.3.0 since there's no consumer yet.
 - [x] **D-5 (partial)**: Bundle client `internal/bundle/{client,types}.go` — `Fetch` issues conditional GET (`If-None-Match` + `?since=N`), 304 path keeps current, 200 path atomic-swaps via `atomic.Pointer[Bundle]`. PubSub-driven refresh (`{:bundle_updated, v}` event) pending
 - [ ] **D-6**: Group intersection check (user.groups ∩ app.allowed_group_ids)
 - [ ] **D-7**: L7 rule evaluator — first-match wins, default deny; method / path_prefix / require_groups / require_mfa_age_seconds
-- [ ] **D-8**: JWT signing — RS256-signed identity header `X-NexGuard-Identity-Jwt` (claims: user_id, email, groups, mfa_age, exp)
+- [x] **D-8**: JWT signing landed end-to-end. **Server**: `FzHttp.L7.JwtSigner.active_signing_material/0` exposes the active key's `{kid, private_pem, algorithm}`; `BundleBuilder` now embeds `signing_key` in `/internal/bundle.json` (gated `:api_internal`). **Proxy**: `internal/jwt/signer.go` (stdlib `crypto/rsa` — no third-party JWT dep) parses PKCS#1 or PKCS#8 RSA PEM, signs claims `{user_id, email, groups, mfa_age_seconds, iat, exp}` with RS256 + `kid` header. `SignerHolder` atomic slot swap on every bundle pivot so the request hot path reads without a lock
 - [ ] **D-9**: Header inject (X-NexGuard-*) + strip user-supplied X-NexGuard-Spoof-* per app config
 - [ ] **D-10**: Reverse proxy to backend with HTTP/1.1 + HTTP/2 + keep-alive
 - [ ] **D-11**: Deny page rendering (template loaded from disk)

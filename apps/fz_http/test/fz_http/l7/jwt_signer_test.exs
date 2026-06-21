@@ -116,6 +116,29 @@ defmodule FzHttp.L7.JwtSignerTest do
     end
   end
 
+  describe "active_signing_material" do
+    test "returns the active key's kid + algorithm + decrypted private pem", %{signer: signer} do
+      kid = JwtSigner.active_kid(signer)
+
+      assert %{kid: ^kid, algorithm: "RS256", private_pem: pem} =
+               JwtSigner.active_signing_material(signer)
+
+      assert is_binary(pem)
+      # The private PEM should be RSA (or PKCS#8 with RSA inside); reject the
+      # public projection slipping through by checking for a PRIVATE marker.
+      assert pem =~ "PRIVATE KEY"
+    end
+
+    test "follows the active key across a rotation", %{signer: signer} do
+      old_pem = JwtSigner.active_signing_material(signer).private_pem
+      {:ok, new_kid} = JwtSigner.rotate(signer, nil, nil)
+
+      mat = JwtSigner.active_signing_material(signer)
+      assert mat.kid == new_kid
+      refute mat.private_pem == old_pem
+    end
+  end
+
   describe "jwks" do
     test "returns only the active key on first boot", %{signer: signer} do
       kid = JwtSigner.active_kid(signer)

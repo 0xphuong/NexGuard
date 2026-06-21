@@ -160,6 +160,13 @@ defmodule FzHttp.L7.BundleBuilder do
       "compiled_at" => compiled_at,
       "org_settings" => %{"l7_enabled" => OrgSettings.l7_enabled?()},
       "jwks" => JwtSigner.jwks(),
+      # The L7 proxy (L7-D) signs the X-NexGuard-Identity-Jwt header
+      # on every request with the private half of the currently-active
+      # signing key. We deliver it via the bundle so the proxy doesn't
+      # need a separate cert-fetch endpoint — `:api_internal`-only
+      # already gates this artifact alongside the per-app cert_pem
+      # entries. NEVER serve this on a public endpoint.
+      "signing_key" => active_signing_key(),
       "apps" => list_apps(),
       "groups" => list_groups()
     }
@@ -182,6 +189,16 @@ defmodule FzHttp.L7.BundleBuilder do
       {:error, _} = err ->
         err
     end
+  end
+
+  defp active_signing_key do
+    %{kid: kid, private_pem: pem, algorithm: alg} = JwtSigner.active_signing_material()
+
+    %{
+      "kid" => kid,
+      "algorithm" => alg,
+      "private_pem" => pem
+    }
   end
 
   defp list_apps do

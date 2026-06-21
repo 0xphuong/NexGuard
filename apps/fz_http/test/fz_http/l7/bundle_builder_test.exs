@@ -40,6 +40,19 @@ defmodule FzHttp.L7.BundleBuilderTest do
       assert is_list(bundle["jwks"])
       assert is_list(bundle["apps"])
       assert is_list(bundle["groups"])
+
+      # signing_key delivers the L7 proxy's signing material (L7-D).
+      assert %{"kid" => kid, "algorithm" => "RS256", "private_pem" => pem} =
+               bundle["signing_key"]
+
+      assert is_binary(kid)
+      assert pem =~ "PRIVATE KEY"
+
+      # The signing_key.kid MUST match one of the active JWKS entries so
+      # any verifier reading the bundle can map signature kid → public key.
+      jwks_kids = Enum.map(bundle["jwks"], & &1["kid"])
+      assert kid in jwks_kids
+
       assert is_binary(sig)
     end
 

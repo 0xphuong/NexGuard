@@ -95,6 +95,19 @@ defmodule FzHttp.L7.JwtSigner do
   def jwks(server), do: GenServer.call(server, :jwks)
 
   @doc """
+  Active signing material for L7-D proxy delivery (ADR-007). Returns
+  `%{kid: <uuid>, private_pem: <pem>, algorithm: "RS256"}` — the
+  private half of the current active key, decrypted in-process.
+
+  Only callers inside the BEAM should reach this; it ships out of
+  process exclusively inside the L7 policy bundle, which is gated
+  by the `:api_internal` pipeline (mTLS once L7-D lands; network
+  convention until then). NEVER expose this on a public endpoint.
+  """
+  def active_signing_material, do: active_signing_material(__MODULE__)
+  def active_signing_material(server), do: GenServer.call(server, :active_signing_material)
+
+  @doc """
   Generate a fresh keypair, deactivate the previous, return
   `{:ok, new_kid}`. Optional `subject` for audit attribution.
   """
@@ -141,6 +154,12 @@ defmodule FzHttp.L7.JwtSigner do
   def handle_call(:jwks, _from, state) do
     payload = Enum.map([state.active | state.grace], &public_jwk/1)
     {:reply, payload, state}
+  end
+
+  @impl GenServer
+  def handle_call(:active_signing_material, _from, state) do
+    %SigningKey{kid: kid, private_pem: priv, algorithm: alg} = state.active
+    {:reply, %{kid: kid, private_pem: priv, algorithm: alg}, state}
   end
 
   @impl GenServer

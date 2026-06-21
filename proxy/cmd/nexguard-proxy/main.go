@@ -23,6 +23,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"os"
@@ -32,6 +33,7 @@ import (
 
 	"github.com/0xphuong/NexGuard/proxy/internal/bundle"
 	"github.com/0xphuong/NexGuard/proxy/internal/identity"
+	"github.com/0xphuong/NexGuard/proxy/internal/jwt"
 	"github.com/0xphuong/NexGuard/proxy/internal/logging"
 )
 
@@ -60,8 +62,9 @@ func main() {
 
 	bc := bundle.New(serverURL.String())
 	ic := identity.New(serverURL.String())
+	var signers jwt.SignerHolder
 
-	if err := bootstrapBundle(ctx, log, bc); err != nil {
+	if err := bootstrapBundle(ctx, log, bc, &signers); err != nil {
 		log.Error("bundle bootstrap failed", "error", err)
 		os.Exit(1)
 	}
@@ -69,7 +72,7 @@ func main() {
 	// Stub: poll the bundle endpoint to demonstrate the client works.
 	// A later commit replaces this with PubSub-driven refresh (SSE or
 	// websocket from the NexGuard server).
-	go pollBundle(ctx, log, bc)
+	go pollBundle(ctx, log, bc, &signers)
 
 	log.Info("bones ready; awaiting later commits for TLS + TPROXY + reverse proxy")
 	// Silence the unused-import nag — ic will be wired into the
@@ -95,16 +98,22 @@ func getRequiredURL(env string) (*url.URL, error) {
 	return u, nil
 }
 
-func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client) error {
+func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder) error {
 	v, _, err := bc.Fetch(ctx)
 	if err != nil {
 		return err
 	}
-	log.Info("bundle bootstrap complete", slog.Int("version", v))
+	if err := refreshSigner(bc.Current(), signers); err != nil {
+		return fmt.Errorf("signer bootstrap: %w", err)
+	}
+	log.Info("bundle bootstrap complete",
+		slog.Int("version", v),
+		slog.String("signing_kid", signers.Get().Kid()),
+	)
 	return nil
 }
 
-func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client) {
+func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder) {
 	t := time.NewTicker(bundlePollPeriod)
 	defer t.Stop()
 
@@ -118,9 +127,39 @@ func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client) {
 				log.Warn("bundle poll failed", "error", err)
 				continue
 			}
-			if changed {
-				log.Info("bundle updated", slog.Int("version", v))
+			if !changed {
+				continue
 			}
+			if err := refreshSigner(bc.Current(), signers); err != nil {
+				log.Warn("signer refresh failed on bundle pivot",
+					slog.Int("version", v),
+					"error", err)
+				continue
+			}
+			log.Info("bundle updated",
+				slog.Int("version", v),
+				slog.String("signing_kid", signers.Get().Kid()),
+			)
 		}
 	}
+}
+
+// refreshSigner parses the SigningKey from the freshly-fetched bundle
+// and atomically swaps it into the holder. Returns an error if the
+// bundle lacks signing material or the PEM doesn't parse — the
+// caller decides whether to keep using the previous signer (bundle
+// pivot) or fail bootstrap (first fetch).
+func refreshSigner(b *bundle.Bundle, holder *jwt.SignerHolder) error {
+	if b == nil {
+		return errors.New("bundle is nil")
+	}
+	if b.SigningKey.Kid == "" || b.SigningKey.PrivatePEM == "" {
+		return errors.New("bundle.signing_key missing kid or private_pem")
+	}
+	s, err := jwt.FromPEM(b.SigningKey.Kid, []byte(b.SigningKey.PrivatePEM))
+	if err != nil {
+		return err
+	}
+	holder.Set(s)
+	return nil
 }
