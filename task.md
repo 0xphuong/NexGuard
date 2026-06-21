@@ -113,7 +113,8 @@ security bugs.
 - [x] **U-5**: Delete confirm — `data-confirm` warns about member + app reference cascade
 - [x] **U-6**: extend `UserLive.Show` — "Group Memberships" card; add-by-dropdown form, table with remove, navigates to group detail on name click
 - [x] **U-7**: extend `UserLive.Show` — "L7 Access Scope" card with badge (`limited`/`all`); single-button toggle with `data-confirm` break-glass warning; `Users.set_access_scope/4` audited
-- [ ] **U-8**: extend `ApplicationLive.New/Edit` — add "L7 Settings" panel
+- [ ] **U-8**: `ApplicationsLive.Index` partial (Wave 3a — list + stats strip + delete-with-modal; **New button disabled, form ships Wave 3b**). Routes: `/applications`. Nav: "Applications" under Configuration.
+- [ ] **U-8 (form)**: extend `ApplicationsLive` with New/Edit form (Wave 3b)
 - [ ] **U-9**: hostname field + RFC 1035 validation indicator
 - [ ] **U-10**: backend URL field + validation
 - [ ] **U-11**: cert source picker — radio "Upload" vs "Use NexGuard internal CA"

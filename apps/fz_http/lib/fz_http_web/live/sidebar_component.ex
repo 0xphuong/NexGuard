@@ -57,6 +57,12 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">Access Groups</span>
             <% end %>
           </li>
+          <li>
+            <%= live_redirect(to: ~p"/applications", class: nav_class(@path, "/applications")) do %>
+              <span class="icon"><i class="mdi mdi-application-cog-outline"></i></span>
+              <span class="menu-item-label">Applications</span>
+            <% end %>
+          </li>
         </ul>
 
         <p class="menu-label ng-sidebar-label">Settings</p>
