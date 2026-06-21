@@ -105,10 +105,10 @@ proxy security bugs.
 
 ##### Phase 5 — PubSub broadcast wiring + identity invalidation (~0.5 day)
 
-- [ ] **B-22**: Add `nexguard:l7:groups` PubSub broadcasts to `AccessGroups.create_group/3`, `update_group/4`, `delete_group/3`, `add_member/4`, `remove_member/4` — currently missing
-- [ ] **B-23**: `nexguard:l7:identity` topic + `{:identity_updated, vpn_ip}` broadcasts from `Users.set_access_scope/4`, `Users.update_user/4`, `AccessGroups.add_member/4` + `remove_member/4` (when target user has VPN device)
-- [ ] **B-24**: Helper `FzHttp.L7.broadcast_identity_change/1` — resolves user → devices → VPN IPs → one broadcast per IP
-- [ ] **B-25**: Document broadcast topics + payloads in `NEXGUARD_LOGIC.md` §17
+- [x] **B-22**: `FzHttp.AccessGroups.{create,update,delete}_group` + `{add,remove}_member` now broadcast `:groups_changed` on `nexguard:l7:groups`. Public `subscribe_groups/0` mirrors the convention `Applications`/`OrgSettings` already established
+- [x] **B-23**: `Users.update_user/4` (only when role differs) + `Users.set_access_scope/4` (only on real change) + `AccessGroups.{add,remove}_member/4` now call `FzHttp.L7.broadcast_identity_change/1` to fan out `{:identity_updated, vpn_ip}` per affected VPN IP
+- [x] **B-24**: New module `FzHttp.L7` with `broadcast_identity_change/1` — preloads `:devices`, flat-maps ipv4 + ipv6, drops nils, emits one event per unique IP on `nexguard:l7:identity`. Includes `subscribe_identity/0` for proxy/test consumers
+- [x] **B-25**: `NEXGUARD_LOGIC.md` §17 extended with a PubSub topics table (source vs downstream) plus an L7-B HTTP endpoints table covering JWKS, identity, and bundle
 
 ##### Phase 6 — mTLS internal scope (~0.5 day)
 

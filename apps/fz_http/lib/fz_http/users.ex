@@ -146,6 +146,11 @@ defmodule FzHttp.Users do
           target_label: updated_user.email,
           metadata: %{old_role: to_string(user.role), new_role: to_string(updated_user.role)}
         )
+
+        # Role is part of the identity payload — invalidate the
+        # proxy's per-VPN-IP cache. Other update_user fields
+        # (password, email) don't appear in the identity payload.
+        FzHttp.L7.broadcast_identity_change(updated_user)
       end
       {:ok, updated_user}
     end
@@ -187,6 +192,8 @@ defmodule FzHttp.Users do
                 after:  to_string(scope)
               }
             )
+
+            FzHttp.L7.broadcast_identity_change(updated)
 
             {:ok, updated}
 

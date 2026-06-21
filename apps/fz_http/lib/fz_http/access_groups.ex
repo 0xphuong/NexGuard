@@ -12,6 +12,12 @@ defmodule FzHttp.AccessGroups do
   alias FzHttp.{Repo, Auth, AuditLogs}
   alias FzHttp.Users
   alias FzHttp.AccessGroups.{Group, Membership, Authorizer}
+  alias Phoenix.PubSub
+
+  # PubSub topic the L7 BundleBuilder subscribes to (L7-B Phase 5,
+  # B-22). Group + membership mutations broadcast :groups_changed so
+  # the bundle recompile picks up the new group → user_ids mapping.
+  @groups_topic "nexguard:l7:groups"
 
   # ── Changesets (for LiveView form preview) ──────────────────────
 
@@ -109,6 +115,8 @@ defmodule FzHttp.AccessGroups do
         source: group.source
       })
 
+      broadcast_groups_changed()
+
       {:ok, group}
     end
   end
@@ -122,6 +130,8 @@ defmodule FzHttp.AccessGroups do
         after:  %{name: updated.name, description: updated.description}
       })
 
+      broadcast_groups_changed()
+
       {:ok, updated}
     end
   end
@@ -134,6 +144,8 @@ defmodule FzHttp.AccessGroups do
         cascade_warning:
           "memberships and application_allowed_groups entries cascaded"
       })
+
+      broadcast_groups_changed()
 
       {:ok, deleted}
     end
@@ -157,6 +169,9 @@ defmodule FzHttp.AccessGroups do
         user_email: user.email
       })
 
+      broadcast_groups_changed()
+      FzHttp.L7.broadcast_identity_change(user)
+
       {:ok, membership}
     end
   end
@@ -176,10 +191,20 @@ defmodule FzHttp.AccessGroups do
             user_email: user.email
           })
 
+          broadcast_groups_changed()
+          FzHttp.L7.broadcast_identity_change(user)
+
           {:ok, :removed}
       end
     end
   end
+
+  # ── PubSub ──────────────────────────────────────────────────────
+
+  def subscribe_groups, do: PubSub.subscribe(FzHttp.PubSub, @groups_topic)
+
+  defp broadcast_groups_changed,
+    do: PubSub.broadcast(FzHttp.PubSub, @groups_topic, :groups_changed)
 
   # ── Helpers ─────────────────────────────────────────────────────
 

@@ -1396,3 +1396,31 @@ Packet at gateway
   ├─ dst IP ∈ 10.99.0.0/16         → TPROXY → L7 proxy :8443
   └─ dst IP ∉ 10.99.0.0/16         → existing L3/L4 nftables forward
 ```
+
+### PubSub topics (L7-B)
+
+| Topic | Payload | Broadcast from | Subscribed by |
+|---|---|---|---|
+| `nexguard:l7:apps` | `:apps_changed` | `FzHttp.Applications.{create,update,delete,reorder_l7_rules,...}` | `BundleBuilder` |
+| `nexguard:l7:settings` | `{:l7_enabled_changed, boolean}` | `FzHttp.OrgSettings.set_l7_enabled/3` (no-op writes do not broadcast) | `BundleBuilder`, future fz_wall TPROXY toggle |
+| `nexguard:l7:groups` | `:groups_changed` | `FzHttp.AccessGroups.{create,update,delete}_group`, `{add,remove}_member` | `BundleBuilder` |
+| `nexguard:l7:identity` | `{:identity_updated, vpn_ip_string}` | Fanned out by `FzHttp.L7.broadcast_identity_change/1` from `Users.update_user/4` (role change only), `Users.set_access_scope/4`, `AccessGroups.{add,remove}_member/4` | L7 proxy (invalidates per-VPN-IP identity cache) |
+| `nexguard:l7:bundle` | `{:bundle_updated, version}` | `FzHttp.L7.BundleBuilder` after every successful compile + ETS write | L7 proxy (eager bundle refetch instead of polling) |
+
+The three SOURCE topics (`apps`, `settings`, `groups`) feed
+`BundleBuilder`, which debounces 300 ms then recompiles + signs the
+bundle and emits a single `{:bundle_updated, v}` on the DOWNSTREAM
+`nexguard:l7:bundle` topic.
+
+`nexguard:l7:identity` is independent of the bundle flow — it
+invalidates the proxy's 30 s `/internal/sessions/by_vpn_ip/:ip`
+cache for one specific IP at a time, so a single user changing
+groups doesn't force every proxy connection to refetch.
+
+### L7-B HTTP endpoints
+
+| Method | Path | Auth | Purpose |
+|---|---|---|---|
+| `GET` | `/.well-known/jwks.json` | Public (RFC 8615) | Public RS256 keys for JWT verifiers. `Cache-Control: public, max-age=300` — matches grace window so a stale cache still verifies in-flight tokens |
+| `GET` | `/internal/sessions/by_vpn_ip/:ip` | `:api_internal` (Phase 1 unauth; Phase 6 mTLS) | VPN-IP → identity payload. `Cache-Control: private, max-age=30` + weak ETag `W/"md5(user_id:user.updated_at)"`. 404 = `{"error":"unknown_vpn_ip"}` |
+| `GET` | `/internal/bundle.json` | `:api_internal` | Latest signed policy bundle. `ETag: "v<N>"` + `X-NexGuard-Bundle-Signature: <jwt>`. `If-None-Match` → 304. `?since=N` → 304 if `bundle_version <= N` |
