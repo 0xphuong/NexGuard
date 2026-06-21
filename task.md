@@ -144,7 +144,7 @@ security bugs.
 - [x] **P-2**: `docs/migrations/v2.2.0.md` — preflight, apply, verify (links the `verify_l7a_schema.sql` script), rollback, operational impact
 - [x] **P-3**: `CHANGELOG.md` `[2.2.0] - 2026-06-21` — full L7-A description (data model + contexts + UI + tests + new x509 dep + dormant-on-deploy note)
 - [x] **P-4**: Obsidian `Roadmap.md` — added 2.2.0 to Released table + marked L7-A shipped in the L7 ZTNA section; `00-Index.md` Latest release bumped
-- [ ] **P-5**: `git tag v2.2.0` + push + update `nexguard-releases/versions.json`
+- [x] **P-5**: Tag `v2.2.0` pushed (commit `245ef73`); `nexguard-releases/versions.json` bumped to `latest: 2.2.0`, server CHANGELOG mirrored, README updated, download_url retargeted to `v2.2.0` tag
 
 ##### Acceptance criteria
 
