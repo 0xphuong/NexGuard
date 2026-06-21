@@ -74,7 +74,7 @@ proxy security bugs.
 
 - [x] **B-1**: migration `20260621000001_create_l7_signing_keys` — `id` UUID, `kid` (unique), `algorithm` default `RS256`, `private_pem :binary` (Cloak-encrypted at app layer), `public_pem :text`, `active boolean`, `rotated_at`, partial unique index on `active = true` enforces single-active-key invariant
 - [x] **B-2**: `FzHttp.L7.SigningKey` schema (private_pem via `FzHttp.Encrypted.Binary`) + `FzHttp.L7.JwtSigner` GenServer with cold-boot bootstrap, `sign/2`, `verify/1`, `active_kid/0`, `jwks/0`, `rotate/2`. Grace window = last 3 rotated keys held in memory for in-flight token verification. Added to `:full` supervision tree after `FzHttp.Auth`
-- [ ] **B-3**: `FzHttp.L7.JwtSigner.rotate/0` — generates new RS256 keypair, deactivates old (kept for `verify` grace), audit `l7.signing_key.rotate`
+- [x] **B-3**: `FzHttp.L7.JwtSigner.rotate/3` — function shipped in B-2; B-3 added optional `name:` opt on `start_link` (mirrors `FzHttp.Notifications`) so tests can spawn isolated instances under `start_supervised!/1`. Coverage in `test/fz_http/l7/jwt_signer_test.exs`: bootstrap, sign/verify round-trip, expired + tampered rejection, rotate + grace verify, subject-attributed audit row. Whitelist `l7.signing_key.{bootstrap,rotate}` actions in `AuditLog.changeset/2` (fix `366b084`)
 - [ ] **B-4**: `GET /.well-known/jwks.json` public endpoint serving active + recent keys in JWKS format
 
 ##### Phase 2 — Identity API (~1 day)

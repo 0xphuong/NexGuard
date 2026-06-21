@@ -43,8 +43,20 @@ defmodule FzHttp.L7.JwtSigner do
   @rsa_bits 2048
 
   # ── Client API ─────────────────────────────────────────────────
+  #
+  # Each public function has two arities. The lower arity targets the
+  # supervised singleton registered as `__MODULE__`; the higher arity
+  # takes an explicit `server` (pid or registered name) so tests can
+  # spawn isolated instances under `start_supervised!/1`. Mirrors the
+  # convention in `FzHttp.Notifications`.
 
-  def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+  def start_link(opts \\ []) do
+    if opts[:name] do
+      GenServer.start_link(__MODULE__, opts, name: opts[:name])
+    else
+      GenServer.start_link(__MODULE__, opts)
+    end
+  end
 
   @doc """
   Sign a claims map. Adds `iat` + `exp` if not present.
@@ -55,31 +67,42 @@ defmodule FzHttp.L7.JwtSigner do
   upstream connection retries.
   """
   def sign(claims, opts \\ []) when is_map(claims),
-    do: GenServer.call(__MODULE__, {:sign, claims, opts})
+    do: sign(__MODULE__, claims, opts)
+
+  def sign(server, claims, opts) when is_map(claims),
+    do: GenServer.call(server, {:sign, claims, opts})
 
   @doc """
   Verify a compact JWS against active + grace keys. Returns
   `{:ok, claims}` on success, `{:error, reason}` otherwise.
   """
   def verify(compact) when is_binary(compact),
-    do: GenServer.call(__MODULE__, {:verify, compact})
+    do: verify(__MODULE__, compact)
+
+  def verify(server, compact) when is_binary(compact),
+    do: GenServer.call(server, {:verify, compact})
 
   @doc "Currently-active kid (for `kid` header in signed JWTs)."
-  def active_kid, do: GenServer.call(__MODULE__, :active_kid)
+  def active_kid, do: active_kid(__MODULE__)
+  def active_kid(server), do: GenServer.call(server, :active_kid)
 
   @doc """
   JWKS payload for `/.well-known/jwks.json` — active + grace keys'
   public halves, RFC 7517 format. Returns a list of maps suitable
   for `{"keys": [...]}` wrapping at the controller layer.
   """
-  def jwks, do: GenServer.call(__MODULE__, :jwks)
+  def jwks, do: jwks(__MODULE__)
+  def jwks(server), do: GenServer.call(server, :jwks)
 
   @doc """
   Generate a fresh keypair, deactivate the previous, return
   `{:ok, new_kid}`. Optional `subject` for audit attribution.
   """
   def rotate(subject \\ nil, ip_address \\ nil),
-    do: GenServer.call(__MODULE__, {:rotate, subject, ip_address})
+    do: rotate(__MODULE__, subject, ip_address)
+
+  def rotate(server, subject, ip_address),
+    do: GenServer.call(server, {:rotate, subject, ip_address})
 
   # ── Server callbacks ───────────────────────────────────────────
 
