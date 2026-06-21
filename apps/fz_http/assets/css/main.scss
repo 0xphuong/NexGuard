@@ -1101,6 +1101,90 @@ pre {
   text-transform: uppercase;
 }
 
+/* L7 rules row editor on ApplicationsLive.Show — table of rules
+   with an inline add-form. Two visual ideas:
+   1. Multi-cell add form uses a CSS grid so wide screens get a
+      single-row layout and narrow screens collapse cleanly.
+   2. Method + group checkboxes render as "pills" — click to
+      toggle the underlying checkbox; selected pills get a deep-blue
+      filled background so the active set scans at a glance. */
+.ng-rule-form { margin-top: 0.75rem; }
+
+.ng-rule-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.9rem 1.1rem;
+  padding: 1rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.ng-radio-row,
+.ng-checkbox-row,
+.ng-method-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.ng-radio-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  cursor: pointer;
+
+  input[type="radio"] { margin: 0; }
+}
+
+/* Pill-style checkbox — hides the native checkbox and styles the
+   sibling span. Click anywhere on the pill to toggle. */
+.ng-method-pill {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+
+  input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  span {
+    display: inline-block;
+    padding: 0.2rem 0.7rem;
+    border-radius: 999px;
+    background: #ffffff;
+    border: 1px solid #cbd5e1;
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: background 0.12s, color 0.12s, border-color 0.12s;
+  }
+
+  input[type="checkbox"]:checked + span {
+    background: #1e3a8a;
+    color: #ffffff;
+    border-color: #1e3a8a;
+  }
+
+  &:hover input[type="checkbox"]:not(:checked) + span {
+    border-color: #94a3b8;
+    color: #1e293b;
+  }
+}
+
+/* Implicit "default deny" row at the bottom of the rules table —
+   visually distinct so admin sees it's not editable + understands
+   the policy fall-through. */
+.ng-rule-implicit {
+  background: #fef2f2;
+
+  td { font-style: italic; }
+}
+
 /* L7 access_scope badge — quiet for normal (limited), warm red for
    the break-glass bypass (all). The warm color is intentional: an
    admin scanning a user row should clock the bypass immediately. */

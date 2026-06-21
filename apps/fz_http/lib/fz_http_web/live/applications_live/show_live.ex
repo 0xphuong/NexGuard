@@ -128,6 +128,108 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
     end
   end
 
+  # ── L7 rules editor ────────────────────────────────────────────
+
+  def handle_event("add_rule", params, socket) do
+    rule = build_rule_from_form(params)
+    new_rules = (socket.assigns.application.l7_rules || []) ++ [rule]
+    persist_rules(socket, new_rules, "Rule added.")
+  end
+
+  def handle_event("delete_rule", %{"index" => idx}, socket) do
+    idx = String.to_integer(idx)
+    new_rules = List.delete_at(socket.assigns.application.l7_rules || [], idx)
+    persist_rules(socket, new_rules, "Rule removed.")
+  end
+
+  def handle_event("move_rule_up", %{"index" => idx}, socket) do
+    idx = String.to_integer(idx)
+    rules = socket.assigns.application.l7_rules || []
+
+    if idx > 0 do
+      persist_rules(socket, swap(rules, idx, idx - 1), "Rule moved up.")
+    else
+      {:noreply, socket}
+    end
+  end
+
+  def handle_event("move_rule_down", %{"index" => idx}, socket) do
+    idx = String.to_integer(idx)
+    rules = socket.assigns.application.l7_rules || []
+
+    if idx < length(rules) - 1 do
+      persist_rules(socket, swap(rules, idx, idx + 1), "Rule moved down.")
+    else
+      {:noreply, socket}
+    end
+  end
+
+  defp build_rule_from_form(params) do
+    methods =
+      ~w[GET POST PUT DELETE PATCH]
+      |> Enum.filter(&Map.has_key?(params, "method_#{&1}"))
+
+    require_groups =
+      params
+      |> Enum.filter(fn {k, _} -> String.starts_with?(k, "rg_") end)
+      |> Enum.map(fn {_, name} -> name end)
+      |> Enum.reject(&(&1 == "" or is_nil(&1)))
+
+    path = params["path_prefix"] |> to_string() |> String.trim()
+    mfa  = params["require_mfa_age_seconds"] |> to_string() |> String.trim()
+
+    base = %{"action" => params["action"] || "deny"}
+
+    base
+    |> put_if(methods != [], "method", methods)
+    |> put_if(path != "", "path_prefix", path)
+    |> put_if(require_groups != [], "require_groups", require_groups)
+    |> put_if(mfa != "", "require_mfa_age_seconds", parse_int(mfa, 0))
+  end
+
+  defp put_if(map, true, key, value),  do: Map.put(map, key, value)
+  defp put_if(map, false, _, _),       do: map
+
+  defp parse_int(s, default) do
+    case Integer.parse(s) do
+      {n, _} -> n
+      :error -> default
+    end
+  end
+
+  defp swap(list, i, j) do
+    a = Enum.at(list, i)
+    b = Enum.at(list, j)
+    list
+    |> List.replace_at(i, b)
+    |> List.replace_at(j, a)
+  end
+
+  defp persist_rules(socket, new_rules, success_msg) do
+    case Applications.update_application(
+           socket.assigns.application,
+           %{"l7_rules" => new_rules},
+           socket.assigns.subject,
+           socket.assigns[:remote_ip]
+         ) do
+      {:ok, app} ->
+        {:noreply,
+         socket
+         |> assign(:application, app)
+         |> put_flash(:info, success_msg)}
+
+      {:error, cs} ->
+        msg =
+          cs
+          |> Ecto.Changeset.traverse_errors(fn {m, _} -> m end)
+          |> Map.values()
+          |> List.flatten()
+          |> Enum.join("; ")
+
+        {:noreply, put_flash(socket, :error, "Could not save: #{msg}")}
+    end
+  end
+
   def handle_event("toggle_enabled", _, socket) do
     target = !socket.assigns.application.enabled
 

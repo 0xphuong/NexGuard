@@ -153,7 +153,7 @@
     </dl>
   </div>
 
-  <%# ── L7 rules placeholder (Wave 3c) ─────────────────────────── %>
+  <%# ── L7 Rules editor ─────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
       <span class="ng-section-header" style="margin:0">
@@ -161,16 +161,191 @@
         <span class="ng-section-badge"><%= length(@application.l7_rules) %></span>
       </span>
     </div>
+
     <div style="padding: 1.25rem 1.5rem;">
-      <div class="ng-empty-state ng-empty-state--inline">
-        <p class="ng-empty-state-hint">
-          The L7 rules editor (method / path / require_groups /
-          require_mfa_age) ships in <strong>Wave 3c</strong>. For now,
-          rules are stored as JSON and the proxy applies them
-          first-match-wins with an implicit default deny.
-        </p>
-      </div>
+      <p class="ng-form-hint" style="margin-top:0">
+        Rules evaluate <strong>first-match wins</strong>; an implicit
+        <code>deny</code> applies if no rule matches. Each rule can
+        narrow on HTTP method, path prefix, required groups (beyond
+        the app's Allowed Groups), and MFA freshness.
+      </p>
+
+      <%# ── Add-rule form ───────────────────────────────────────── %>
+      <form id="add-rule-form" phx-submit="add_rule" autocomplete="off" class="ng-rule-form">
+        <div class="ng-rule-form-grid">
+          <div class="ng-field">
+            <label class="ng-label">Action</label>
+            <div class="ng-radio-row">
+              <label class="ng-radio-inline">
+                <input type="radio" name="action" value="allow" checked />
+                <span class="ng-source-badge ng-source-badge--idp_sync">allow</span>
+              </label>
+              <label class="ng-radio-inline">
+                <input type="radio" name="action" value="deny" />
+                <span class="ng-source-badge ng-scope-badge--all" style="text-transform:lowercase;letter-spacing:0;font-weight:600;padding:0.1rem 0.5rem">deny</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="ng-field">
+            <label class="ng-label">Methods <span class="ng-td-muted">(empty = any)</span></label>
+            <div class="ng-method-pills">
+              <%= for m <- ~w[GET POST PUT DELETE PATCH] do %>
+                <label class="ng-method-pill">
+                  <input type="checkbox" name={"method_#{m}"} value="1" />
+                  <span><%= m %></span>
+                </label>
+              <% end %>
+            </div>
+          </div>
+
+          <div class="ng-field">
+            <label class="ng-label">Path prefix <span class="ng-td-muted">(optional)</span></label>
+            <input type="text" name="path_prefix" class="ng-input"
+                   placeholder="/api/ or /admin/" autocomplete="off" />
+          </div>
+
+          <div class="ng-field">
+            <label class="ng-label">Require groups <span class="ng-td-muted">(any of)</span></label>
+            <%= if @allowed_groups == [] do %>
+              <p class="ng-td-muted" style="margin:0">Add allowed groups first to pick from.</p>
+            <% else %>
+              <div class="ng-checkbox-row">
+                <%= for g <- @allowed_groups do %>
+                  <label class="ng-method-pill">
+                    <input type="checkbox" name={"rg_#{g.id}"} value={g.name} />
+                    <span><%= g.name %></span>
+                  </label>
+                <% end %>
+              </div>
+            <% end %>
+          </div>
+
+          <div class="ng-field">
+            <label class="ng-label">MFA fresh-within (seconds) <span class="ng-td-muted">(optional)</span></label>
+            <input type="number" name="require_mfa_age_seconds" class="ng-input"
+                   min="1" placeholder="300" />
+          </div>
+        </div>
+
+        <div class="ng-form-actions" style="margin-top:0.5rem">
+          <button type="submit" class="ng-primary-btn">
+            <i class="mdi mdi-plus"></i> Add Rule
+          </button>
+        </div>
+      </form>
     </div>
+
+    <%# ── Existing rules table ──────────────────────────────────── %>
+    <%= if @application.l7_rules == [] do %>
+      <div style="padding: 0 1.5rem 1.5rem;">
+        <div class="ng-empty-state ng-empty-state--inline">
+          <p class="ng-empty-state-hint">
+            No rules yet. With zero rules the implicit default
+            <code>deny</code> applies — every request to this app is
+            rejected. Add at least one <code>allow</code> rule for the
+            app to be reachable.
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th style="width: 3rem;">#</th>
+              <th>Action</th>
+              <th>Method</th>
+              <th>Path prefix</th>
+              <th>Require groups</th>
+              <th>MFA age (s)</th>
+              <th class="ng-th-center" style="width: 7rem;">Order</th>
+              <th class="ng-th-center" style="width: 3rem;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for {rule, idx} <- Enum.with_index(@application.l7_rules) do %>
+              <tr id={"l7-rule-#{idx}"}>
+                <td class="ng-td-muted"><%= idx + 1 %></td>
+                <td>
+                  <%= case rule["action"] do %>
+                    <% "allow" -> %>
+                      <span class="ng-source-badge ng-source-badge--idp_sync">allow</span>
+                    <% _ -> %>
+                      <span class="ng-source-badge" style="background:#fee2e2;color:#b91c1c">deny</span>
+                  <% end %>
+                </td>
+                <td>
+                  <%= case rule["method"] do %>
+                    <% list when is_list(list) and list != [] -> %>
+                      <span class="ng-td-muted"><%= Enum.join(list, ", ") %></span>
+                    <% _ -> %>
+                      <span class="ng-td-muted">any</span>
+                  <% end %>
+                </td>
+                <td class="ng-td-muted">
+                  <%= if rule["path_prefix"] && rule["path_prefix"] != "", do: rule["path_prefix"], else: "—" %>
+                </td>
+                <td class="ng-td-muted">
+                  <%= case rule["require_groups"] do %>
+                    <% list when is_list(list) and list != [] -> %>
+                      <%= Enum.join(list, ", ") %>
+                    <% _ -> %>
+                      —
+                  <% end %>
+                </td>
+                <td class="ng-td-muted">
+                  <%= rule["require_mfa_age_seconds"] || "—" %>
+                </td>
+                <td class="ng-td-center">
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Move up"
+                    phx-click="move_rule_up"
+                    phx-value-index={idx}
+                    disabled={idx == 0}
+                  >
+                    <i class="mdi mdi-arrow-up"></i>
+                  </button>
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Move down"
+                    phx-click="move_rule_down"
+                    phx-value-index={idx}
+                    disabled={idx == length(@application.l7_rules) - 1}
+                  >
+                    <i class="mdi mdi-arrow-down"></i>
+                  </button>
+                </td>
+                <td class="ng-td-center">
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Delete rule"
+                    phx-click="delete_rule"
+                    phx-value-index={idx}
+                  >
+                    <i class="mdi mdi-trash-can-outline"></i>
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+            <%# Implicit default-deny — visible so admin knows what
+                happens past the last rule. Not editable. %>
+            <tr class="ng-rule-implicit">
+              <td class="ng-td-muted">∞</td>
+              <td>
+                <span class="ng-source-badge" style="background:#fee2e2;color:#b91c1c">deny</span>
+              </td>
+              <td class="ng-td-muted" colspan="4">
+                <em>Implicit default deny — applied if no rule above matched.</em>
+              </td>
+              <td class="ng-td-center ng-td-muted">—</td>
+              <td class="ng-td-center ng-td-muted">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
   </div>
 
   <%# ── Allowed Groups ───────────────────────────────────────────── %>

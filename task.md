@@ -127,7 +127,7 @@ security bugs.
 - [ ] **U-11**: cert source picker — radio "Upload" vs "Use NexGuard internal CA"
 - [ ] **U-12**: cert upload form — textareas for `cert.pem` + `key.pem`; client-side preview cert subject + expiry
 - [ ] **U-13**: required groups multi-select
-- [ ] **U-14**: **L7 rules table editor** — add row (method multi-select, path_prefix, action, require_groups, require_mfa_age), reorder via drag, delete row
+- [x] **U-14**: L7 rules row editor on `ApplicationsLive.Show` — add-form (action radios, method pill checkboxes for GET/POST/PUT/DELETE/PATCH, path_prefix, require_groups pulled from app's allowed_groups, require_mfa_age_seconds), table with up/down arrows + delete per row, implicit default-deny row pinned at the bottom for clarity
 - [ ] **U-15**: TLS mode dropdown — 'terminate' default; 'passthrough' disabled with tooltip "Available in v2"
 - [ ] **U-16**: enabled toggle — disabled until cert + hostname + ≥1 rule present
 - [ ] **U-17**: `SettingsLive.L7` — org-level `l7_enabled` toggle
