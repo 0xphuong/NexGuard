@@ -38,6 +38,9 @@ defmodule FzHttp.Application do
       FzHttp.VpnSessionScheduler,
       FzHttp.AuditLog.RetentionScheduler,
       FzHttp.Auth,
+      # L7: signs the X-NexGuard-Identity-Jwt header (ADR-010).
+      # Depends on Repo + Vault (Cloak-encrypted private_pem).
+      FzHttp.L7.JwtSigner,
       FzHttpWeb.Endpoint,
 
       # Observability
