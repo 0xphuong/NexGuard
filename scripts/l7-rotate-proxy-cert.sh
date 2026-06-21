@@ -30,6 +30,12 @@ LEAF_KEY_BITS=2048
 CA_VALIDITY_DAYS=3650   # 10 years — operator rotates explicitly via --reset-ca
 LEAF_VALIDITY_DAYS=365  # 1 year — operator runs this script annually
 
+# Numeric UID/GID the proxy container's `nonroot` user has —
+# matches gcr.io/distroless/static-debian12:nonroot. Override if
+# you build a custom proxy image with a different uid.
+PROXY_UID=${NEXGUARD_PROXY_UID:-65532}
+PROXY_GID=${NEXGUARD_PROXY_GID:-65532}
+
 # CN values are not security-critical (CA validates by signature, not
 # CN); they're just human-readable in cert dumps.
 CA_SUBJ="/CN=NexGuard L7 Internal CA/O=NexGuard"
@@ -130,7 +136,17 @@ openssl x509 -req \
   -out proxy.pem 2>/dev/null
 
 rm -f proxy.csr
-chmod 600 proxy.key
+
+# The proxy container runs as a non-root user (uid 65532 in the
+# default distroless image). Make the cert + key readable by that
+# uid via direct ownership; Docker bind mounts preserve numeric
+# uid/gid into the container, where uid 65532 == `nonroot`.
+chmod 640 proxy.key
+chown "${PROXY_UID}:${PROXY_GID}" proxy.key proxy.pem 2>/dev/null || {
+  echo "[proxy] chown to ${PROXY_UID}:${PROXY_GID} failed — proxy may not be able to read its cert" >&2
+  echo "[proxy] falling back to chmod 644 on proxy.key (private key world-readable; ok IF the parent dir is locked down)" >&2
+  chmod 644 proxy.key
+}
 
 # ── Summary ───────────────────────────────────────────────────────
 
