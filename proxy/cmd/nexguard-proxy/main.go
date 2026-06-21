@@ -26,6 +26,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 	"os/signal"
@@ -34,6 +35,7 @@ import (
 
 	"github.com/0xphuong/NexGuard/proxy/internal/bundle"
 	"github.com/0xphuong/NexGuard/proxy/internal/cert"
+	"github.com/0xphuong/NexGuard/proxy/internal/handler"
 	"github.com/0xphuong/NexGuard/proxy/internal/identity"
 	"github.com/0xphuong/NexGuard/proxy/internal/jwt"
 	"github.com/0xphuong/NexGuard/proxy/internal/listener"
@@ -95,14 +97,39 @@ func main() {
 		slog.Int("apps_with_certs", certs.Get().Size()),
 	)
 
-	// Stub: poll the bundle endpoint to demonstrate the client works.
-	// A later commit replaces this with PubSub-driven refresh (SSE or
-	// websocket from the NexGuard server).
+	// Bundle poller — replaces a future PubSub/SSE feed.
 	go pollBundle(ctx, log, bc, &signers, &certs)
-	go acceptLoop(ctx, log, ln, ic)
+
+	// Build the HTTP handler and serve the TLS listener. ConnContext
+	// stuffs each accepted *tls.Conn's LocalAddr() (the original-DST
+	// VIP recovered by TPROXY) into the request context — the
+	// handler reads it back via handler.LocalAddrKey.
+	srv := &http.Server{
+		Handler: handler.New(handler.Deps{
+			Bundle:   bc,
+			Identity: ic,
+			Signers:  &signers,
+			Certs:    &certs,
+		}),
+		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
+			return context.WithValue(ctx, handler.LocalAddrKey, c.LocalAddr())
+		},
+		ReadHeaderTimeout: 10 * time.Second,
+	}
+
+	go func() {
+		if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("http.Server.Serve failed", "error", err)
+		}
+	}()
 
 	<-ctx.Done()
 	log.Info("shutting down on signal")
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelShutdown()
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		log.Warn("graceful shutdown failed", "error", err)
+	}
 }
 
 func getRequiredURL(env string) (*url.URL, error) {
@@ -214,40 +241,3 @@ func refreshCerts(b *bundle.Bundle, holder *cert.Holder) error {
 	return nil
 }
 
-// acceptLoop pulls accepted TLS connections off the listener and
-// hands each to a goroutine. Phase 4 has no request handler yet —
-// connections close immediately. The reverse-proxy hot path lands
-// in Phase 5 (D-9 → D-12).
-func acceptLoop(ctx context.Context, log *slog.Logger, ln net.Listener, ic *identity.Client) {
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-			}
-			log.Warn("accept failed", "error", err)
-			continue
-		}
-
-		// Identity client still unused on the hot path. Silence the
-		// compiler nag; the request handler in Phase 5 will pass
-		// `conn.RemoteAddr()` to `ic.Lookup(...)`.
-		_ = ic
-
-		go func(c net.Conn) {
-			defer c.Close()
-			dst, err := listener.OriginalDST(c)
-			if err != nil {
-				log.Warn("could not read original DST", "error", err)
-				return
-			}
-			log.Debug("accepted",
-				slog.String("client", c.RemoteAddr().String()),
-				slog.String("original_dst", dst.String()),
-			)
-			// Phase 5 will: lookup identity, eval policy, reverse proxy.
-		}(conn)
-	}
-}

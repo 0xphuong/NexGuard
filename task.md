@@ -178,10 +178,10 @@ shipping alone in v2.3.0 since there's no consumer yet.
 - [x] **D-6**: `proxy/internal/policy.userInAnyAllowedGroup/4` resolves `app.allowed_group_ids` via `Bundle.FindGroup(gid).UserIDs.IsMember(userID)` — no second round-trip. Stale-bundle references (deleted group still in `allowed_group_ids`) are skipped, not crashed
 - [x] **D-7**: `proxy/internal/policy.Decide/4` — break-glass (`access_scope=all`) → app-wide group gate → first-match-wins rule eval (`method` / `path_prefix` / `require_groups` / `require_mfa_age_seconds`) → default deny. Unknown rule action fails closed. `Decision{Allow, Reason, MatchedRule}` carries audit context
 - [x] **D-8**: JWT signing landed end-to-end. **Server**: `FzHttp.L7.JwtSigner.active_signing_material/0` exposes the active key's `{kid, private_pem, algorithm}`; `BundleBuilder` now embeds `signing_key` in `/internal/bundle.json` (gated `:api_internal`). **Proxy**: `internal/jwt/signer.go` (stdlib `crypto/rsa` — no third-party JWT dep) parses PKCS#1 or PKCS#8 RSA PEM, signs claims `{user_id, email, groups, mfa_age_seconds, iat, exp}` with RS256 + `kid` header. `SignerHolder` atomic slot swap on every bundle pivot so the request hot path reads without a lock
-- [ ] **D-9**: Header inject (X-NexGuard-*) + strip user-supplied X-NexGuard-Spoof-* per app config
-- [ ] **D-10**: Reverse proxy to backend with HTTP/1.1 + HTTP/2 + keep-alive
-- [ ] **D-11**: Deny page rendering (template loaded from disk)
-- [ ] **D-12**: Unknown-VIP handler → 404 with `X-NexGuard-Reason: unknown-app`
+- [x] **D-9**: `proxy/internal/handler.injectIdentityHeaders/2` sets `X-NexGuard-{User-Id,User-Email,User-Role,Groups,MFA-Age-Seconds,Identity-Jwt}` + applies per-app `inject_headers`. `stripSpoofedHeaders/1` removes any client-supplied `X-NexGuard-*` (case-insensitive — Go canonicalizes `NexGuard` → `Nexguard`) BEFORE we set our own. Per-app `strip_headers` also applied
+- [x] **D-10**: `httputil.NewSingleHostReverseProxy(app.Backend)` per request — HTTP/1.1 + HTTP/2 + keep-alive inherited from net/http. Custom `ErrorHandler` returns the same deny page (502 `backend-error`) so backend failures don't bleed connection-reset to clients
+- [x] **D-11**: `proxy/internal/handler/deny.go` renders a self-contained HTML page (inline CSS, no JS, no external assets) with title + code + reason + hostname. Defensive `html.EscapeString` on reason and hostname even though both are internal enums today
+- [x] **D-12**: Unknown VIP → `http.StatusNotFound` + `X-NexGuard-Reason: unknown-app` + deny page. Unknown VPN-IP (identity 404) → 401 + `unknown-vpn-ip`. Policy denial → 403 + `denied`. Bundle not yet loaded → 503 + `no-bundle`. Backend failure → 502 + `backend-error`
 - [ ] **D-13**: Structured logging (JSON) — per-request entry with decision, latency, identity
 - [ ] **D-14**: Prometheus metrics endpoint (`/metrics` on a separate port)
 - [ ] **D-15**: `/healthz` + `/readyz`
