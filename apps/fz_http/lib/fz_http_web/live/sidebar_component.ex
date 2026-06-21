@@ -103,6 +103,12 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">Audit Log</span>
             <% end %>
           </li>
+          <li>
+            <%= live_redirect(to: ~p"/settings/l7", class: nav_class(@path, "/settings/l7")) do %>
+              <span class="icon"><i class="mdi mdi-power"></i></span>
+              <span class="menu-item-label">L7 Enforcement</span>
+            <% end %>
+          </li>
         </ul>
 
         <p class="menu-label ng-sidebar-label">Diagnostics</p>

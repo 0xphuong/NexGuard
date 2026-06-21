@@ -1,0 +1,190 @@
+<%# ── Confirmation modal ──────────────────────────────────────────── %>
+<%= if @confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel" phx-key="escape">
+    <div class="modal-background" phx-click="cancel"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <%= case @confirm do %>
+            <% :enable -> %>
+              <i class="mdi mdi-power-plug ng-modal-title-icon"></i>
+              Enable L7 Enforcement
+            <% :disable -> %>
+              <i class="mdi mdi-power-plug-off ng-modal-title-icon"></i>
+              Disable L7 Enforcement
+          <% end %>
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <%= case @confirm do %>
+          <% :enable -> %>
+            <p class="ng-modal-intro">You are about to turn L7 enforcement <strong>ON</strong>:</p>
+            <ul class="ng-modal-list">
+              <li>The nftables TPROXY chain will route VIP-bound traffic (<code>10.99.0.0/16</code>) into the L7 proxy</li>
+              <li>CoreDNS will start resolving declared hostnames to their virtual IPs</li>
+              <li>Every per-app rule + Allowed Group will be enforced on the next bundle reload</li>
+              <li>Apps with no L7 rules will deny everything by default (implicit fall-through)</li>
+            </ul>
+            <p class="ng-modal-warn">
+              Read <a href="https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture" target="_blank" rel="noopener">SPEC §8</a>
+              + the locked ADRs before flipping in production.
+            </p>
+          <% :disable -> %>
+            <p class="ng-modal-intro">You are about to turn L7 enforcement <strong>OFF</strong>:</p>
+            <ul class="ng-modal-list">
+              <li>nftables TPROXY chain is removed — VIP traffic stops being intercepted</li>
+              <li>CoreDNS stops resolving declared hostnames; clients fall back to upstream DNS</li>
+              <li>Every L7 rule is bypassed — apps revert to L3/L4 enforcement only</li>
+              <li>App configuration (rules, groups, certs) is preserved and re-arms when you flip back on</li>
+            </ul>
+            <p class="ng-modal-warn">
+              Use this as a kill switch during incidents. Per-app declarations
+              are <em>not</em> lost.
+            </p>
+        <% end %>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel">Cancel</button>
+        <%= case @confirm do %>
+          <% :enable -> %>
+            <button class="ng-primary-btn" phx-click="apply">
+              <i class="mdi mdi-power-plug"></i> Enable L7
+            </button>
+          <% :disable -> %>
+            <button class="ng-danger-btn ng-danger-btn--filled" phx-click="apply">
+              <i class="mdi mdi-power-plug-off"></i> Disable L7
+            </button>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Hero ──────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">L7 Enforcement</h1>
+      <p class="ng-page-subtitle">
+        Master switch for the layer-7 ZTNA proxy. Per-app declarations
+        live under <.link navigate={~p"/applications"}>Applications</.link>.
+      </p>
+    </div>
+    <span class={"ng-scope-badge #{if @settings.l7_enabled, do: "ng-scope-badge--all", else: "ng-scope-badge--limited"}"}
+          style="font-size:0.8rem;padding:0.3rem 0.8rem">
+      <%= if @settings.l7_enabled, do: "ENABLED", else: "DISABLED" %>
+    </span>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── Status banner ─────────────────────────────────────────────── %>
+  <%= if @settings.l7_enabled do %>
+    <div class="ng-cert-preview" style="background:#ecfdf5;border-color:#a7f3d0">
+      <div class="ng-cert-preview-title" style="color:#065f46">
+        <i class="mdi mdi-check-circle-outline"></i> L7 is active
+      </div>
+      <dl class="ng-cert-preview-body">
+        <div>
+          <dt>Enabled apps</dt>
+          <dd>
+            <code><%= @enabled_apps_count %></code>
+            <%= if @enabled_apps_count == 0 do %>
+              <span class="ng-td-muted">
+                — no apps published yet, the proxy is idle.
+                <.link navigate={~p"/applications"}>Declare one</.link>
+              </span>
+            <% end %>
+          </dd>
+        </div>
+        <div>
+          <dt>VIP subnet</dt>
+          <dd><code>10.99.0.0/16</code></dd>
+        </div>
+        <div>
+          <dt>TPROXY port</dt>
+          <dd><code>:8443</code></dd>
+        </div>
+      </dl>
+    </div>
+  <% end %>
+
+  <%# ── Master toggle ────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-power"></i> Master toggle
+      </span>
+    </div>
+    <div class="ng-danger-zone-item" style="padding:1.25rem 1.5rem">
+      <div>
+        <div class="ng-danger-zone-label">
+          <%= if @settings.l7_enabled do %>
+            Disable L7 enforcement
+          <% else %>
+            Enable L7 enforcement
+          <% end %>
+        </div>
+        <p class="ng-danger-zone-desc">
+          <%= if @settings.l7_enabled do %>
+            Flips off the entire L7 subsystem in one click. Per-app
+            declarations are preserved; flip back on any time to
+            re-arm them. Use as an incident-response kill switch.
+          <% else %>
+            Activates the nftables TPROXY chain + CoreDNS overrides +
+            L7 proxy for every <code>enabled</code> app. The bundle
+            recompiles immediately on flip; clients see the new state
+            on their next request.
+          <% end %>
+        </p>
+      </div>
+      <%= if @settings.l7_enabled do %>
+        <button class="ng-danger-btn" phx-click="request_disable">
+          <i class="mdi mdi-power-plug-off"></i> Disable L7
+        </button>
+      <% else %>
+        <button class="ng-primary-btn" phx-click="request_enable">
+          <i class="mdi mdi-power-plug"></i> Enable L7
+        </button>
+      <% end %>
+    </div>
+  </div>
+
+  <%# ── How it works (always-visible hint) ────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-information-outline"></i> How the kill switch behaves
+      </span>
+    </div>
+    <div style="padding: 1.25rem 1.5rem;">
+      <p class="ng-form-hint" style="margin-top:0">
+        L7 enforcement is opt-in at <strong>two</strong> levels (ADR-014):
+      </p>
+      <ol class="ng-modal-list">
+        <li>
+          <strong>Org-wide</strong> — this page. When OFF, the L7 proxy
+          + CoreDNS + TPROXY chain are dormant regardless of any app
+          config. Public-internet traffic stays on L3/L4 enforcement
+          via Rules.
+        </li>
+        <li>
+          <strong>Per-app</strong> — the <code>enabled</code> toggle
+          on each application's Show page. An app must be both
+          <em>enabled</em> here and have <strong>≥ 1 L7 rule</strong>
+          to be reachable through the proxy.
+        </li>
+      </ol>
+      <p class="ng-form-hint">
+        Both switches are audited (<code>org_settings.l7_enabled.change</code>
+        + <code>application.enabled.change</code>) and broadcast on PubSub
+        so the proxy hot-reloads its policy bundle without a restart.
+      </p>
+    </div>
+  </div>
+</section>

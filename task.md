@@ -130,9 +130,9 @@ security bugs.
 - [x] **U-14**: L7 rules row editor on `ApplicationsLive.Show` — add-form (action radios, method pill checkboxes for GET/POST/PUT/DELETE/PATCH, path_prefix, require_groups pulled from app's allowed_groups, require_mfa_age_seconds), table with up/down arrows + delete per row, implicit default-deny row pinned at the bottom for clarity
 - [ ] **U-15**: TLS mode dropdown — 'terminate' default; 'passthrough' disabled with tooltip "Available in v2"
 - [ ] **U-16**: enabled toggle — disabled until cert + hostname + ≥1 rule present
-- [ ] **U-17**: `SettingsLive.L7` — org-level `l7_enabled` toggle
-- [ ] **U-18**: pre-toggle warning — "Enabling L7 starts CoreDNS + Proxy services. Read L7-Architecture before flipping."
-- [ ] **U-19**: post-enable banner — "L7 is now active. X declared apps will route through proxy."
+- [x] **U-17**: `SettingLive.L7` — `/settings/l7` route + sidebar entry under Settings; renders status badge + master toggle card
+- [x] **U-18**: Pre-toggle confirmation modal — distinct enable / disable copy each spelling out the concrete consequences (TPROXY chain, CoreDNS overrides, bundle reload, per-app preserve-on-disable) plus a link to SPEC §8
+- [x] **U-19**: Post-enable status banner — green card listing "X enabled apps", VIP subnet `10.99.0.0/16`, TPROXY port `:8443`. Special hint when zero apps enabled (proxy idle) with link to declare one
 - [ ] **T-5**: LiveView tests — `access_groups_live_test.exs` (mount, list, create, delete confirm)
 - [ ] **T-6**: LiveView tests — `application_live_l7_test.exs` (form validation, cert preview, rules editor)
 - [ ] **T-7**: LiveView tests — `settings_live_l7_test.exs` (toggle works)
