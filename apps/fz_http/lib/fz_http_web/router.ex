@@ -215,6 +215,9 @@ defmodule FzHttpWeb.Router do
       live "/access-groups/:id", AccessGroupsLive.Show, :show
 
       live "/applications", ApplicationsLive.Index, :index
+      live "/applications/new", ApplicationsLive.Index, :new
+      live "/applications/:id", ApplicationsLive.Show, :show
+      live "/applications/:id/edit", ApplicationsLive.Show, :edit
       live "/settings/client_defaults", SettingLive.ClientDefaults, :show
       live "/settings/network", SettingLive.Network, :show
 

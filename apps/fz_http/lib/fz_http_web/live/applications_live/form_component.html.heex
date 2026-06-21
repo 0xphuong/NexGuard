@@ -1,0 +1,125 @@
+<div>
+  <.form
+    :let={f}
+    for={@changeset}
+    as={:application}
+    id={@form}
+    phx-target={@myself}
+    phx-change="validate"
+    phx-submit="save"
+  >
+    <p class="ng-modal-form-hint">
+      Declare an internal-domain app that should route through the L7
+      transparent proxy. NexGuard auto-assigns a virtual IP in
+      <code>10.99.0.0/16</code>; CoreDNS resolves the hostname to that
+      VIP for every signed-in user. The proxy then enforces group +
+      L7 rules per request.
+    </p>
+
+    <div class="ng-field">
+      <%= label(f, :name, "Display name", class: "ng-label") %>
+      <%= text_input(f, :name,
+            class: "ng-input #{input_error_class(f, :name)}",
+            placeholder: "Wiki, GitLab, Internal Dashboard",
+            autocomplete: "off",
+            phx_debounce: "300",
+            required: true) %>
+      <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :description, "Description", class: "ng-label") %>
+      <%= textarea(f, :description,
+            class: "ng-input #{input_error_class(f, :description)}",
+            rows: 2,
+            placeholder: "Optional — what this app is for, who owns it.") %>
+      <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :hostname, "Hostname", class: "ng-label") %>
+      <%= text_input(f, :hostname,
+            class: "ng-input #{input_error_class(f, :hostname)}",
+            placeholder: "wiki.internal.example.com",
+            autocomplete: "off",
+            phx_debounce: "300",
+            required: true) %>
+      <p class="ng-field-error"><%= error_tag(f, :hostname) %></p>
+      <p class="ng-field-hint">
+        The fully-qualified DNS name users will type. Lower-cased
+        automatically; only ASCII labels with letters / digits / dashes.
+      </p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :backend, "Backend URL", class: "ng-label") %>
+      <%= text_input(f, :backend,
+            class: "ng-input #{input_error_class(f, :backend)}",
+            placeholder: "https://10.0.50.6:443",
+            autocomplete: "off",
+            phx_debounce: "300",
+            required: true) %>
+      <p class="ng-field-error"><%= error_tag(f, :backend) %></p>
+      <p class="ng-field-hint">
+        Where the proxy forwards approved requests. Use the real IP
+        (or internal DNS name) of the upstream service.
+      </p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :cert_source, "Certificate source", class: "ng-label") %>
+      <div class="ng-radio-group">
+        <%
+          cert_source = Phoenix.HTML.Form.input_value(f, :cert_source) || :step_ca
+          cert_source = if is_binary(cert_source), do: String.to_existing_atom(cert_source), else: cert_source
+        %>
+
+        <label class={"ng-radio-card #{if cert_source == :step_ca, do: "is-selected", else: ""}"}>
+          <%= radio_button(f, :cert_source, :step_ca, checked: cert_source == :step_ca) %>
+          <div class="ng-radio-card-body">
+            <div class="ng-radio-card-title">
+              <i class="mdi mdi-shield-key-outline"></i> Internal CA (step-ca)
+            </div>
+            <p class="ng-radio-card-desc">
+              NexGuard's smallstep CA issues a 90-day leaf cert and
+              auto-renews it. Best for <code>.internal</code> /
+              <code>.lan</code> hostnames; requires NexGuard Connect
+              clients to trust the internal root CA (provisioned
+              automatically on enrollment).
+            </p>
+          </div>
+        </label>
+
+        <label class={"ng-radio-card ng-radio-card--disabled"}>
+          <input type="radio" disabled />
+          <div class="ng-radio-card-body">
+            <div class="ng-radio-card-title">
+              <i class="mdi mdi-cloud-upload-outline"></i> Upload my own cert
+              <span class="ng-badge-soft">Wave 3b-2</span>
+            </div>
+            <p class="ng-radio-card-desc">
+              Paste an existing certificate + key (e.g., Let's Encrypt
+              for a real public DNS name). No client-side CA install
+              required. <strong>Coming in the next release.</strong>
+            </p>
+          </div>
+        </label>
+      </div>
+      <p class="ng-field-error"><%= error_tag(f, :cert_source) %></p>
+    </div>
+
+    <%= hidden_input(f, :tls_mode, value: "terminate") %>
+
+    <%= if @action == :edit do %>
+      <div class="ng-field">
+        <label class="ng-label">Virtual IP (assigned)</label>
+        <input type="text" class="ng-input" disabled
+               value={FzHttpWeb.ApplicationsLive.Index.vip_to_string(@application.virtual_ip)} />
+        <p class="ng-field-hint">
+          Allocated automatically when the app was created. Immutable —
+          delete and re-create the app if you need a different VIP.
+        </p>
+      </div>
+    <% end %>
+  </.form>
+</div>

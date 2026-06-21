@@ -1,0 +1,205 @@
+<%# ── Edit modal ─────────────────────────────────────────────────── %>
+<%= if @live_action == :edit do %>
+  <%= live_modal(
+    FzHttpWeb.ApplicationsLive.FormComponent,
+    return_to: ~p"/applications/#{@application}",
+    title: "Edit Application",
+    id: "application-form-component",
+    application: @application,
+    subject: @subject,
+    remote_ip: @remote_ip,
+    action: @live_action,
+    form: "application-form",
+    button_text: "Save changes"
+  ) %>
+<% end %>
+
+<%# ── Delete Confirmation Modal ────────────────────────────────── %>
+<%= if @delete_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete Application
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @application.name %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
+          <li>Release the virtual IP
+            <code><%= FzHttpWeb.ApplicationsLive.Index.vip_to_string(@application.virtual_ip) %></code></li>
+          <li>Detach every access group from the allowed-groups list</li>
+          <li>Stop CoreDNS from resolving <code><%= @application.hostname %></code></li>
+        </ul>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete">
+          <i class="mdi mdi-delete"></i> Delete Application
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Hero ─────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div class="ng-user-cell">
+      <div class="ng-avatar ng-avatar--lg ng-avatar--group">
+        <i class="mdi mdi-application-cog-outline"></i>
+      </div>
+      <div class="ng-user-info">
+        <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap">
+          <.link navigate={~p"/applications"} class="ng-breadcrumb">Applications</.link>
+          <span class="ng-breadcrumb-sep">/</span>
+          <h1 class="ng-page-title" style="margin:0"><%= @application.name %></h1>
+        </div>
+        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+          <%= if @application.enabled do %>
+            <span class="ng-source-badge ng-source-badge--idp_sync">
+              <i class="mdi mdi-check-circle-outline"></i> Enabled
+            </span>
+          <% else %>
+            <span class="ng-source-badge ng-source-badge--manual">
+              <i class="mdi mdi-pencil-outline"></i> Draft
+            </span>
+          <% end %>
+          <span class="ng-td-muted"><code><%= @application.hostname %></code></span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:0.5rem;">
+      <.link patch={~p"/applications/#{@application}/edit"} replace={true} class="ng-secondary-btn">
+        <i class="mdi mdi-pencil"></i> Edit
+      </.link>
+    </div>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── Routing card ─────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-router-network"></i> Routing
+      </span>
+    </div>
+    <dl class="ng-details-list" style="padding: 1.25rem 1.5rem;">
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Hostname</dt>
+        <dd><code><%= @application.hostname %></code></dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Virtual IP</dt>
+        <dd><code><%= FzHttpWeb.ApplicationsLive.Index.vip_to_string(@application.virtual_ip) %></code></dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Backend</dt>
+        <dd><code><%= @application.backend %></code></dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">TLS mode</dt>
+        <dd><%= @application.tls_mode %></dd>
+      </div>
+      <div class="ng-details-row">
+        <dt class="ng-details-label">Cert source</dt>
+        <dd><%= @application.cert_source %></dd>
+      </div>
+    </dl>
+  </div>
+
+  <%# ── L7 rules placeholder (Wave 3c) ─────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-filter-variant"></i> L7 Rules
+        <span class="ng-section-badge"><%= length(@application.l7_rules) %></span>
+      </span>
+    </div>
+    <div style="padding: 1.25rem 1.5rem;">
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          The L7 rules editor (method / path / require_groups /
+          require_mfa_age) ships in <strong>Wave 3c</strong>. For now,
+          rules are stored as JSON and the proxy applies them
+          first-match-wins with an implicit default deny.
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <%# ── Allowed groups placeholder (Wave 3b-3) ────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-account-group-outline"></i> Allowed Groups
+      </span>
+    </div>
+    <div style="padding: 1.25rem 1.5rem;">
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          The required-groups picker ships in <strong>Wave 3b-3</strong>.
+          Until then, no group is required — the proxy would allow any
+          signed-in user past the app gate (rules still apply).
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <%# ── Danger zone ─────────────────────────────────────────────── %>
+  <div class="ng-danger-zone">
+    <div class="ng-danger-zone-header">
+      <i class="mdi mdi-alert-octagon"></i>
+      <span>Danger zone</span>
+    </div>
+    <div class="ng-danger-zone-body">
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">
+            <%= if @application.enabled, do: "Disable this application", else: "Enable this application" %>
+          </div>
+          <p class="ng-danger-zone-desc">
+            <%= if @application.enabled do %>
+              Removes this app from the next policy bundle — the proxy stops
+              routing traffic to its backend and CoreDNS releases the hostname.
+            <% else %>
+              Adds this app to the next policy bundle. Requires at least one
+              L7 rule (Wave 3c) before the toggle will succeed.
+            <% end %>
+          </p>
+        </div>
+        <button class="ng-secondary-btn" phx-click="toggle_enabled">
+          <%= if @application.enabled do %>
+            <i class="mdi mdi-pause-circle-outline"></i> Disable
+          <% else %>
+            <i class="mdi mdi-play-circle-outline"></i> Enable
+          <% end %>
+        </button>
+      </div>
+      <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">Delete this application</div>
+          <p class="ng-danger-zone-desc">
+            Releases the virtual IP, detaches every access group, and removes
+            the hostname from CoreDNS. Member groups themselves are not deleted.
+          </p>
+        </div>
+        <button class="ng-danger-btn" phx-click="confirm_delete">
+          <i class="mdi mdi-trash-can-outline"></i> Delete Application
+        </button>
+      </div>
+    </div>
+  </div>
+</section>

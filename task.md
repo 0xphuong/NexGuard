@@ -114,7 +114,14 @@ security bugs.
 - [x] **U-6**: extend `UserLive.Show` — "Group Memberships" card; add-by-dropdown form, table with remove, navigates to group detail on name click
 - [x] **U-7**: extend `UserLive.Show` — "L7 Access Scope" card with badge (`limited`/`all`); single-button toggle with `data-confirm` break-glass warning; `Users.set_access_scope/4` audited
 - [ ] **U-8**: `ApplicationsLive.Index` partial (Wave 3a — list + stats strip + delete-with-modal; **New button disabled, form ships Wave 3b**). Routes: `/applications`. Nav: "Applications" under Configuration.
-- [ ] **U-8 (form)**: extend `ApplicationsLive` with New/Edit form (Wave 3b)
+- [x] **U-8 (form basic)**: Wave 3b-1 ships `ApplicationsLive.FormComponent` (create + edit) + `ApplicationsLive.Show` MVP. Routes `/applications/new` + `/applications/:id` + `/applications/:id/edit`. Cert source picker as card-style radios (step_ca path active; upload card disabled with "Wave 3b-2" badge). VIP shown read-only on Edit.
+- [x] **U-9**: Hostname field RFC 1035 validation (live via `phx-change` already wired through changeset)
+- [x] **U-10**: Backend URL validation (http/https prefix, length)
+- [x] **U-11**: Cert source picker — card-style radios, step_ca active
+- [ ] **U-12**: Cert upload form + X.509 preview (Wave 3b-2)
+- [ ] **U-13**: Required groups multi-select (Wave 3b-3)
+- [x] **U-15**: TLS mode hidden as `terminate` (passthrough deferred to v2 by changeset)
+- [x] **U-16**: Enable toggle gated — uses `set_application_enabled` which fails if no L7 rules; surfaced as flash error
 - [ ] **U-9**: hostname field + RFC 1035 validation indicator
 - [ ] **U-10**: backend URL field + validation
 - [ ] **U-11**: cert source picker — radio "Upload" vs "Use NexGuard internal CA"

@@ -1,3 +1,19 @@
+<%# ── New Application modal ─────────────────────────────────────── %>
+<%= if @live_action == :new do %>
+  <%= live_modal(
+    FzHttpWeb.ApplicationsLive.FormComponent,
+    return_to: ~p"/applications",
+    title: "New Application",
+    id: "application-form-component",
+    application: nil,
+    subject: @subject,
+    remote_ip: @remote_ip,
+    action: @live_action,
+    form: "application-form",
+    button_text: "Create Application"
+  ) %>
+<% end %>
+
 <%# ── Delete Confirmation Modal ─────────────────────────────────── %>
 <%= if @delete_confirm do %>
   <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
@@ -46,10 +62,9 @@
         Public traffic bypasses this list and is filtered only by Rules.
       </p>
     </div>
-    <%# New-app form ships in the next release (Wave 3b). %>
-    <button class="ng-primary-btn" disabled title="Coming in next release">
+    <.link replace={true} patch={~p"/applications/new"} class="ng-primary-btn">
       <i class="mdi mdi-plus"></i> New Application
-    </button>
+    </.link>
   </div>
 </div>
 
@@ -65,9 +80,9 @@
         a virtual IP in <code>10.99.0.0/16</code> and is reachable via its
         declared hostname once CoreDNS picks up the change.
       </p>
-      <p class="ng-empty-state-hint" style="margin-top: 0.75rem;">
-        <strong>The "New Application" form is shipping in the next release.</strong>
-      </p>
+      <.link replace={true} patch={~p"/applications/new"} class="ng-primary-btn ng-empty-state-cta">
+        <i class="mdi mdi-plus"></i> Declare first application
+      </.link>
     </div>
   <% else %>
     <%# Stats strip — org-wide pulse for declared apps. %>
@@ -118,7 +133,9 @@
                     <i class="mdi mdi-application-cog-outline"></i>
                   </div>
                   <div class="ng-user-info">
-                    <span class="ng-user-email"><%= app.name %></span>
+                    <.link navigate={~p"/applications/#{app}"} class="ng-user-email">
+                      <%= app.name %>
+                    </.link>
                     <%= if app.description && app.description != "" do %>
                       <span class="ng-td-muted ng-td-meta"><%= app.description %></span>
                     <% end %>

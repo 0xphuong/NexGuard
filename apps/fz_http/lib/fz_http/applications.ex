@@ -20,6 +20,24 @@ defmodule FzHttp.Applications do
 
   @topic "nexguard:l7:apps"
 
+  # ── Changesets (for LiveView form preview) ──────────────────────
+
+  @doc """
+  Empty changeset for a new application form.
+  """
+  def change_application, do: Application.Changeset.create_changeset(%{})
+
+  @doc """
+  Changeset bound to attrs for live validation via `phx-change`.
+  """
+  def change_new_application(attrs), do: Application.Changeset.create_changeset(attrs)
+
+  @doc """
+  Changeset for editing an existing application.
+  """
+  def change_application(%Application{} = app, attrs \\ %{}),
+    do: Application.Changeset.update_changeset(app, attrs)
+
   # ── Queries ─────────────────────────────────────────────────────
 
   def list_applications(%Auth.Subject{} = subject) do

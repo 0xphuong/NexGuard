@@ -1029,6 +1029,78 @@ pre {
   &--system    { background: #fef3c7; color: #92400e; }
 }
 
+/* Card-style radio group — used for "Cert source" picker in
+   ApplicationsLive.FormComponent. Each option is a clickable card
+   with title + description so the picker explains itself instead
+   of leaving the admin to guess what step_ca vs upload means. */
+.ng-radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ng-radio-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  cursor: pointer;
+  background: #ffffff;
+  transition: border-color 0.12s, background 0.12s;
+
+  input[type="radio"] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  &:hover { border-color: #94a3b8; }
+
+  &.is-selected {
+    border-color: #1e3a8a;
+    background: #eff6ff;
+    box-shadow: inset 0 0 0 1px #1e3a8a;
+  }
+
+  &--disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+    &:hover { border-color: #e2e8f0; }
+  }
+}
+
+.ng-radio-card-body { flex: 1; min-width: 0; }
+
+.ng-radio-card-title {
+  font-weight: 600;
+  color: #0f172a;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ng-radio-card-desc {
+  margin-top: 0.25rem;
+  color: #475569;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+/* Soft badge — for "Coming soon" tags on disabled controls. */
+.ng-badge-soft {
+  display: inline-block;
+  padding: 0.05rem 0.45rem;
+  margin-left: 0.4rem;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 /* L7 access_scope badge — quiet for normal (limited), warm red for
    the break-glass bypass (all). The warm color is intentional: an
    admin scanning a user row should clock the bypass immediately. */
