@@ -14,6 +14,7 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v2.3.0** (2026-06-21) | L7-B Phases 1–5: JWT signing infrastructure (`l7_signing_keys` + bootstrap), `GET /.well-known/jwks.json`, `GET /internal/sessions/by_vpn_ip/:ip` (identity payload + ETag + 30 s cache), `FzHttp.L7.BundleBuilder` (debounced signed bundle compile + ETS LKG ring), `GET /internal/bundle.json` (ETag + `?since` long-poll), `nexguard:l7:{groups,identity,bundle}` PubSub wiring. Phase 6 (mTLS) deferred to L7-D so cert provisioning ships with the proxy daemon that consumes it. Endpoints exist but no consumer yet |
 | **v2.2.0** (2026-06-21) | L7-A: admin data + UI for upcoming L7 proxy — access groups + applications with full L7 rules editor + cert upload + org kill switch. Proxy ships dormant in 2.2.0; data plane lands in L7-B → L7-F |
 | **v2.1.1** (2026-06-19) | Admin notifications for pending device approvals — in-portal badge + Notifications page fire on enrollment, auto-clear on approve/revoke/delete |
 | **v2.1.0** (2026-06-14) | Admin IP override (per-device IPv4/IPv6) + device approval workflow (`status: pending → approved`) |
@@ -25,7 +26,7 @@ Connect client. Headline releases:
 
 ## ⏳ Pending — ready to implement when prioritized
 
-### 🚧 ZTNA L7 — Phase 2 in progress
+### 🚧 ZTNA L7 — Phase 3 next (network plumbing)
 
 Layer 7 identity-aware access. L3/L4 enforcement is shipped (nftables
 + WG); L7 adds HTTP-method / path / header / MFA-age policy via a
@@ -50,8 +51,8 @@ ADR-014 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguar
 | ID | Phase | Scope | Effort | Tag | Status |
 |---|---|---|---|---|---|
 | **L7-A** | Foundation | DB schema + contexts + admin UI for groups, apps, L7 rules editor, org toggle | 5-7 days | server `v2.2.0` | ✅ **shipped 2026-06-21** |
-| **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed, mTLS); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ⏳ **active** |
-| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ⏳ |
+| **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ✅ **shipped 2026-06-21** (Phase 6 mTLS deferred to L7-D) |
+| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ⏳ **next** |
 | **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ⏳ |
 | **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` | ⏳ |
 | **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate, leaf per app — **only if any app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` | ⏳ |
