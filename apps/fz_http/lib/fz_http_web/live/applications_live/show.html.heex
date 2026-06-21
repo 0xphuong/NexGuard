@@ -14,6 +14,40 @@
   ) %>
 <% end %>
 
+<%# ── Remove Allowed Group Confirmation Modal ──────────────────── %>
+<%= if @remove_group_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_remove_group" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_remove_group"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-account-minus-outline ng-modal-title-icon"></i>
+          Remove Allowed Group
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_remove_group">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">Remove this group's access to:</p>
+        <div class="ng-modal-entity"><%= @application.name %></div>
+        <p class="ng-modal-desc">
+          Members of <strong><%= @remove_group_confirm.name %></strong> will
+          lose access to <em><%= @application.hostname %></em> unless they
+          belong to another allowed group (or have
+          <code>access_scope = :all</code>).
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_remove_group">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="remove_allowed_group">
+          <i class="mdi mdi-account-minus-outline"></i> Remove group
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Delete Confirmation Modal ────────────────────────────────── %>
 <%= if @delete_confirm do %>
   <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
@@ -139,22 +173,103 @@
     </div>
   </div>
 
-  <%# ── Allowed groups placeholder (Wave 3b-3) ────────────────── %>
+  <%# ── Allowed Groups ───────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
       <span class="ng-section-header" style="margin:0">
         <i class="mdi mdi-account-group-outline"></i> Allowed Groups
+        <span class="ng-section-badge"><%= length(@allowed_groups) %></span>
       </span>
     </div>
+
     <div style="padding: 1.25rem 1.5rem;">
-      <div class="ng-empty-state ng-empty-state--inline">
-        <p class="ng-empty-state-hint">
-          The required-groups picker ships in <strong>Wave 3b-3</strong>.
-          Until then, no group is required — the proxy would allow any
-          signed-in user past the app gate (rules still apply).
+      <%= if @available_groups != [] do %>
+        <form id="add-allowed-group-form" phx-submit="add_allowed_group" class="ng-form-inline" autocomplete="off">
+          <div class="ng-field" style="flex: 1; margin: 0;">
+            <label class="ng-label">Allow a group</label>
+            <select name="group_id" class="ng-input" required>
+              <option value="">Select a group…</option>
+              <%= for g <- @available_groups do %>
+                <option value={g.id}><%= g.name %></option>
+              <% end %>
+            </select>
+          </div>
+          <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
+            <i class="mdi mdi-plus"></i> Add
+          </button>
+        </form>
+      <% else %>
+        <p class="ng-td-muted" style="margin-bottom:1rem">
+          <%= if @allowed_groups == [] do %>
+            <i class="mdi mdi-information-outline"></i>
+            No access groups defined yet.
+            <.link navigate={~p"/access-groups"}>Create one</.link> first to gate this app.
+          <% else %>
+            Every existing group is already allowed for this app.
+          <% end %>
         </p>
-      </div>
+      <% end %>
     </div>
+
+    <%= if @allowed_groups == [] do %>
+      <div style="padding: 0 1.5rem 1.5rem;">
+        <div class="ng-empty-state ng-empty-state--inline">
+          <p class="ng-empty-state-hint">
+            No groups allowed. With zero allowed groups the policy bundle
+            denies every signed-in user past the app gate (unless they have
+            <code>access_scope = :all</code>). Add at least one group to make
+            this app reachable.
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Source</th>
+              <th>Description</th>
+              <th class="ng-th-center" style="width: 3rem;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for g <- @allowed_groups do %>
+              <tr id={"allowed-group-#{g.id}"}>
+                <td>
+                  <div class="ng-user-cell">
+                    <div class="ng-avatar ng-avatar--group">
+                      <i class="mdi mdi-account-group-outline"></i>
+                    </div>
+                    <div class="ng-user-info">
+                      <.link navigate={~p"/access-groups/#{g.id}"} class="ng-user-email">
+                        <%= g.name %>
+                      </.link>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class={"ng-source-badge ng-source-badge--#{g.source}"}>
+                    <%= g.source %>
+                  </span>
+                </td>
+                <td class="ng-td-muted"><%= g.description || "—" %></td>
+                <td class="ng-td-center">
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Remove from allowed list"
+                    phx-click="confirm_remove_group"
+                    phx-value-group_id={g.id}
+                  >
+                    <i class="mdi mdi-account-minus-outline"></i>
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
   </div>
 
   <%# ── Danger zone ─────────────────────────────────────────────── %>

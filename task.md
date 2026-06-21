@@ -119,7 +119,7 @@ security bugs.
 - [x] **U-10**: Backend URL validation (http/https prefix, length)
 - [x] **U-11**: Cert source picker — card-style radios, step_ca active
 - [ ] **U-12**: Cert upload form + X.509 preview (Wave 3b-2)
-- [ ] **U-13**: Required groups multi-select (Wave 3b-3)
+- [x] **U-13**: Required groups picker on `ApplicationsLive.Show` — dropdown of unlinked groups + add; table of allowed groups + remove via styled modal; empty-state hint flags zero-group apps deny everyone (security signal)
 - [x] **U-15**: TLS mode hidden as `terminate` (passthrough deferred to v2 by changeset)
 - [x] **U-16**: Enable toggle gated — uses `set_application_enabled` which fails if no L7 rules; surfaced as flash error
 - [ ] **U-9**: hostname field + RFC 1035 validation indicator

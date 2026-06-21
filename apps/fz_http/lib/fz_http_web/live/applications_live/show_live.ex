@@ -7,7 +7,7 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
   """
   use FzHttpWeb, :live_view
 
-  alias FzHttp.Applications
+  alias FzHttp.{Applications, AccessGroups}
 
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
@@ -17,7 +17,9 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
          socket
          |> assign(:application, app)
          |> assign(:delete_confirm, false)
-         |> assign(:page_title, app.name)}
+         |> assign(:remove_group_confirm, nil)
+         |> assign(:page_title, app.name)
+         |> load_groups_assigns(app)}
 
       {:error, :not_found} ->
         {:ok,
@@ -25,6 +27,26 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
          |> put_flash(:error, "Application not found.")
          |> redirect(to: ~p"/applications")}
     end
+  end
+
+  # Split `allowed_groups` (already linked) from `available_groups`
+  # (everything else) so the picker only shows what's addable. Empty
+  # `available_groups` triggers the "this app is allowed for every
+  # existing group" hint in the template.
+  defp load_groups_assigns(socket, app) do
+    {allowed, available} =
+      case AccessGroups.list_groups(socket.assigns.subject) do
+        {:ok, all_groups} ->
+          allowed_ids = MapSet.new(app.allowed_groups, & &1.id)
+          Enum.split_with(all_groups, &MapSet.member?(allowed_ids, &1.id))
+
+        _ ->
+          {[], []}
+      end
+
+    socket
+    |> assign(:allowed_groups, allowed)
+    |> assign(:available_groups, available)
   end
 
   @impl Phoenix.LiveView
@@ -51,6 +73,58 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
          socket
          |> assign(:delete_confirm, false)
          |> put_flash(:error, "Could not delete application.")}
+    end
+  end
+
+  # ── Allowed-groups CRUD ────────────────────────────────────────
+
+  def handle_event("add_allowed_group", %{"group_id" => group_id}, socket) do
+    with {:ok, group} <- AccessGroups.fetch_group_by_id(group_id, socket.assigns.subject),
+         {:ok, _link} <- Applications.add_allowed_group(socket.assigns.application, group,
+                           socket.assigns.subject, socket.assigns[:remote_ip]),
+         {:ok, app} <- Applications.fetch_application_by_id(socket.assigns.application.id,
+                         socket.assigns.subject) do
+      {:noreply,
+       socket
+       |> assign(:application, app)
+       |> load_groups_assigns(app)
+       |> put_flash(:info, "#{group.name} is now allowed for this app.")}
+    else
+      _ -> {:noreply, put_flash(socket, :error, "Could not add group.")}
+    end
+  end
+
+  def handle_event("confirm_remove_group", %{"group_id" => group_id}, socket) do
+    case AccessGroups.fetch_group_by_id(group_id, socket.assigns.subject) do
+      {:ok, group} -> {:noreply, assign(socket, :remove_group_confirm, group)}
+      {:error, _}  -> {:noreply, put_flash(socket, :error, "Group not found.")}
+    end
+  end
+
+  def handle_event("cancel_remove_group", _, socket),
+    do: {:noreply, assign(socket, :remove_group_confirm, nil)}
+
+  def handle_event("remove_allowed_group", _params,
+                    %{assigns: %{remove_group_confirm: group}} = socket)
+      when not is_nil(group) do
+    case Applications.remove_allowed_group(socket.assigns.application, group,
+                                             socket.assigns.subject, socket.assigns[:remote_ip]) do
+      {:ok, :removed} ->
+        {:ok, app} = Applications.fetch_application_by_id(socket.assigns.application.id,
+                       socket.assigns.subject)
+
+        {:noreply,
+         socket
+         |> assign(:application, app)
+         |> assign(:remove_group_confirm, nil)
+         |> load_groups_assigns(app)
+         |> put_flash(:info, "#{group.name} removed from allowed list.")}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:remove_group_confirm, nil)
+         |> put_flash(:error, "Could not remove group.")}
     end
   end
 
