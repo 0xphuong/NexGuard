@@ -53,6 +53,13 @@ const (
 )
 
 func main() {
+	// Docker HEALTHCHECK helper. Hits /readyz on the obs port and
+	// exits 0 (ready) / 1 (not ready or unreachable). Kept inline so
+	// distroless images that lack curl/wget can still self-probe.
+	if len(os.Args) > 1 && os.Args[1] == "--health-probe" {
+		os.Exit(healthProbe())
+	}
+
 	log := logging.New()
 
 	serverURL, err := getRequiredURL(envServerURL)
@@ -163,6 +170,23 @@ func main() {
 	if err := obsSrv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("obs server shutdown failed", "error", err)
 	}
+}
+
+func healthProbe() int {
+	addr := os.Getenv(envObsAddr)
+	if addr == "" {
+		addr = defaultObsAddr
+	}
+	client := http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get("http://" + addr + "/readyz")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusOK {
+		return 0
+	}
+	return 1
 }
 
 func getRequiredURL(env string) (*url.URL, error) {
