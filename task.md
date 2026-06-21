@@ -182,9 +182,9 @@ shipping alone in v2.3.0 since there's no consumer yet.
 - [x] **D-10**: `httputil.NewSingleHostReverseProxy(app.Backend)` per request — HTTP/1.1 + HTTP/2 + keep-alive inherited from net/http. Custom `ErrorHandler` returns the same deny page (502 `backend-error`) so backend failures don't bleed connection-reset to clients
 - [x] **D-11**: `proxy/internal/handler/deny.go` renders a self-contained HTML page (inline CSS, no JS, no external assets) with title + code + reason + hostname. Defensive `html.EscapeString` on reason and hostname even though both are internal enums today
 - [x] **D-12**: Unknown VIP → `http.StatusNotFound` + `X-NexGuard-Reason: unknown-app` + deny page. Unknown VPN-IP (identity 404) → 401 + `unknown-vpn-ip`. Policy denial → 403 + `denied`. Bundle not yet loaded → 503 + `no-bundle`. Backend failure → 502 + `backend-error`
-- [ ] **D-13**: Structured logging (JSON) — per-request entry with decision, latency, identity
-- [ ] **D-14**: Prometheus metrics endpoint (`/metrics` on a separate port)
-- [ ] **D-15**: `/healthz` + `/readyz`
+- [x] **D-13**: `proxy/internal/handler.proxy.ServeHTTP/2` builds an `observation` struct each stage updates, then a deferred `slog.Info("request", ...)` emits ts / decision / reason / app_id / user_id / vip / status / bytes_out / latency / method / path / ua / client. JSON output via `slog.NewJSONHandler` (default in `internal/logging`)
+- [x] **D-14**: `proxy/internal/observability/metrics.go` registers `nexguard_proxy_{requests_total{decision,status_family},request_duration_seconds{decision},bundle_version,bundle_age_seconds,identity_cache_size}` on a fresh `prometheus.Registry`. `RecordRequest` is nil-safe so handler tests don't need a metrics mock. Exposed at `/metrics` on the second port (`NEXGUARD_PROXY_OBS_LISTEN`, default `127.0.0.1:9090`)
+- [x] **D-15**: `proxy/internal/observability/health.go` — `/healthz` always 200; `/readyz` returns 503 until `health.SetReady(true)` (called by `bootstrapBundle` after first signer + cert load). Health toggles back to 503 on signal-triggered graceful shutdown so an upstream LB drains traffic before the process exits
 - [ ] **D-16**: Dockerfile + `docker-compose.prod.yml` integration
 - [x] **D-17 (partial)**: Unit tests landed for bundle client (200/304/503 paths + `FindAppByVIP`/`FindGroup`) and identity client (first fetch + cache hit, 404 → `ErrUnknownVPNIP` + cache clear, 304 TTL refresh, `Invalidate`, `HasAnyGroup`). Rule-eval tests pending the eval module
 - [ ] **D-18**: Integration test — end-to-end with Phoenix backend + mock app

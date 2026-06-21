@@ -21,16 +21,20 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/0xphuong/NexGuard/proxy/internal/bundle"
 	"github.com/0xphuong/NexGuard/proxy/internal/cert"
 	"github.com/0xphuong/NexGuard/proxy/internal/identity"
 	"github.com/0xphuong/NexGuard/proxy/internal/jwt"
+	"github.com/0xphuong/NexGuard/proxy/internal/observability"
 	"github.com/0xphuong/NexGuard/proxy/internal/policy"
 )
 
@@ -47,12 +51,14 @@ var LocalAddrKey = localAddrKeyType{}
 // All are pointer-or-holder types so a bundle pivot atomically
 // reflects in the next request without re-creating the handler.
 type Deps struct {
-	Bundle      *bundle.Client
-	Identity    *identity.Client
-	Signers     *jwt.SignerHolder
-	Certs       *cert.Holder // unused on the HTTP hot path; passed in case we want a debug endpoint
-	DenyPage    func(w http.ResponseWriter, code int, reason, hostname string)
+	Bundle       *bundle.Client
+	Identity     *identity.Client
+	Signers      *jwt.SignerHolder
+	Certs        *cert.Holder // unused on the HTTP hot path; passed in case we want a debug endpoint
+	DenyPage     func(w http.ResponseWriter, code int, reason, hostname string)
 	HeaderPrefix string // typically "X-NexGuard-"
+	Logger       *slog.Logger // structured per-request access log; defaults to a discard logger
+	Metrics      *observability.Metrics // safe to leave nil — RecordRequest is a no-op on nil receiver
 }
 
 // New builds the handler wiring its dependencies. DenyPage defaults
@@ -63,6 +69,9 @@ func New(d Deps) http.Handler {
 	}
 	if d.HeaderPrefix == "" {
 		d.HeaderPrefix = "X-NexGuard-"
+	}
+	if d.Logger == nil {
+		d.Logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 	return &proxy{deps: d}
 }
@@ -81,9 +90,73 @@ const (
 	reasonBackendInvalid = "backend-invalid"
 )
 
+// recordingWriter is a minimal http.ResponseWriter wrapper that
+// captures status code + bytes written for the access log. We use
+// the local declaration rather than a middleware so callers don't
+// need a separate wiring step — and so the deny path's manual
+// w.WriteHeader is observed too.
+type recordingWriter struct {
+	http.ResponseWriter
+	status int
+	bytes  int64
+}
+
+func (rw *recordingWriter) WriteHeader(code int) {
+	rw.status = code
+	rw.ResponseWriter.WriteHeader(code)
+}
+
+func (rw *recordingWriter) Write(b []byte) (int, error) {
+	if rw.status == 0 {
+		rw.status = http.StatusOK
+	}
+	n, err := rw.ResponseWriter.Write(b)
+	rw.bytes += int64(n)
+	return n, err
+}
+
+// observation accumulates structured-log fields as the request
+// travels the pipeline. Updated by each stage; consumed by the
+// deferred log + metric emit at the end of ServeHTTP.
+type observation struct {
+	appID    string
+	userID   string
+	decision string // allow | deny | error
+	reason   string
+	vip      string
+}
+
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	start := time.Now()
+	rec := &recordingWriter{ResponseWriter: w}
+	obs := &observation{decision: "error", reason: "uninitialized"}
+
+	defer func() {
+		dur := time.Since(start)
+		p.deps.Logger.Info("request",
+			slog.String("decision", obs.decision),
+			slog.String("reason", obs.reason),
+			slog.String("app_id", obs.appID),
+			slog.String("user_id", obs.userID),
+			slog.String("vip", obs.vip),
+			slog.Int("status", rec.status),
+			slog.Int64("bytes_out", rec.bytes),
+			slog.Duration("latency", dur),
+			slog.String("method", r.Method),
+			slog.String("path", r.URL.Path),
+			slog.String("ua", r.UserAgent()),
+			slog.String("client", r.RemoteAddr),
+		)
+		p.deps.Metrics.RecordRequest(obs.decision, rec.status, dur.Seconds())
+	}()
+
+	p.handle(rec, r, obs)
+}
+
+func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation) {
 	b := p.deps.Bundle.Current()
 	if b == nil {
+		obs.decision, obs.reason = "error", reasonNoBundle
 		p.deny(w, r, http.StatusServiceUnavailable, reasonNoBundle, "")
 		return
 	}
@@ -91,14 +164,18 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 1. App resolution from LocalAddr (original VIP).
 	vip, ok := localAddrIP(r.Context())
 	if !ok {
+		obs.decision, obs.reason = "error", reasonUnknownApp
 		p.deny(w, r, http.StatusInternalServerError, reasonUnknownApp, "")
 		return
 	}
+	obs.vip = vip
 	app := b.FindAppByVIP(vip)
 	if app == nil {
+		obs.decision, obs.reason = "deny", reasonUnknownApp
 		p.deny(w, r, http.StatusNotFound, reasonUnknownApp, "")
 		return
 	}
+	obs.appID = app.ID
 
 	// 2. Identity from client VPN IP.
 	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
@@ -108,16 +185,20 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	id, err := p.deps.Identity.Lookup(r.Context(), clientIP)
 	if err != nil {
 		if errors.Is(err, identity.ErrUnknownVPNIP) {
+			obs.decision, obs.reason = "deny", reasonUnknownVPNIP
 			p.deny(w, r, http.StatusUnauthorized, reasonUnknownVPNIP, app.Hostname)
 			return
 		}
+		obs.decision, obs.reason = "error", reasonBackendError
 		p.deny(w, r, http.StatusBadGateway, reasonBackendError, app.Hostname)
 		return
 	}
+	obs.userID = id.UserID
 
 	// 3. Policy evaluation.
 	dec := policy.Decide(b, app, id, r)
 	if !dec.Allow {
+		obs.decision, obs.reason = "deny", dec.Reason
 		p.deny(w, r, http.StatusForbidden, reasonDenied, app.Hostname)
 		return
 	}
@@ -128,6 +209,7 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p.stripSpoofedHeaders(r)
 	p.injectIdentityHeaders(r, id)
 	if err := p.injectJWT(r, id); err != nil {
+		obs.decision, obs.reason = "error", reasonBackendError
 		p.deny(w, r, http.StatusInternalServerError, reasonBackendError, app.Hostname)
 		return
 	}
@@ -141,9 +223,12 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// 5. Reverse proxy.
 	rp, err := p.buildReverseProxy(app)
 	if err != nil {
+		obs.decision, obs.reason = "error", reasonBackendInvalid
 		p.deny(w, r, http.StatusInternalServerError, reasonBackendInvalid, app.Hostname)
 		return
 	}
+
+	obs.decision, obs.reason = "allow", dec.Reason
 	rp.ServeHTTP(w, r)
 }
 

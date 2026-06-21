@@ -40,13 +40,16 @@ import (
 	"github.com/0xphuong/NexGuard/proxy/internal/jwt"
 	"github.com/0xphuong/NexGuard/proxy/internal/listener"
 	"github.com/0xphuong/NexGuard/proxy/internal/logging"
+	"github.com/0xphuong/NexGuard/proxy/internal/observability"
 )
 
 const (
-	envServerURL     = "NEXGUARD_SERVER_URL"
-	envListenAddr    = "NEXGUARD_PROXY_LISTEN"
-	defaultListenAddr = "127.0.0.1:8443"
-	bundlePollPeriod  = 30 * time.Second
+	envServerURL       = "NEXGUARD_SERVER_URL"
+	envListenAddr      = "NEXGUARD_PROXY_LISTEN"
+	envObsAddr         = "NEXGUARD_PROXY_OBS_LISTEN"
+	defaultListenAddr  = "127.0.0.1:8443"
+	defaultObsAddr     = "127.0.0.1:9090"
+	bundlePollPeriod   = 30 * time.Second
 )
 
 func main() {
@@ -71,11 +74,35 @@ func main() {
 	ic := identity.New(serverURL.String())
 	var signers jwt.SignerHolder
 	var certs cert.Holder
+	metrics, metricsReg := observability.NewMetrics()
+	health := observability.NewHealth()
 
-	if err := bootstrapBundle(ctx, log, bc, &signers, &certs); err != nil {
+	if err := bootstrapBundle(ctx, log, bc, &signers, &certs, metrics); err != nil {
 		log.Error("bundle bootstrap failed", "error", err)
 		os.Exit(1)
 	}
+	health.SetReady(true)
+
+	// Observability HTTP server on a separate port — never user-facing.
+	obsAddr := os.Getenv(envObsAddr)
+	if obsAddr == "" {
+		obsAddr = defaultObsAddr
+	}
+	obsMux := http.NewServeMux()
+	obsMux.Handle("/metrics", observability.Handler(metricsReg))
+	obsMux.HandleFunc("/healthz", health.Healthz)
+	obsMux.HandleFunc("/readyz", health.Readyz)
+	obsSrv := &http.Server{
+		Addr:              obsAddr,
+		Handler:           obsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
+	go func() {
+		log.Info("observability listening", slog.String("addr", obsAddr))
+		if err := obsSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("observability server failed", "error", err)
+		}
+	}()
 
 	listenAddr := os.Getenv(envListenAddr)
 	if listenAddr == "" {
@@ -98,7 +125,7 @@ func main() {
 	)
 
 	// Bundle poller — replaces a future PubSub/SSE feed.
-	go pollBundle(ctx, log, bc, &signers, &certs)
+	go pollBundle(ctx, log, bc, &signers, &certs, metrics)
 
 	// Build the HTTP handler and serve the TLS listener. ConnContext
 	// stuffs each accepted *tls.Conn's LocalAddr() (the original-DST
@@ -110,6 +137,8 @@ func main() {
 			Identity: ic,
 			Signers:  &signers,
 			Certs:    &certs,
+			Logger:   log,
+			Metrics:  metrics,
 		}),
 		ConnContext: func(ctx context.Context, c net.Conn) context.Context {
 			return context.WithValue(ctx, handler.LocalAddrKey, c.LocalAddr())
@@ -125,10 +154,14 @@ func main() {
 
 	<-ctx.Done()
 	log.Info("shutting down on signal")
+	health.SetReady(false)
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancelShutdown()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		log.Warn("graceful shutdown failed", "error", err)
+	}
+	if err := obsSrv.Shutdown(shutdownCtx); err != nil {
+		log.Warn("obs server shutdown failed", "error", err)
 	}
 }
 
@@ -147,7 +180,7 @@ func getRequiredURL(env string) (*url.URL, error) {
 	return u, nil
 }
 
-func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder) error {
+func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder, metrics *observability.Metrics) error {
 	v, _, err := bc.Fetch(ctx)
 	if err != nil {
 		return err
@@ -158,6 +191,8 @@ func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, s
 	if err := refreshCerts(bc.Current(), certs); err != nil {
 		return fmt.Errorf("cert bootstrap: %w", err)
 	}
+	metrics.SetBundleVersion(v)
+	metrics.SetBundleAgeSeconds(0)
 	log.Info("bundle bootstrap complete",
 		slog.Int("version", v),
 		slog.String("signing_kid", signers.Get().Kid()),
@@ -166,9 +201,10 @@ func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, s
 	return nil
 }
 
-func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder) {
+func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder, metrics *observability.Metrics) {
 	t := time.NewTicker(bundlePollPeriod)
 	defer t.Stop()
+	lastFetch := time.Now()
 
 	for {
 		select {
@@ -178,8 +214,11 @@ func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signer
 			v, changed, err := bc.Fetch(ctx)
 			if err != nil {
 				log.Warn("bundle poll failed", "error", err)
+				metrics.SetBundleAgeSeconds(time.Since(lastFetch).Seconds())
 				continue
 			}
+			lastFetch = time.Now()
+			metrics.SetBundleAgeSeconds(0)
 			if !changed {
 				continue
 			}
@@ -195,6 +234,7 @@ func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signer
 					"error", err)
 				continue
 			}
+			metrics.SetBundleVersion(v)
 			log.Info("bundle updated",
 				slog.Int("version", v),
 				slog.String("signing_kid", signers.Get().Kid()),
