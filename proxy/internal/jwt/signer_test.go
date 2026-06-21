@@ -80,6 +80,20 @@ func TestFromPEM_RejectsNonPEM(t *testing.T) {
 	}
 }
 
+func TestFromPEM_RejectsWeakKey(t *testing.T) {
+	// 1024-bit RSA is factorable on modern hardware; we MUST reject
+	// it at parse time so a poisoned bundle can't downgrade
+	// signature strength.
+	_, weakPEM, _ := genTestPEM(t, 1024, "pkcs1")
+	_, err := FromPEM("k", weakPEM)
+	if err == nil {
+		t.Fatal("expected error on 1024-bit RSA key")
+	}
+	if !strings.Contains(err.Error(), "minimum") {
+		t.Errorf("error should mention the minimum bit size; got %v", err)
+	}
+}
+
 func TestSign_RoundTrip_PreservesClaims(t *testing.T) {
 	kid, pemBytes, pub := genTestPEM(t, 2048, "pkcs1")
 	s, err := FromPEM(kid, pemBytes)

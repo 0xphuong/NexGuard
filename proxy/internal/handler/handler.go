@@ -19,6 +19,7 @@ package handler
 
 import (
 	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"io"
@@ -177,10 +178,15 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	}
 	obs.appID = app.ID
 
-	// 2. Identity from client VPN IP.
+	// 2. Identity from client VPN IP. Refuse to fall back to the
+	//    raw string on a parse failure — a malformed RemoteAddr
+	//    would otherwise hash to a different cache key than the
+	//    server keys identity by, breaking invalidation.
 	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
-		clientIP = r.RemoteAddr
+		obs.decision, obs.reason = "error", reasonUnknownVPNIP
+		p.deny(w, r, http.StatusBadRequest, reasonUnknownVPNIP, app.Hostname)
+		return
 	}
 	id, err := p.deps.Identity.Lookup(r.Context(), clientIP)
 	if err != nil {
@@ -203,21 +209,32 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 		return
 	}
 
-	// 4. Header inject (plain + JWT). Plain headers are convenience
-	//    for backends that don't verify JWTs; the JWT is the
-	//    auditable signed source of truth.
+	// 4. Header massage in dependency order:
+	//
+	//    a. Strip any client-supplied X-NexGuard-* (defense vs spoof).
+	//    b. Apply per-app strip_headers (admin policy, e.g. drop
+	//       Cookie before forwarding).
+	//    c. Apply per-app inject_headers, BUT refuse to overwrite
+	//       anything in our reserved X-NexGuard-* namespace —
+	//       otherwise a misconfigured app config could blank or
+	//       impersonate identity headers.
+	//    d. Last writer wins for identity headers (plain + JWT) so
+	//       neither client nor admin policy can substitute.
 	p.stripSpoofedHeaders(r)
+	for _, name := range app.StripHeaders {
+		r.Header.Del(name)
+	}
+	for _, h := range app.InjectHeaders {
+		if isReservedHeader(h.Name, p.deps.HeaderPrefix) {
+			continue // admin can't impersonate identity
+		}
+		r.Header.Set(h.Name, h.Value)
+	}
 	p.injectIdentityHeaders(r, id)
 	if err := p.injectJWT(r, id); err != nil {
 		obs.decision, obs.reason = "error", reasonBackendError
 		p.deny(w, r, http.StatusInternalServerError, reasonBackendError, app.Hostname)
 		return
-	}
-	for _, h := range app.InjectHeaders {
-		r.Header.Set(h.Name, h.Value)
-	}
-	for _, name := range app.StripHeaders {
-		r.Header.Del(name)
 	}
 
 	// 5. Reverse proxy.
@@ -254,14 +271,10 @@ func localAddrIP(ctx context.Context) (string, bool) {
 func (p *proxy) stripSpoofedHeaders(r *http.Request) {
 	// net/http canonicalizes header keys (`X-NexGuard-` becomes
 	// `X-Nexguard-` because canonical title-cases only the first
-	// letter after each dash). Strip case-insensitively to catch
-	// anything the client tried regardless of casing.
-	prefix := strings.ToLower(p.deps.HeaderPrefix)
-	for name := range r.Header {
-		if strings.HasPrefix(strings.ToLower(name), prefix) {
-			r.Header.Del(name)
-		}
-	}
+	// letter after each dash). The shared stripReservedHeaders
+	// helper handles the case-insensitive walk; this is the entry
+	// point on the ingress (client → proxy) leg.
+	stripReservedHeaders(r.Header, p.deps.HeaderPrefix)
 }
 
 func (p *proxy) injectIdentityHeaders(r *http.Request, id *identity.Identity) {
@@ -293,6 +306,11 @@ func (p *proxy) injectJWT(r *http.Request, id *identity.Identity) error {
 	return nil
 }
 
+// allowedBackendSchemes constrains app.Backend to plain HTTP(S) —
+// no file://, gopher://, etc. SSRF defense vs an attacker who
+// compromises bundle compilation.
+var allowedBackendSchemes = map[string]bool{"http": true, "https": true}
+
 func (p *proxy) buildReverseProxy(app *bundle.App) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(app.Backend)
 	if err != nil {
@@ -301,17 +319,37 @@ func (p *proxy) buildReverseProxy(app *bundle.App) (*httputil.ReverseProxy, erro
 	if target.Scheme == "" || target.Host == "" {
 		return nil, fmt.Errorf("handler: backend %q missing scheme or host", app.Backend)
 	}
+	if !allowedBackendSchemes[target.Scheme] {
+		return nil, fmt.Errorf("handler: backend scheme %q not allowed", target.Scheme)
+	}
 
 	rp := httputil.NewSingleHostReverseProxy(target)
 
-	// Preserve the request's outgoing Host header — let the backend
-	// see the client-supplied hostname rather than the upstream
-	// target. Matches what most reverse-proxies expect; some
-	// backends (vhost-based servers) need this exact behavior.
+	// Set Host to the upstream target so vhost-based backends route
+	// to the right virtual host. Without this, a malicious client
+	// could spoof Host: vendor.example to pivot inside the
+	// upstream's vhost map.
 	origDirector := rp.Director
 	rp.Director = func(req *http.Request) {
 		origDirector(req)
-		// Don't overwrite the Host we just preserved.
+		req.Host = target.Host
+	}
+
+	// Outbound TLS pinned to >= TLS 1.2; ADR-007 forbids weaker.
+	// HTTP/2 attempts enabled to match what stdlib's
+	// DefaultTransport does but with the version pin.
+	rp.Transport = &http.Transport{
+		TLSClientConfig:   &tls.Config{MinVersion: tls.VersionTLS12},
+		ForceAttemptHTTP2: true,
+		Proxy:             http.ProxyFromEnvironment,
+	}
+
+	// Strip any X-NexGuard-* the backend might inject in its
+	// response — clients must not see anything that looks like
+	// proxy-set identity material coming back from the backend.
+	rp.ModifyResponse = func(resp *http.Response) error {
+		stripReservedHeaders(resp.Header, p.deps.HeaderPrefix)
+		return nil
 	}
 
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
@@ -319,6 +357,25 @@ func (p *proxy) buildReverseProxy(app *bundle.App) (*httputil.ReverseProxy, erro
 	}
 
 	return rp, nil
+}
+
+// isReservedHeader reports whether name (case-insensitive) starts
+// with the proxy's reserved prefix — typically "X-NexGuard-". Used
+// to reject admin-controlled overrides of identity headers.
+func isReservedHeader(name, prefix string) bool {
+	return strings.HasPrefix(strings.ToLower(name), strings.ToLower(prefix))
+}
+
+// stripReservedHeaders deletes every header (case-insensitive) under
+// the proxy's prefix. Shared between request ingress and response
+// egress paths.
+func stripReservedHeaders(h http.Header, prefix string) {
+	low := strings.ToLower(prefix)
+	for name := range h {
+		if strings.HasPrefix(strings.ToLower(name), low) {
+			h.Del(name)
+		}
+	}
 }
 
 // deny renders the HTML deny page with the X-NexGuard-Reason header set.

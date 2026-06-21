@@ -14,6 +14,7 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v3.0.0** (2026-06-21) | L7-D — L7 transparent proxy daemon GA. Custom Go binary (`proxy/`, ~5 KLOC, distroless ~20 MB image): IP_TRANSPARENT TLS listener, bundle/identity HTTP clients with TTL cache, RS256 JWT signer, first-match-wins policy evaluator, reverse proxy with backend-scheme allow-list + outbound TLS 1.2 pin + reserved-header response scrub, Prometheus metrics + structured access log + /healthz + /readyz. Server-side: bundle now carries `signing_key.private_pem` + per-app `key_pem`; `/internal/*` HARD-404'd at public :443; new Caddy :13443 mTLS site enforces `require_and_verify` against operator-provisioned `scripts/l7-rotate-proxy-cert.sh` CA. Independent security review: 2 critical + 4 high fixed inline. Perf: 1143 rps / p99 21 ms |
 | **v2.4.0** (2026-06-21) | L7-C network plumbing: `FzWall.CLI.Helpers.Tproxy` installs `l7_prerouting` nftables chain on `:l7_enabled_changed` (TPROXY to `127.0.0.1:8443`), fwmark + loopback routing primitives installed at every fz_wall boot, `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts` atomically on every Applications mutation, opt-in `docker-compose.coredns.yml` overlay with CoreDNS 1.11 sidecar + Corefile. Dormant by default — keep `l7_enabled = false` until L7-D's proxy daemon ships |
 | **v2.3.0** (2026-06-21) | L7-B Phases 1–5: JWT signing infrastructure (`l7_signing_keys` + bootstrap), `GET /.well-known/jwks.json`, `GET /internal/sessions/by_vpn_ip/:ip` (identity payload + ETag + 30 s cache), `FzHttp.L7.BundleBuilder` (debounced signed bundle compile + ETS LKG ring), `GET /internal/bundle.json` (ETag + `?since` long-poll), `nexguard:l7:{groups,identity,bundle}` PubSub wiring. Phase 6 (mTLS) deferred to L7-D so cert provisioning ships with the proxy daemon that consumes it. Endpoints exist but no consumer yet |
 | **v2.2.0** (2026-06-21) | L7-A: admin data + UI for upcoming L7 proxy — access groups + applications with full L7 rules editor + cert upload + org kill switch. Proxy ships dormant in 2.2.0; data plane lands in L7-B → L7-F |
@@ -27,7 +28,7 @@ Connect client. Headline releases:
 
 ## ⏳ Pending — ready to implement when prioritized
 
-### 🚧 ZTNA L7 — Phase 4 next (L7 proxy daemon, biggest)
+### 🚧 ZTNA L7 — Phase 5 next (operations polish)
 
 Layer 7 identity-aware access. L3/L4 enforcement is shipped (nftables
 + WG); L7 adds HTTP-method / path / header / MFA-age policy via a
@@ -54,7 +55,7 @@ ADR-014 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguar
 | **L7-A** | Foundation | DB schema + contexts + admin UI for groups, apps, L7 rules editor, org toggle | 5-7 days | server `v2.2.0` | ✅ **shipped 2026-06-21** |
 | **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ✅ **shipped 2026-06-21** (Phase 6 mTLS deferred to L7-D) |
 | **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ✅ **shipped 2026-06-21** |
-| **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ⏳ |
+| **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ✅ **shipped 2026-06-21** |
 | **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` | ⏳ |
 | **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate, leaf per app — **only if any app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` | ⏳ |
 | **L7-G** | Client integration (conditional) | NexGuard Connect auto-installs internal CA root via `Security.framework`; MDM `.mobileconfig` documented | 1-2 days | client `v0.1.0` | ⏳ |
@@ -112,19 +113,34 @@ proxy security bugs.
 - [x] **B-24**: New module `FzHttp.L7` with `broadcast_identity_change/1` — preloads `:devices`, flat-maps ipv4 + ipv6, drops nils, emits one event per unique IP on `nexguard:l7:identity`. Includes `subscribe_identity/0` for proxy/test consumers
 - [x] **B-25**: `NEXGUARD_LOGIC.md` §17 extended with a PubSub topics table (source vs downstream) plus an L7-B HTTP endpoints table covering JWKS, identity, and bundle
 
-##### Phase 6 — mTLS internal scope (DEFERRED to L7-D)
+##### Phase 6 — mTLS internal scope (shipped via L7-D v3.0.0, different implementation)
 
-Deferred so cert provisioning + the proxy daemon ship in the same drop.
-Until then `/internal/*` is internal by network convention only. The
-upstream Caddy block of `/internal/*` from public DNS is a one-line
-directive added at the same time the L7 proxy daemon lands; not worth
-shipping alone in v2.3.0 since there's no consumer yet.
+The original plan was a Phoenix-side `:mtls_internal` pipeline that
+verified the client cert at the Cowboy layer. The L7-D v3.0.0
+release ships mTLS via the **edge proxy (Caddy) instead** — same
+threat model coverage with simpler operations:
 
-- [ ] **B-26**: New router scope `pipe_through [:mtls_internal]` mounting `/internal/*` + `/.well-known/jwks.json`
-- [ ] **B-27**: `FzHttpWeb.Plugs.MtlsInternal` — verifies client cert against the internal-CA pool; on fail returns 401
-- [ ] **B-28**: Generate proxy client cert via existing `FzHttp.Vault` storage; admin can rotate via `mix nexguard.rotate_proxy_cert`
-- [ ] **B-29**: Public `/.well-known/jwks.json` exempted from mTLS (verifiers need it without a cert) — partially preempted by B-4 mounting JWKS under `:api_public`
-- [ ] **B-30**: Runbook section for proxy cert provisioning
+- [x] **B-26 (alt)**: Caddy `:13443` site in `docker-compose.prod.yml`
+  enforces `tls.client_auth { mode require_and_verify
+  trusted_ca_cert_file internal-ca.pem }` and reverse-proxies to
+  Phoenix on the bridge net. No Phoenix-side router scope change
+  required — every existing `/internal/*` route is gated at the
+  edge.
+- [x] **B-27 (alt)**: Caddy itself does cert verification; no
+  `FzHttpWeb.Plugs.MtlsInternal` plug needed. Phoenix trusts that
+  the bridge-net request originated from Caddy after it passed
+  mTLS validation.
+- [x] **B-28 (alt)**: Cert generation handled by
+  `scripts/l7-rotate-proxy-cert.sh` (openssl-driven, no `mix`
+  task — `mix` runs inside the Phoenix container which has no
+  need to touch its own CA root). Internal CA stored on the host
+  filesystem at `${FZ_INSTALL_DIR:-.}/l7-certs/`.
+- [x] **B-29**: `/.well-known/jwks.json` stays on the public :443
+  listener (it's behind the existing `:api_public` Phoenix
+  pipeline); the public Caddy block 404s `/internal/*` but lets
+  the well-known path through.
+- [x] **B-30**: `docs/migrations/v3.0.0.md` "Cert lifecycle"
+  section covers proxy cert provisioning + rotation + rollback.
 
 ##### Phase 7 — Polish + release (~0.5 day)
 
@@ -189,8 +205,8 @@ shipping alone in v2.3.0 since there's no consumer yet.
 - [x] **D-17 (partial)**: Unit tests landed for bundle client (200/304/503 paths + `FindAppByVIP`/`FindGroup`) and identity client (first fetch + cache hit, 404 → `ErrUnknownVPNIP` + cache clear, 304 TTL refresh, `Invalidate`, `HasAnyGroup`). Rule-eval tests pending the eval module
 - [x] **D-18**: `proxy/internal/integration/proxy_test.go` — full pipeline test: mock NexGuard server emits a real bundle (with freshly-minted RSA signing key) + identity payload; mock backend echoes the injected headers; the proxy handler composes against both. Happy-path test verifies the JWT signature against the matching public key extracted from the test fixture's keypair. Deny path asserts the backend was never hit. Identity-cache burst verifies 20 follow-up requests after a warmup hit zero additional server calls
 - [x] **D-19**: `TestPerf_ThroughputLatency` (gated by `NEXGUARD_PERF=1` env so normal `go test` doesn't run a 10 s loadgen). Measured on macOS arm64: **1143 rps sustained over 10 s, p50=8 ms, p99=21 ms** — both budgets in task.md (≥ 1000 rps, p99 ≤ 50 ms) met. Some error rate is expected because `http.DefaultClient` doesn't reuse connections under this loadgen pattern; the proxy itself is not the bottleneck
-- [ ] **D-20**: Security review (security-review skill)
-- [ ] **D-21**: Tag `v3.0.0` + docs + runbook
+- [x] **D-20**: Independent security review of `proxy/` surfaced 2 critical, 4 high, 5 medium, 3 low findings. All Critical (C1 inject/strip overrides identity; C2 sub-2048-bit RSA keys accepted) + High (H1 plain HTTP bundle fetch; H2 outbound TLS unpinned + backend can spoof response identity headers; H3 SSRF via backend scheme; H4 stale identity cache across pivots) fixed inline this release. M1/M2/M3/M5 + L1-L3 documented in CHANGELOG, tracked for v3.0.1
+- [x] **D-21**: Dockerfile `ARG VERSION` 2.4.0 → 3.0.0. CHANGELOG `[3.0.0]` entry covering the proxy daemon + mTLS internal control plane + security fixes. `docs/migrations/v3.0.0.md` runbook walks cert provisioning, Caddy verification, proxy overlay activation, kill-switch, cert rotation, and three rollback paths. Tag + push deferred to manual user step
 
 ---
 

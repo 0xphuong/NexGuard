@@ -9,6 +9,169 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.0] - 2026-06-21
+
+**L7-D — L7 transparent proxy daemon GA**. The custom Go binary
+under `proxy/` is now production-ready: terminates per-app TLS,
+looks up VPN-IP identity from the server, evaluates inline policy
+rules, mints + injects a signed identity JWT, and reverse-proxies
+to the declared backend. Plus the mTLS-protected internal control
+plane Caddy listener at `:13443` that the proxy uses to fetch the
+bundle.
+
+**Breaking change**: `/internal/*` paths are now HARD-404'd at the
+public :443 listener. Anyone still hitting those URLs from the
+public DNS (only ever us, for smoke testing — there is no real
+consumer) will see a 404. Use the new mTLS endpoint at `:13443`
+with the issued client cert instead.
+
+### Added
+
+#### L7 proxy daemon (`proxy/`)
+
+A 5-7 KLOC Go binary, single-binary deploy via the new
+`docker-compose.proxy.yml` opt-in overlay. ~20 MB distroless static
+image.
+
+- **Bundle client** with `If-None-Match` + `?since=N` long-poll and
+  atomic-swap pointer for race-free hot-path reads.
+- **Identity client** with a 30 s TTL cache, ETag-aware refresh,
+  `Invalidate`/`InvalidateAll` for PubSub-driven invalidation in a
+  follow-up release.
+- **RS256 JWT signer** built on stdlib `crypto/rsa` (no third-party
+  JWT lib). PKCS#1 + PKCS#8 PEM accept paths. Minimum 2048-bit
+  modulus enforced at parse time.
+- **SNI cert store** keyed by hostname from the bundle; bundle
+  pivots atomic-swap the store without dropping in-flight TLS
+  handshakes.
+- **`IP_TRANSPARENT` TCP listener** with TLS 1.3 wrapping
+  (`MinVersion: TLS13`). Build-tag split so non-Linux dev hosts
+  compile but errors at listen time. TPROXY model — `conn.LocalAddr()`
+  recovers the original-DST VIP, no `SO_ORIGINAL_DST` getsockopt
+  needed.
+- **Policy evaluator**: break-glass on `access_scope=all`, then
+  app-wide group gate, then first-match-wins rule eval over
+  `method` / `path_prefix` / `require_groups` /
+  `require_mfa_age_seconds`. Default deny on no match.
+- **Reverse proxy** via `httputil.NewSingleHostReverseProxy` with
+  custom transport pinning TLS 1.2+ on the backend hop. `Host` set
+  to the backend's host (no vhost confusion). Response headers
+  scrubbed of any `X-NexGuard-*` the backend might emit. Backend
+  scheme allow-listed to `http`/`https` (SSRF defense).
+- **Header massage** in dependency order: strip client-supplied
+  `X-NexGuard-*`, apply per-app `strip_headers`, apply per-app
+  `inject_headers` BUT refuse to overwrite the reserved
+  `X-NexGuard-*` namespace, then inject identity headers + JWT as
+  the last writer. An admin's bundle config cannot impersonate
+  identity headers.
+- **Structured per-request access log** (`slog` JSON): ts, decision
+  (allow/deny/error), reason, app_id, user_id, vip, status,
+  bytes_out, latency, method, path, ua, client. JWT and PEMs
+  never logged.
+- **Prometheus metrics** on a second port (default
+  `127.0.0.1:9090`): `nexguard_proxy_requests_total{decision,
+  status_family}`, `nexguard_proxy_request_duration_seconds{decision}`,
+  `nexguard_proxy_bundle_{version,age_seconds}`,
+  `nexguard_proxy_identity_cache_size`. Plus `/healthz` (always 200)
+  and `/readyz` (200 when bundle loaded; 503 during boot or after
+  signal-triggered drain).
+- **`--health-probe` subcommand** for Docker `HEALTHCHECK` from
+  distroless (no curl/wget).
+- **Graceful shutdown** on SIGTERM/SIGINT: flips `/readyz` to 503
+  so the LB drains; finishes in-flight requests; exits.
+
+#### mTLS internal control plane
+
+- **`scripts/l7-rotate-proxy-cert.sh`** — openssl-driven cert
+  rotation. Generates a 4096-bit RSA internal CA (10-year
+  validity) + 2048-bit RSA leaves for the Caddy server cert + the
+  proxy client cert (1-year validity each). Idempotent: re-running
+  rotates the leaves; `--reset-ca` rotates the CA. Old certs
+  archived under `<NEXGUARD_CERTS_DIR>/archive/<ts>/`.
+- **Caddy `:13443` mTLS listener** in `docker-compose.prod.yml`,
+  loaded only when the cert files exist. `require_and_verify` mode
+  against `internal-ca.pem`. Reverse-proxies to Phoenix on the
+  bridge IP — exact same backend as :443.
+- **`/internal/*` hard-404 on the public :443 listener.** Anyone
+  reaching the portal hostname can no longer poke control-plane
+  endpoints regardless of mTLS state.
+- **Proxy client cert wiring**: `NEXGUARD_PROXY_CLIENT_CERT`,
+  `NEXGUARD_PROXY_CLIENT_KEY`, `NEXGUARD_PROXY_CA_BUNDLE`
+  environment variables. `bundle.Client` and `identity.Client`
+  share a configured `http.Client`. Plain `http://` is rejected
+  unless the host is loopback.
+
+#### Server-side bundle additions
+
+- **`signing_key.{kid,algorithm,private_pem}`** in every bundle
+  response — the proxy needs the private half to sign JWTs.
+  Threat model unchanged (the bundle already carries every app's
+  TLS cert and key; the signing key joins them under the same
+  protection).
+- **`apps[].key_pem`** alongside the existing `cert_pem` so the
+  proxy can terminate TLS for each declared SNI hostname.
+
+#### Tests
+
+- Unit coverage in each `proxy/internal/<pkg>/` plus a composed
+  integration test in `proxy/internal/integration/` that drives
+  the full pipeline against mock NexGuard + mock backend. JWT
+  signature end-to-end verifies with `crypto/rsa.VerifyPKCS1v15`
+  against the fixture's matching public key.
+- Perf test (gated by `NEXGUARD_PERF=1`): asserts ≥ 1000 rps and
+  p99 ≤ 50 ms. Measured 1143 rps / p99 21 ms on macOS arm64.
+
+### Security review
+
+Independent review of the proxy code surfaced and fixed:
+
+- **C1**: per-app `inject_headers` / `strip_headers` can no longer
+  overwrite reserved `X-NexGuard-*` identity headers — bundle ingest
+  filters the reserved prefix and identity injection runs last.
+- **C2**: JWT signer rejects RSA keys under 2048 bits.
+- **H1**: bundle/identity HTTP client rejects plain `http://`
+  unless the target is loopback; mTLS is the supported path for
+  cross-host deployments.
+- **H2**: reverse-proxy `Transport` pins `MinVersion: TLS12`,
+  forces HTTP/2 attempt, and the `ModifyResponse` hook strips any
+  upstream-emitted `X-NexGuard-*` so backends can't pollute the
+  client-facing response with proxy-looking headers.
+- **H3**: backend scheme allow-listed to `http`/`https` at proxy
+  build time — `file://`, `gopher://`, etc. are refused.
+- **H4**: `pollBundle` now calls `identity.Client.InvalidateAll`
+  on every bundle pivot so a user removed from a group / disabled
+  doesn't survive in the 30 s identity cache.
+- Identity client refuses to fall back to a raw `RemoteAddr` when
+  `net.SplitHostPort` fails — bad addr → 400 + log, not silent
+  cache key divergence.
+
+Medium-severity issues (M1: Host header overwrite — actually
+already handled; M2: path-prefix normalization; M3: missing
+`aud`/`iss`/`jti` claims; M5: query-string redaction in access
+log) are documented and tracked for v3.0.1. Low-severity items
+(L1-L3) are accepted as documented behavior.
+
+### Operational caveats
+
+- The proxy is dormant until **both** `org_settings.l7_enabled =
+  true` AND an admin declares + enables at least one application.
+  Default fresh-install state is safe.
+- The mTLS listener at :13443 only loads when the cert files
+  exist. A fresh install that hasn't run `l7-rotate-proxy-cert.sh`
+  boots with the public :443 portal only — no errors, no exposure.
+- Cert lifecycle: proxy cert 1 year, CA 10 years. Re-run the
+  rotation script + restart Caddy + restart proxy before the
+  proxy cert expires.
+
+### Migration runbook
+
+[`docs/migrations/v3.0.0.md`](docs/migrations/v3.0.0.md) walks
+through every step: cert provisioning, Caddy verification, proxy
+overlay activation, kill-switch operation, cert rotation, and
+three independent rollback paths.
+
+---
+
 ## [2.4.0] - 2026-06-21
 
 L7 ZTNA Phase 3 — **network plumbing for the upcoming L7 proxy

@@ -22,6 +22,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -44,12 +46,15 @@ import (
 )
 
 const (
-	envServerURL       = "NEXGUARD_SERVER_URL"
-	envListenAddr      = "NEXGUARD_PROXY_LISTEN"
-	envObsAddr         = "NEXGUARD_PROXY_OBS_LISTEN"
-	defaultListenAddr  = "127.0.0.1:8443"
-	defaultObsAddr     = "127.0.0.1:9090"
-	bundlePollPeriod   = 30 * time.Second
+	envServerURL      = "NEXGUARD_SERVER_URL"
+	envListenAddr     = "NEXGUARD_PROXY_LISTEN"
+	envObsAddr        = "NEXGUARD_PROXY_OBS_LISTEN"
+	envClientCert     = "NEXGUARD_PROXY_CLIENT_CERT"
+	envClientKey      = "NEXGUARD_PROXY_CLIENT_KEY"
+	envCABundle       = "NEXGUARD_PROXY_CA_BUNDLE"
+	defaultListenAddr = "127.0.0.1:8443"
+	defaultObsAddr    = "127.0.0.1:9090"
+	bundlePollPeriod  = 30 * time.Second
 )
 
 func main() {
@@ -77,8 +82,16 @@ func main() {
 		syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
+	httpClient, err := buildServerHTTPClient()
+	if err != nil {
+		log.Error("server HTTP client config failed", "error", err)
+		os.Exit(1)
+	}
+
 	bc := bundle.New(serverURL.String())
+	bc.HTTPClient = httpClient
 	ic := identity.New(serverURL.String())
+	ic.HTTPClient = httpClient
 	var signers jwt.SignerHolder
 	var certs cert.Holder
 	metrics, metricsReg := observability.NewMetrics()
@@ -132,7 +145,7 @@ func main() {
 	)
 
 	// Bundle poller — replaces a future PubSub/SSE feed.
-	go pollBundle(ctx, log, bc, &signers, &certs, metrics)
+	go pollBundle(ctx, log, bc, ic, &signers, &certs, metrics)
 
 	// Build the HTTP handler and serve the TLS listener. ConnContext
 	// stuffs each accepted *tls.Conn's LocalAddr() (the original-DST
@@ -201,7 +214,63 @@ func getRequiredURL(env string) (*url.URL, error) {
 	if u.Scheme == "" || u.Host == "" {
 		return nil, errors.New(env + " must be an absolute URL with scheme")
 	}
+	// The bundle response carries the active JWT private key + every
+	// app's TLS private key — plain HTTP is only acceptable when the
+	// server is on loopback (e.g. local dev rig). Anything else must
+	// be HTTPS, and operationally that means mTLS through Caddy at
+	// :13443 per the v3.0.0 runbook.
+	if u.Scheme == "http" && !isLoopbackHost(u.Hostname()) {
+		return nil, fmt.Errorf(
+			"%s scheme is http:// but host %q is not loopback; bundle delivery requires HTTPS",
+			env, u.Hostname())
+	}
 	return u, nil
+}
+
+func isLoopbackHost(host string) bool {
+	if host == "localhost" {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
+}
+
+// buildServerHTTPClient configures the http.Client used for outbound
+// /internal/* calls. When NEXGUARD_PROXY_CLIENT_CERT + _KEY are set,
+// it loads them as a TLS client cert presented to the mTLS Caddy
+// listener at :13443. NEXGUARD_PROXY_CA_BUNDLE pins the server CA;
+// without it the system roots are used.
+func buildServerHTTPClient() (*http.Client, error) {
+	tlsCfg := &tls.Config{MinVersion: tls.VersionTLS12}
+
+	certPath, keyPath := os.Getenv(envClientCert), os.Getenv(envClientKey)
+	if certPath != "" || keyPath != "" {
+		if certPath == "" || keyPath == "" {
+			return nil, errors.New("both " + envClientCert + " and " + envClientKey + " must be set together")
+		}
+		c, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			return nil, fmt.Errorf("client cert load: %w", err)
+		}
+		tlsCfg.Certificates = []tls.Certificate{c}
+	}
+
+	if caPath := os.Getenv(envCABundle); caPath != "" {
+		caPEM, err := os.ReadFile(caPath)
+		if err != nil {
+			return nil, fmt.Errorf("ca bundle read: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if !pool.AppendCertsFromPEM(caPEM) {
+			return nil, fmt.Errorf("ca bundle %q parsed no certs", caPath)
+		}
+		tlsCfg.RootCAs = pool
+	}
+
+	return &http.Client{
+		Timeout:   10 * time.Second,
+		Transport: &http.Transport{TLSClientConfig: tlsCfg},
+	}, nil
 }
 
 func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder, metrics *observability.Metrics) error {
@@ -225,7 +294,7 @@ func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, s
 	return nil
 }
 
-func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder, metrics *observability.Metrics) {
+func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, ic *identity.Client, signers *jwt.SignerHolder, certs *cert.Holder, metrics *observability.Metrics) {
 	t := time.NewTicker(bundlePollPeriod)
 	defer t.Stop()
 	lastFetch := time.Now()
@@ -258,6 +327,14 @@ func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signer
 					"error", err)
 				continue
 			}
+			// Identity cache is keyed by VPN IP; the same IP can be
+			// reassigned to a different user across bundle pivots
+			// (e.g. an admin disables a user → IP recycles). Drop
+			// every entry on every pivot so the next request
+			// re-fetches identity. Conservative — could narrow to
+			// just the IPs whose `users.updated_at` changed if we
+			// later add that diff feed.
+			ic.InvalidateAll()
 			metrics.SetBundleVersion(v)
 			log.Info("bundle updated",
 				slog.Int("version", v),

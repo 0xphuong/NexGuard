@@ -21,19 +21,50 @@ services:
     image: caddy:2.11.3
     volumes:
       - ${FZ_INSTALL_DIR:-.}/caddy:/data/caddy
+      # mTLS material rotated by scripts/l7-rotate-proxy-cert.sh.
+      # The directory may be empty until L7 enforcement is rolled
+      # out — Caddy still boots because the mTLS site at :13443 is
+      # only loaded when both cert files exist.
+      - ${FZ_INSTALL_DIR:-.}/l7-certs:/etc/nexguard/l7-certs:ro
     # See Caddy's documentation for customizing this line
     # https://caddyserver.com/docs/quick-starts/reverse-proxy
     command:
       - /bin/sh
       - -c
       - |
-        cat <<EOF > /etc/caddy/Caddyfile && caddy run --config /etc/caddy/Caddyfile
-
+        # Public portal. /internal/* is HARD-BLOCKED here so an
+        # external client can never reach the secret-bearing
+        # control-plane endpoints regardless of mTLS state.
+        cat <<EOF > /etc/caddy/Caddyfile
         ${EXTERNAL_URL} {
           log
+          @internal path /internal/* /internal
+          respond @internal 404
           reverse_proxy * 172.25.0.100:${PHOENIX_HTTP_PORT:-13000}
         }
         EOF
+
+        # mTLS internal control plane (ADR-007, L7-D). Only loaded
+        # when certs are provisioned (run scripts/l7-rotate-proxy-cert.sh).
+        # Otherwise Caddy boots with only the public portal site so
+        # a fresh install / pre-L7-D deployment keeps working.
+        if [ -f /etc/nexguard/l7-certs/internal-server.pem ] \
+           && [ -f /etc/nexguard/l7-certs/internal-server.key ] \
+           && [ -f /etc/nexguard/l7-certs/internal-ca.pem ]; then
+          cat <<EOF >> /etc/caddy/Caddyfile
+        :13443 {
+          tls /etc/nexguard/l7-certs/internal-server.pem /etc/nexguard/l7-certs/internal-server.key {
+            client_auth {
+              mode require_and_verify
+              trusted_ca_cert_file /etc/nexguard/l7-certs/internal-ca.pem
+            }
+          }
+          reverse_proxy * 172.25.0.100:${PHOENIX_HTTP_PORT:-13000}
+        }
+        EOF
+        fi
+
+        caddy run --config /etc/caddy/Caddyfile
     network_mode: "host"
     deploy:
       <<: *default-deploy

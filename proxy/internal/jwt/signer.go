@@ -32,6 +32,12 @@ import (
 // long enough to survive transient backend retries.
 const DefaultTTL = 5 * time.Minute
 
+// MinRSABits is the smallest modulus we'll accept in a delivered
+// signing key. OWASP minimum + JOSE baseline; 1024-bit RS256 is
+// factorable. Reject at parse time so a poisoned bundle or
+// hand-crafted test material can't downgrade signature strength.
+const MinRSABits = 2048
+
 // Signer wraps an RSA private key and an associated kid. A new
 // Signer is cheap to allocate; the proxy keeps one at a time and
 // atomically swaps it on every bundle reload.
@@ -87,6 +93,10 @@ func FromPEM(kid string, pemBytes []byte) (*Signer, error) {
 
 	default:
 		return nil, fmt.Errorf("jwt: unsupported PEM block type %q", block.Type)
+	}
+
+	if key.N.BitLen() < MinRSABits {
+		return nil, fmt.Errorf("jwt: RSA key is %d bits, minimum is %d", key.N.BitLen(), MinRSABits)
 	}
 
 	return &Signer{kid: kid, key: key}, nil
