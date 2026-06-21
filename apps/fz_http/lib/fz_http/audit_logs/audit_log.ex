@@ -39,6 +39,8 @@ defmodule FzHttp.AuditLogs.AuditLog do
     oidc_provider.delete
     saml_provider.create
     saml_provider.delete
+    l7.signing_key.bootstrap
+    l7.signing_key.rotate
   )
 
   @valid_results ~w(success failure)
