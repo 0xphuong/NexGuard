@@ -13,6 +13,24 @@ defmodule FzHttp.AccessGroups do
   alias FzHttp.Users
   alias FzHttp.AccessGroups.{Group, Membership, Authorizer}
 
+  # ── Changesets (for LiveView form preview) ──────────────────────
+
+  @doc """
+  Empty changeset for a new group form.
+  """
+  def change_group, do: Group.Changeset.create_changeset(%{})
+
+  @doc """
+  Changeset bound to a struct + admin-supplied attrs for live form
+  validation. Used by `phx-change="validate"` so the UI can show
+  inline errors before the user clicks Submit.
+  """
+  def change_group(%Group{} = group, attrs \\ %{}) do
+    Group.Changeset.update_changeset(group, attrs)
+  end
+
+  def change_new_group(attrs), do: Group.Changeset.create_changeset(attrs)
+
   # ── Queries ─────────────────────────────────────────────────────
 
   def list_groups(%Auth.Subject{} = subject) do

@@ -1,0 +1,98 @@
+<%= if @live_action == :new do %>
+  <%= live_modal(
+    FzHttpWeb.AccessGroupsLive.FormComponent,
+    return_to: ~p"/access-groups",
+    title: "Add Group",
+    id: "access-group-form-component",
+    group: nil,
+    subject: @subject,
+    remote_ip: @remote_ip,
+    action: @live_action,
+    form: "access-group-form"
+  ) %>
+<% end %>
+
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Access Groups</h1>
+      <p class="ng-page-subtitle">
+        <%= length(@groups) %> group<%= if length(@groups) != 1, do: "s" %> · gate L7 application access via membership
+      </p>
+    </div>
+    <.link replace={true} patch={~p"/access-groups/new"} class="ng-primary-btn">
+      <i class="mdi mdi-account-multiple-plus"></i> New Group
+    </.link>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%= if @groups == [] do %>
+    <div class="ng-empty-state">
+      <i class="mdi mdi-account-group ng-empty-state-icon"></i>
+      <p class="ng-empty-state-title">No groups yet</p>
+      <p class="ng-empty-state-hint">
+        Create a group to start gating which users reach your L7-managed apps.
+      </p>
+    </div>
+  <% else %>
+    <div class="ng-table-wrap">
+      <table class="ng-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Source</th>
+            <th class="ng-th-center">Members</th>
+            <th>Created</th>
+            <th class="ng-th-center">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for group <- @groups do %>
+            <tr id={"access-group-#{group.id}"}>
+              <td>
+                <.link navigate={~p"/access-groups/#{group}"} class="ng-link-strong">
+                  <%= group.name %>
+                </.link>
+                <%= if group.description do %>
+                  <div class="ng-td-muted ng-td-meta"><%= group.description %></div>
+                <% end %>
+              </td>
+              <td>
+                <span class={"ng-source-badge ng-source-badge--#{group.source}"}>
+                  <%= group.source %>
+                </span>
+              </td>
+              <td class="ng-td-center">
+                <span class="ng-device-count">
+                  <i class="mdi mdi-account"></i> <%= group.member_count || 0 %>
+                </span>
+              </td>
+              <td
+                id={"access-group-#{group.id}-inserted-at"}
+                data-timestamp={group.inserted_at}
+                phx-hook="FormatTimestamp"
+                class="ng-td-muted"
+              >
+                …
+              </td>
+              <td class="ng-td-center">
+                <button
+                  class="ng-dismiss-btn"
+                  title="Delete group"
+                  phx-click="delete"
+                  phx-value-id={group.id}
+                  data-confirm={"Delete \"#{group.name}\"? Member assignments and any application reference to this group will also be removed."}
+                >
+                  <i class="mdi mdi-trash-can-outline"></i>
+                </button>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</section>

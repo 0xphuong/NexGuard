@@ -208,6 +208,11 @@ defmodule FzHttpWeb.Router do
       live "/rules", RuleLive.Index, :index
       live "/devices", DeviceLive.Admin.Index, :index
       live "/devices/:id", DeviceLive.Admin.Show, :show
+
+      # L7 ZTNA (ADR-007 → ADR-014)
+      live "/access-groups", AccessGroupsLive.Index, :index
+      live "/access-groups/new", AccessGroupsLive.Index, :new
+      live "/access-groups/:id", AccessGroupsLive.Show, :show
       live "/settings/client_defaults", SettingLive.ClientDefaults, :show
       live "/settings/network", SettingLive.Network, :show
 

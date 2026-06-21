@@ -1,0 +1,141 @@
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title"><%= @group.name %></h1>
+      <p class="ng-page-subtitle">
+        <span class={"ng-source-badge ng-source-badge--#{@group.source}"}>
+          <%= @group.source %>
+        </span>
+        · <%= length(@members) %> member<%= if length(@members) != 1, do: "s" %>
+      </p>
+    </div>
+    <.link navigate={~p"/access-groups"} class="ng-secondary-btn">
+      <i class="mdi mdi-arrow-left"></i> Back to all groups
+    </.link>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── Edit name / description ────────────────────────────────────── %>
+  <div class="ng-settings-card">
+    <h2 class="ng-card-title">Details</h2>
+
+    <.form
+      :let={f}
+      for={@changeset}
+      as={:group}
+      id="group-edit-form"
+      phx-change="validate"
+      phx-submit="update"
+    >
+      <div class="ng-form-row">
+        <%= label(f, :name, "Name", class: "ng-form-label") %>
+        <%= text_input(f, :name, class: "ng-form-input", required: true) %>
+        <%= error_tag(f, :name) %>
+      </div>
+
+      <div class="ng-form-row">
+        <%= label(f, :description, "Description", class: "ng-form-label") %>
+        <%= textarea(f, :description, class: "ng-form-input", rows: 3) %>
+        <%= error_tag(f, :description) %>
+      </div>
+
+      <div class="ng-form-actions">
+        <%= submit("Save", class: "ng-primary-btn", phx_disable_with: "Saving…") %>
+      </div>
+    </.form>
+  </div>
+
+  <%# ── Member roster ───────────────────────────────────────────────── %>
+  <div class="ng-settings-card">
+    <h2 class="ng-card-title">Members</h2>
+
+    <form id="add-member-form" phx-submit="add_member" class="ng-form-inline">
+      <input
+        type="email"
+        name="email"
+        class="ng-form-input"
+        placeholder="user@example.com"
+        autocomplete="off"
+        required
+      />
+      <button type="submit" class="ng-primary-btn">
+        <i class="mdi mdi-account-plus"></i> Add member
+      </button>
+    </form>
+
+    <%= if @members == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No members yet. Add one by email above.
+        </p>
+      </div>
+    <% else %>
+      <div class="ng-table-wrap">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>User</th>
+              <th>Source</th>
+              <th>Added by</th>
+              <th>Added</th>
+              <th class="ng-th-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for m <- @members do %>
+              <tr id={"member-#{m.user_id}"}>
+                <td><%= m.user.email %></td>
+                <td>
+                  <span class={"ng-source-badge ng-source-badge--#{m.source}"}>
+                    <%= m.source %>
+                  </span>
+                </td>
+                <td class="ng-td-muted">
+                  <%= if m.added_by, do: m.added_by.email, else: "—" %>
+                </td>
+                <td
+                  id={"member-#{m.user_id}-inserted-at"}
+                  data-timestamp={m.inserted_at}
+                  phx-hook="FormatTimestamp"
+                  class="ng-td-muted"
+                >
+                  …
+                </td>
+                <td class="ng-td-center">
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Remove from group"
+                    phx-click="remove_member"
+                    phx-value-user-id={m.user_id}
+                    data-confirm={"Remove #{m.user.email} from #{@group.name}?"}
+                  >
+                    <i class="mdi mdi-account-minus-outline"></i>
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+
+  <%# ── Danger zone ─────────────────────────────────────────────────── %>
+  <div class="ng-settings-card ng-settings-card--danger">
+    <h2 class="ng-card-title">Danger zone</h2>
+    <p class="ng-form-hint">
+      Deleting this group also removes every member assignment and every
+      application reference to it. Members' user accounts are NOT touched.
+    </p>
+    <button
+      class="ng-danger-btn"
+      phx-click="delete_group"
+      data-confirm={"Delete group \"#{@group.name}\"? This cannot be undone."}
+    >
+      <i class="mdi mdi-trash-can-outline"></i> Delete group
+    </button>
+  </div>
+</section>

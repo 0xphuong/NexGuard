@@ -104,13 +104,13 @@ security bugs.
 
 ##### Phase 3 — Admin UI LiveView (~3 days)
 
-- [ ] **R-1**: routes — `/admin/access-groups`, `/admin/access-groups/:id`, `/admin/settings/l7`
-- [ ] **R-2**: nav menu — "Access Groups" + "L7 Settings" entries in `admin.html.heex`
-- [ ] **U-1**: `AccessGroupsLive.Index` — list (name, source, member count, created); "New Group" button
-- [ ] **U-2**: `AccessGroupsLive.New` — form (name + description + source)
-- [ ] **U-3**: `AccessGroupsLive.Show` — edit name/desc, member list with add/remove, list apps using this group
-- [ ] **U-4**: empty state — "No groups yet — create one to start gating apps"
-- [ ] **U-5**: delete confirm modal — warns "X apps reference this group"
+- [x] **R-1**: routes — `/access-groups`, `/access-groups/new`, `/access-groups/:id` (settings/l7 deferred to Wave 4)
+- [x] **R-2**: nav — "Access Groups" entry in `sidebar_component.ex` under Configuration
+- [x] **U-1**: `AccessGroupsLive.Index` (`index_live.ex` + `index.html.heex`) — table with name, source badge, member count, created timestamp, delete action; "New Group" patches to modal
+- [x] **U-2**: `AccessGroupsLive.FormComponent` (modal) — name + description + phx-change live validation
+- [x] **U-3**: `AccessGroupsLive.Show` — inline edit name/desc, member roster (table) with add-by-email + remove, danger zone delete
+- [x] **U-4**: Empty state on Index — "No groups yet — create one to start gating apps"
+- [x] **U-5**: Delete confirm — `data-confirm` warns about member + app reference cascade
 - [ ] **U-6**: extend `UserLive.Show` — "Group Memberships" section with multi-select
 - [ ] **U-7**: extend `UserLive.Show` — `access_scope` dropdown with warning text on 'all'
 - [ ] **U-8**: extend `ApplicationLive.New/Edit` — add "L7 Settings" panel

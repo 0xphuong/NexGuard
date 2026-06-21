@@ -15,7 +15,11 @@ defmodule FzHttp.Auth.Roles do
       FzHttp.ConnectivityChecks.Authorizer,
       FzHttp.Devices.Authorizer,
       FzHttp.Rules.Authorizer,
-      FzHttp.Users.Authorizer
+      FzHttp.Users.Authorizer,
+      # L7 ZTNA (ADR-007 → ADR-014)
+      FzHttp.AccessGroups.Authorizer,
+      FzHttp.Applications.Authorizer,
+      FzHttp.OrgSettings.Authorizer
     ]
   end
 

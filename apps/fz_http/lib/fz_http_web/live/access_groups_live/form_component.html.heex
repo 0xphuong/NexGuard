@@ -1,0 +1,36 @@
+<.form
+  :let={f}
+  for={@changeset}
+  as={:group}
+  id={@form}
+  phx-target={@myself}
+  phx-change="validate"
+  phx-submit="save"
+>
+  <div class="ng-form-row">
+    <%= label(f, :name, "Name", class: "ng-form-label") %>
+    <%= text_input(f, :name,
+          class: "ng-form-input",
+          placeholder: "e.g. engineering, wiki-readers",
+          autocomplete: "off",
+          required: true) %>
+    <%= error_tag(f, :name) %>
+    <p class="ng-form-hint">
+      Letters, numbers, spaces, dashes, dots, and underscores. 2-100 chars.
+    </p>
+  </div>
+
+  <div class="ng-form-row">
+    <%= label(f, :description, "Description (optional)", class: "ng-form-label") %>
+    <%= textarea(f, :description,
+          class: "ng-form-input",
+          rows: 3,
+          placeholder: "Short description of what this group is for.") %>
+    <%= error_tag(f, :description) %>
+  </div>
+
+  <div class="ng-form-actions">
+    <.link patch={@return_to} class="ng-secondary-btn">Cancel</.link>
+    <%= submit("Create Group", class: "ng-primary-btn", phx_disable_with: "Creating…") %>
+  </div>
+</.form>
