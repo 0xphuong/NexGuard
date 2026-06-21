@@ -292,6 +292,7 @@ defmodule FzHttpWeb.Router do
     pipe_through :api_internal
 
     get "/sessions/by_vpn_ip/:ip", IdentityController, :show
+    get "/bundle.json", BundleController, :show
   end
 
   if Mix.env() in [:dev, :test] do

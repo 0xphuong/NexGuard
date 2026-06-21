@@ -98,10 +98,10 @@ proxy security bugs.
 
 ##### Phase 4 — Bundle endpoint (~0.5 day)
 
-- [ ] **B-18**: `FzHttpWeb.Internal.BundleController` + `GET /internal/bundle.json`
-- [ ] **B-19**: Returns ETS-cached bundle; ETag = `"<bundle_version>"`; 304 on If-None-Match match (proxy poll-cheap)
-- [ ] **B-20**: `?since=<n>` query param — return 304 if `bundle_version <= n` (proxy long-poll)
-- [ ] **B-21**: `test/fz_http_web/internal/bundle_controller_test.exs`
+- [x] **B-18**: `FzHttpWeb.Internal.BundleController.show/2` mounted at `GET /internal/bundle.json` under the same `:api_internal` pipeline as IdentityController. Reads `BundleBuilder.current/0` straight from the public ETS table — no GenServer hop on the hot path. 503 + `{"error":"bundle_not_compiled"}` when the table is empty
+- [x] **B-19**: Body = raw `bundle_json`, headers `ETag: "v<N>"` + `X-NexGuard-Bundle-Signature: <jwt>`. `If-None-Match` matching the current ETag returns 304 with the same headers (no body) so the proxy can refresh its TTL without reading the bundle
+- [x] **B-20**: `?since=N` (integer): 304 when `current_version <= N`. Garbage values are ignored and the body is served — proxy never silently misses an update due to a malformed query string
+- [x] **B-21**: `test/fz_http_web/controllers/internal/bundle_controller_test.exs` covers empty-state 503, body + signature + ETag, signature verification against SHA-256 of body, If-None-Match 304 + 200 fallthrough, `?since` boundaries, and ETag change after recompile
 
 ##### Phase 5 — PubSub broadcast wiring + identity invalidation (~0.5 day)
 
