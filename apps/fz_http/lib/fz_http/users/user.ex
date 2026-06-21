@@ -24,6 +24,19 @@ defmodule FzHttp.Users.User do
     has_many :oidc_connections, FzHttp.Auth.OIDC.Connection
     has_many :api_tokens, FzHttp.ApiTokens.ApiToken
 
+    # L7 access bypass marker (ADR-008, ADR-014). `:limited` (default)
+    # subjects the user to the per-app group intersection check;
+    # `:all` bypasses it entirely (break-glass admins). Set only via
+    # explicit admin action, audited.
+    field :access_scope, Ecto.Enum, values: [:limited, :all], default: :limited
+
+    has_many :group_memberships, FzHttp.AccessGroups.Membership, foreign_key: :user_id
+
+    many_to_many :groups,
+      FzHttp.AccessGroups.Group,
+      join_through: FzHttp.AccessGroups.Membership,
+      join_keys: [user_id: :id, group_id: :id]
+
     field :disabled_at, :utc_datetime_usec
     timestamps()
   end

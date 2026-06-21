@@ -67,6 +67,10 @@ defmodule FzHttp.MixProject do
       {:cloak, "~> 1.1"},
       {:cloak_ecto, "~> 1.2"},
 
+      # L7: parse uploaded cert PEMs to verify SAN/CN covers the declared
+      # hostname before persisting the Applications row (ADR-014).
+      {:x509, "~> 0.8"},
+
       # Auth-related deps
       {:guardian, "~> 2.0"},
       {:guardian_db, "~> 2.0"},

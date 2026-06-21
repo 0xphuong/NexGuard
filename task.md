@@ -68,6 +68,93 @@ security bugs.
 
 ---
 
+#### L7-A detailed checklist — DB schema + admin UI (server `v2.2.0`, ~5-7 days)
+
+**Scope reminder**: Pure Phoenix/Ecto work. No proxy / CoreDNS / step-ca deployment yet — L7-A is data + admin tooling only. Enforcement starts at L7-D.
+
+##### Phase 1 — Database schema (~1 day)
+
+- [x] **M-1**: migration `20260620000001_create_access_groups` — `id (UUID PK)`, `name (unique)`, `description`, `source`, `external_id`, timestamps + indexes
+- [x] **M-2**: migration `20260620000002_create_user_group_memberships` — composite PK `(user_id, group_id)`, FK cascade, `source`, `added_by_id (FK users nilify)`, `inserted_at`
+- [x] **M-3**: migration `20260620000003_create_applications` — NEW table (was "extend" — `applications` didn't exist yet); `hostname (unique)`, `virtual_ip inet (unique)`, `backend`, `cert_source`, `cert_pem text`, `key_pem binary` (app-encrypted), `tls_mode default 'terminate'`, `l7_rules jsonb '[]'`, `enabled boolean false`
+- [x] **M-4**: migration `20260620000004_create_application_allowed_groups` — composite PK `(application_id, group_id)`, FK cascade
+- [x] **M-5**: migration `20260620000005_add_access_scope_to_users` — `access_scope` default `'limited'` + partial index on `'all'`
+- [x] **M-6**: migration `20260620000006_create_org_settings` — single-row pattern (id=1, CHECK constraint) + seed insert; `l7_enabled boolean default false`
+- [ ] Verify: `docker compose up -d` → migrations auto-run; `docker compose exec app mix ecto.rollback --to 20260612000001` reverses; `\d access_groups` etc. confirm schema
+
+##### Phase 2 — Schemas + contexts + tests (~2 days)
+
+- [x] **S-1**: `FzHttp.AccessGroups.Group` schema + `Group.Changeset` (create / update / idp_sync)
+- [x] **S-2**: `FzHttp.AccessGroups.Membership` schema + `Membership.Changeset` (composite PK via per-field flags)
+- [x] **S-3**: `FzHttp.Applications.Application` schema (NEW) + `Application.Changeset` (hostname RFC 1035, VIP in 10.99.0.0/16, cert SAN match via `:x509`, L7 rules JSON validation, immutable VIP on update) + `Applications.AllowedGroup` join schema
+- [x] **S-4**: extend `FzHttp.Users.User` — added `access_scope`, `group_memberships`, `groups (many_to_many)`
+- [x] **S-5**: `FzHttp.OrgSettings.Settings` schema (singleton, integer id=1) + `Settings.Changeset`
+- [x] **C-1**: `FzHttp.AccessGroups` context — `list_groups`, `fetch_group_by_id`, `get_group_by_name`, `list_groups_with_members` (bundle), `list_groups_for_user` (identity API), `create_group`, `update_group`, `delete_group`, `add_member`, `remove_member`; full audit on every mutation
+- [x] **C-2**: `FzHttp.Applications` context — `list_applications`, `fetch_application_by_id`, `list_enabled_for_bundle`, `create_application` (allocates VIP inside transaction), `update_application`, `set_application_enabled`, `delete_application`, `add_allowed_group`, `remove_allowed_group`; PubSub `nexguard:l7:apps` broadcast on every mutation
+- [x] **C-3**: `FzHttp.OrgSettings` context — `get/0`, `l7_enabled?/0`, `set_l7_enabled/3`; PubSub `nexguard:l7:settings` broadcast on toggle; no-op detection skips audit + broadcast on identical write
+- [x] **C-4**: `FzHttp.L7.VipAllocator` — advisory-lock-based first-free scan over 10.99.0.1 → 10.99.255.254 (skip network + broadcast); `allocate/0` opens own transaction, `allocate_inside_transaction/0` joins caller's transaction so VIP-pick + INSERT share the lock
+- [x] **A-1**: `FzHttp.AccessGroups.Authorizer` — `view_access_groups`, `manage_access_groups` (admin only); unprivileged see nothing
+- [x] **A-2**: `FzHttp.Applications.Authorizer` (NEW since table didn't exist) — `view_applications`, `manage_applications`, `manage_l7_policy`
+- [x] **A-3**: `FzHttp.OrgSettings.Authorizer` — `view_org_settings`, `manage_l7_settings`
+- [x] **T-1**: `test/fz_http/access_groups_test.exs` — 167 LOC, 17 tests across list/create/update/delete/add_member/remove_member/list_groups_for_user + permission denial cases
+- [x] **T-2**: `test/fz_http/applications_test.exs` — 260 LOC, covers VIP allocation, hostname normalisation, cert_source upload-requires-cert, duplicate hostname, passthrough rejected v1, l7_rules schema validation, enable gating, bundle reader, allowed_group round-trip, cascade delete
+- [x] **T-3**: `test/fz_http/l7/vip_allocator_test.exs` — 77 LOC, async:false, exercises first-free pick, skipping used VIPs, concurrent allocations via `Task.async` (advisory lock prevents collision)
+- [x] **T-4**: `test/fz_http/org_settings_test.exs` — 82 LOC, async:false, get/toggle/permission/PubSub broadcast/no-op suppression
+- Test fixtures: `test/support/fixtures/access_groups_fixtures.ex` + `applications_fixtures.ex` for other suites to reuse
+
+##### Phase 3 — Admin UI LiveView (~3 days)
+
+- [ ] **R-1**: routes — `/admin/access-groups`, `/admin/access-groups/:id`, `/admin/settings/l7`
+- [ ] **R-2**: nav menu — "Access Groups" + "L7 Settings" entries in `admin.html.heex`
+- [ ] **U-1**: `AccessGroupsLive.Index` — list (name, source, member count, created); "New Group" button
+- [ ] **U-2**: `AccessGroupsLive.New` — form (name + description + source)
+- [ ] **U-3**: `AccessGroupsLive.Show` — edit name/desc, member list with add/remove, list apps using this group
+- [ ] **U-4**: empty state — "No groups yet — create one to start gating apps"
+- [ ] **U-5**: delete confirm modal — warns "X apps reference this group"
+- [ ] **U-6**: extend `UserLive.Show` — "Group Memberships" section with multi-select
+- [ ] **U-7**: extend `UserLive.Show` — `access_scope` dropdown with warning text on 'all'
+- [ ] **U-8**: extend `ApplicationLive.New/Edit` — add "L7 Settings" panel
+- [ ] **U-9**: hostname field + RFC 1035 validation indicator
+- [ ] **U-10**: backend URL field + validation
+- [ ] **U-11**: cert source picker — radio "Upload" vs "Use NexGuard internal CA"
+- [ ] **U-12**: cert upload form — textareas for `cert.pem` + `key.pem`; client-side preview cert subject + expiry
+- [ ] **U-13**: required groups multi-select
+- [ ] **U-14**: **L7 rules table editor** — add row (method multi-select, path_prefix, action, require_groups, require_mfa_age), reorder via drag, delete row
+- [ ] **U-15**: TLS mode dropdown — 'terminate' default; 'passthrough' disabled with tooltip "Available in v2"
+- [ ] **U-16**: enabled toggle — disabled until cert + hostname + ≥1 rule present
+- [ ] **U-17**: `SettingsLive.L7` — org-level `l7_enabled` toggle
+- [ ] **U-18**: pre-toggle warning — "Enabling L7 starts CoreDNS + Proxy services. Read L7-Architecture before flipping."
+- [ ] **U-19**: post-enable banner — "L7 is now active. X declared apps will route through proxy."
+- [ ] **T-5**: LiveView tests — `access_groups_live_test.exs` (mount, list, create, delete confirm)
+- [ ] **T-6**: LiveView tests — `application_live_l7_test.exs` (form validation, cert preview, rules editor)
+- [ ] **T-7**: LiveView tests — `settings_live_l7_test.exs` (toggle works)
+- [ ] **T-8**: LiveView tests — `user_live_groups_test.exs` (membership assignment)
+
+##### Phase 4 — Polish + docs (~0.5 day)
+
+- [ ] **P-1**: update `NEXGUARD_LOGIC.md` with new L7 §: tables, relationships, lifecycle
+- [ ] **P-2**: migration runbook — `docs/migrations/v2.2.0.md` — order, downtime (none expected — additive only), rollback procedure
+- [ ] **P-3**: `CHANGELOG.md` entry — `[2.2.0] - 2026-06-XX` — L7-A scope
+- [ ] **P-4**: update Obsidian — `Nexguard-Logic.md` add L7 schema; `Roadmap.md` move L7-A from Planned → Done after release
+- [ ] **P-5**: `git tag v2.2.0` + push + update `nexguard-releases/versions.json`
+
+##### Acceptance criteria
+
+Admin can end-to-end:
+- [ ] Create group "engineering" via `/admin/access-groups`
+- [ ] Assign user to group + set `access_scope` in user edit page
+- [ ] Declare app via `/admin/applications/new`: hostname, backend, cert upload, required groups, L7 rules, enabled
+- [ ] Toggle org-level L7 on via `/admin/settings/l7` → banner shows "X apps active"
+- [ ] **No proxy / CoreDNS / step-ca process running** — L7-A delivers data + UI only; enforcement comes in L7-D
+- [ ] DB consistency: deleted group warns about reference apps; cascade rules work
+
+##### Dependencies
+
+- **Blocked by**: nothing — start anytime
+- **Blocks**: L7-B (Identity API + bundle compile need these schemas)
+
+---
+
 ### 🟢 Quick wins (low effort, complete existing features)
 
 | ID | Task | Effort | Notes |
