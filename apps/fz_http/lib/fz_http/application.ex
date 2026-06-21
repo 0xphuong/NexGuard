@@ -45,6 +45,10 @@ defmodule FzHttp.Application do
       # nexguard:l7:{apps,settings,groups}; calls JwtSigner on every
       # compile so must start AFTER JwtSigner.
       {FzHttp.L7.BundleBuilder, name: FzHttp.L7.BundleBuilder},
+      # L7: writes /etc/nexguard/internal-hosts for CoreDNS hosts plugin.
+      # Subscribes to nexguard:l7:apps; rewrites the file on every
+      # Applications mutation. Independent of BundleBuilder.
+      {FzHttp.L7.CoreDnsHosts, name: FzHttp.L7.CoreDnsHosts},
       FzHttpWeb.Endpoint,
 
       # Observability
