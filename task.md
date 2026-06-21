@@ -118,7 +118,7 @@ security bugs.
 - [x] **U-9**: Hostname field RFC 1035 validation (live via `phx-change` already wired through changeset)
 - [x] **U-10**: Backend URL validation (http/https prefix, length)
 - [x] **U-11**: Cert source picker — card-style radios, step_ca active
-- [ ] **U-12**: Cert upload form + X.509 preview (Wave 3b-2)
+- [x] **U-12**: Cert upload form — `cert_pem` + `key_pem` textareas (mono font, phx_debounce 500); inline cert preview block showing parsed Subject + SANs + expiry once the PEM parses (degrades gracefully if invalid); appears only when `cert_source = upload` is selected; existing changeset already enforces SAN matches hostname
 - [x] **U-13**: Required groups picker on `ApplicationsLive.Show` — dropdown of unlinked groups + add; table of allowed groups + remove via styled modal; empty-state hint flags zero-group apps deny everyone (security signal)
 - [x] **U-15**: TLS mode hidden as `terminate` (passthrough deferred to v2 by changeset)
 - [x] **U-16**: Enable toggle gated — uses `set_application_enabled` which fails if no L7 rules; surfaced as flash error

@@ -90,23 +90,81 @@
           </div>
         </label>
 
-        <label class={"ng-radio-card ng-radio-card--disabled"}>
-          <input type="radio" disabled />
+        <label class={"ng-radio-card #{if cert_source == :upload, do: "is-selected", else: ""}"}>
+          <%= radio_button(f, :cert_source, :upload, checked: cert_source == :upload) %>
           <div class="ng-radio-card-body">
             <div class="ng-radio-card-title">
               <i class="mdi mdi-cloud-upload-outline"></i> Upload my own cert
-              <span class="ng-badge-soft">Wave 3b-2</span>
             </div>
             <p class="ng-radio-card-desc">
-              Paste an existing certificate + key (e.g., Let's Encrypt
-              for a real public DNS name). No client-side CA install
-              required. <strong>Coming in the next release.</strong>
+              Paste an existing certificate + private key — typically a
+              Let's Encrypt cert for a real public DNS name. No client-side
+              CA install required because the cert chain is already trusted
+              by every browser.
             </p>
           </div>
         </label>
       </div>
       <p class="ng-field-error"><%= error_tag(f, :cert_source) %></p>
     </div>
+
+    <%= if cert_source == :upload do %>
+      <div class="ng-field">
+        <%= label(f, :cert_pem, "Certificate (PEM)", class: "ng-label") %>
+        <%= textarea(f, :cert_pem,
+              class: "ng-input ng-input--mono #{input_error_class(f, :cert_pem)}",
+              rows: 6,
+              spellcheck: "false",
+              autocomplete: "off",
+              phx_debounce: "500",
+              placeholder: "-----BEGIN CERTIFICATE-----\nMIIDXTCCAkWg...\n-----END CERTIFICATE-----") %>
+        <p class="ng-field-error"><%= error_tag(f, :cert_pem) %></p>
+        <p class="ng-field-hint">
+          Paste the leaf cert; include any intermediates in the same
+          PEM bundle if your CA isn't in the public trust store.
+        </p>
+      </div>
+
+      <%= if @cert_preview do %>
+        <div class="ng-cert-preview">
+          <div class="ng-cert-preview-title">
+            <i class="mdi mdi-certificate-outline"></i> Parsed certificate
+          </div>
+          <dl class="ng-cert-preview-body">
+            <div>
+              <dt>Subject</dt>
+              <dd><code><%= @cert_preview.subject %></code></dd>
+            </div>
+            <%= if @cert_preview.sans != [] do %>
+              <div>
+                <dt>Subject Alt Names</dt>
+                <dd><code><%= Enum.join(@cert_preview.sans, ", ") %></code></dd>
+              </div>
+            <% end %>
+            <div>
+              <dt>Expires</dt>
+              <dd><%= @cert_preview.not_after %></dd>
+            </div>
+          </dl>
+        </div>
+      <% end %>
+
+      <div class="ng-field">
+        <%= label(f, :key_pem, "Private key (PEM)", class: "ng-label") %>
+        <%= textarea(f, :key_pem,
+              class: "ng-input ng-input--mono #{input_error_class(f, :key_pem)}",
+              rows: 6,
+              spellcheck: "false",
+              autocomplete: "off",
+              phx_debounce: "500",
+              placeholder: "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhk...\n-----END PRIVATE KEY-----") %>
+        <p class="ng-field-error"><%= error_tag(f, :key_pem) %></p>
+        <p class="ng-field-hint">
+          Stored encrypted at rest via the NexGuard vault. Never
+          rendered back into the UI after save — re-paste to rotate.
+        </p>
+      </div>
+    <% end %>
 
     <%= hidden_input(f, :tls_mode, value: "terminate") %>
 
