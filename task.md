@@ -89,28 +89,12 @@ proxy security bugs.
 
 ##### Phase 3 — Bundle compile (~1-1.5 days)
 
-- [ ] **B-12**: `FzHttp.L7.BundleBuilder` GenServer — subscribes to `nexguard:l7:apps`, `nexguard:l7:settings`, `nexguard:l7:groups`
-- [ ] **B-13**: Debounced recompile (300 ms quiet-time after last event) so a burst of admin clicks compiles once
-- [ ] **B-14**: Bundle JSON schema (immutable, versioned):
-  ```jsonc
-  { "schema_version": 1,
-    "bundle_version": <monotonic int>,
-    "compiled_at": "2026-06-21T...Z",
-    "org_settings": { "l7_enabled": true },
-    "jwks": [<active + grace keys>],
-    "apps": [
-      { "id", "hostname", "virtual_ip", "backend",
-        "tls_mode", "cert_source", "cert_pem",
-        "l7_rules": [...],
-        "allowed_group_ids": [...],
-        "inject_headers", "strip_headers" }
-    ],
-    "groups": [{ "id", "name", "user_ids": [...] }]
-  }
-  ```
-- [ ] **B-15**: Sign the bundle — detached RS256 signature; header `X-NexGuard-Bundle-Signature: <jws-compact>`
-- [ ] **B-16**: Store latest in `:ets` table for O(1) read; keep last N for last-known-good rollback
-- [ ] **B-17**: Bump `bundle_version` on every successful compile; broadcast `{:bundle_updated, version}` after ETS write
+- [x] **B-12**: `FzHttp.L7.BundleBuilder` GenServer (`apps/fz_http/lib/fz_http/l7/bundle_builder.ex`) subscribes to `nexguard:l7:{apps,settings,groups}` and added to `:full` supervision tree right after `JwtSigner` (compile depends on `JwtSigner.jwks/0` + `OrgSettings.l7_enabled?/0`)
+- [x] **B-13**: `Process.send_after(self(), :compile, 300)` per event, prior timer canceled — a burst coalesces to one compile 300 ms after the last event
+- [x] **B-14**: Bundle map matches task.md shape with `inject_headers`/`strip_headers` emitted as `[]` since the `applications` schema doesn't carry them yet — projection picks them up automatically when the columns land
+- [x] **B-15**: `X-NexGuard-Bundle-Signature` = JWT with `bundle_sha256` claim signed by `JwtSigner.sign/2` (`expires_in: 3600`). Pragmatic alternative to RFC 7797 detached JWS — proxy verifies the JWT, then compares the claim to its own SHA-256 of the body
+- [x] **B-16**: Named, `:public`, `read_concurrency: true` ETS table `:l7_bundle` — `{:current, entry}` for hot read + `{{:history, n}, entry}` LKG ring (last 3 versions) for proxy rollback
+- [x] **B-17**: `:ets.update_counter(table, :version_counter, 1, {:version_counter, 0})` for atomic monotonic version; broadcasts `{:bundle_updated, version}` on `nexguard:l7:bundle` after ETS write
 
 ##### Phase 4 — Bundle endpoint (~0.5 day)
 

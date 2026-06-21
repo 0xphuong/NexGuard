@@ -41,6 +41,10 @@ defmodule FzHttp.Application do
       # L7: signs the X-NexGuard-Identity-Jwt header (ADR-010).
       # Depends on Repo + Vault (Cloak-encrypted private_pem).
       {FzHttp.L7.JwtSigner, name: FzHttp.L7.JwtSigner},
+      # L7: compiles + signs the policy bundle. Subscribes to
+      # nexguard:l7:{apps,settings,groups}; calls JwtSigner on every
+      # compile so must start AFTER JwtSigner.
+      {FzHttp.L7.BundleBuilder, name: FzHttp.L7.BundleBuilder},
       FzHttpWeb.Endpoint,
 
       # Observability
