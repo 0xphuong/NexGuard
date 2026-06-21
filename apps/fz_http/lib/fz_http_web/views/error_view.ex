@@ -11,17 +11,19 @@ defmodule FzHttpWeb.ErrorView do
     %{"error" => "not_found"}
   end
 
-  # By default, Phoenix returns the status message from
-  # the template name. For example, "404.html" becomes
-  # "Not Found".
-  def template_not_found(template, assigns) do
-    default_reason = Phoenix.Controller.status_message_from_template(template)
-    reason = assigns[:reason] || default_reason
+  # Never pass `assigns[:reason]` straight through — it can be an
+  # exception struct (e.g. `%Phoenix.Router.NoRouteError{}` raised by
+  # the router on an unmatched path) and `Phoenix.HTML.Safe` has no
+  # impl for arbitrary structs, so the error-renderer crashes
+  # rendering the error. Always emit a plain string (HTML) or a
+  # JSON-safe map.
+  def template_not_found(template, _assigns) do
+    status_msg = Phoenix.Controller.status_message_from_template(template)
 
     if String.ends_with?(template, ".json") do
-      %{"error" => reason}
+      %{"error" => status_msg |> String.downcase() |> String.replace(" ", "_")}
     else
-      reason
+      status_msg
     end
   end
 end
