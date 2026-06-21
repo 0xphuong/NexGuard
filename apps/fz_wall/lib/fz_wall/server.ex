@@ -4,8 +4,14 @@ defmodule FzWall.Server do
   """
   use GenServer
   import FzWall.CLI
+  require Logger
+
+  alias Phoenix.PubSub
 
   @init_timeout 1_000
+  # L7 ZTNA — subscribed at boot. The fz_http side already publishes
+  # `{:l7_enabled_changed, bool}` via `FzHttp.OrgSettings.set_l7_enabled/3`.
+  @l7_settings_topic "nexguard:l7:settings"
 
   def start_link(_) do
     GenServer.start_link(__MODULE__, %{}, name: {:global, :fz_wall_server})
@@ -16,7 +22,44 @@ defmodule FzWall.Server do
     cli().setup_firewall()
     {:ok, settings} = GenServer.call(http_pid(), :load_settings, @init_timeout)
     cli().restore(settings)
+
+    # L7 ZTNA plumbing (ADR-007). The fwmark route is installed once
+    # regardless of the toggle — zero cost when no marked packets
+    # flow. The TPROXY chain itself follows `l7_enabled`.
+    cli().setup_fwmark_route()
+
+    if l7_enabled?() do
+      cli().install_l7()
+    end
+
+    PubSub.subscribe(FzHttp.PubSub, @l7_settings_topic)
+
     {:ok, settings}
+  end
+
+  @impl GenServer
+  def handle_info({:l7_enabled_changed, true}, state) do
+    Logger.info("[fz_wall] :l7_enabled_changed → true; installing TPROXY chain")
+    cli().install_l7()
+    {:noreply, state}
+  end
+
+  def handle_info({:l7_enabled_changed, false}, state) do
+    Logger.info("[fz_wall] :l7_enabled_changed → false; removing TPROXY chain")
+    cli().remove_l7()
+    {:noreply, state}
+  end
+
+  def handle_info(_msg, state), do: {:noreply, state}
+
+  defp l7_enabled? do
+    # Wrapped in try/rescue so a missing org_settings row (unlikely;
+    # migration seeds it) doesn't prevent fz_wall from booting.
+    FzHttp.OrgSettings.l7_enabled?()
+  rescue
+    e ->
+      Logger.warning("[fz_wall] OrgSettings.l7_enabled?/0 raised: #{inspect(e)}")
+      false
   end
 
   @impl GenServer

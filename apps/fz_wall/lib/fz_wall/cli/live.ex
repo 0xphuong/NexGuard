@@ -7,6 +7,21 @@ defmodule FzWall.CLI.Live do
   """
   import FzWall.CLI.Helpers.Sets
   import FzWall.CLI.Helpers.Nft
+  import FzWall.CLI.Helpers.Tproxy, only: [install_l7_chain: 0, remove_l7_chain: 0, install_fwmark_route: 0]
+
+  # ── L7 ZTNA TPROXY chain (ADR-007) ─────────────────────────────
+
+  @doc "Install the L7 prerouting chain when `l7_enabled` flips on."
+  def install_l7, do: install_l7_chain()
+
+  @doc "Remove the L7 prerouting chain when `l7_enabled` flips off."
+  def remove_l7, do: remove_l7_chain()
+
+  @doc """
+  Set up the loopback table + fwmark rule. Called once at fz_wall
+  boot — zero-cost when no marked packets flow.
+  """
+  def setup_fwmark_route, do: install_fwmark_route()
 
   @doc """
   Setup
