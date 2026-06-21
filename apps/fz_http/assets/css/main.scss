@@ -1029,6 +1029,22 @@ pre {
   &--system    { background: #fef3c7; color: #92400e; }
 }
 
+/* L7 access_scope badge — quiet for normal (limited), warm red for
+   the break-glass bypass (all). The warm color is intentional: an
+   admin scanning a user row should clock the bypass immediately. */
+.ng-scope-badge {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+
+  &--limited { background: #f1f5f9; color: #475569; }
+  &--all     { background: #fee2e2; color: #b91c1c; }
+}
+
 .ng-device-count {
   display: inline-flex;
   align-items: center;

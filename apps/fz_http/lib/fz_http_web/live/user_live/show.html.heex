@@ -153,6 +153,149 @@
     ) %>
   </div>
 
+  <%# ── L7 Group Memberships ────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-account-group-outline"></i> Group Memberships
+        <span class="ng-section-badge"><%= length(@user_groups) %></span>
+      </span>
+    </div>
+
+    <div style="padding: 1.25rem 1.5rem;">
+      <%= if @available_groups != [] do %>
+        <form id="add-to-group-form" phx-submit="add_to_group" class="ng-form-inline" autocomplete="off">
+          <div class="ng-field" style="flex: 1; margin: 0;">
+            <label class="ng-label">Add to group</label>
+            <select name="group_id" class="ng-input" required>
+              <option value="">Select a group…</option>
+              <%= for g <- @available_groups do %>
+                <option value={g.id}><%= g.name %></option>
+              <% end %>
+            </select>
+          </div>
+          <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
+            <i class="mdi mdi-plus"></i> Add
+          </button>
+        </form>
+      <% else %>
+        <p class="ng-td-muted" style="margin-bottom:1rem">
+          <%= if @user_groups == [] do %>
+            <i class="mdi mdi-information-outline"></i>
+            No access groups defined yet.
+            <.link navigate={~p"/access-groups"}>Create one</.link> to start gating L7 apps.
+          <% else %>
+            This user is in every existing group.
+          <% end %>
+        </p>
+      <% end %>
+    </div>
+
+    <%= if @user_groups == [] do %>
+      <div style="padding: 0 1.5rem 1.5rem;">
+        <div class="ng-empty-state ng-empty-state--inline">
+          <p class="ng-empty-state-hint">
+            Not in any groups. Without membership, this user cannot reach any
+            L7-managed application that requires a group (unless
+            <code>access_scope</code> below is set to <strong>all</strong>).
+          </p>
+        </div>
+      </div>
+    <% else %>
+      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th>Group</th>
+              <th>Source</th>
+              <th>Description</th>
+              <th class="ng-th-center" style="width: 3rem;"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <%= for g <- @user_groups do %>
+              <tr id={"user-group-#{g.id}"}>
+                <td>
+                  <div class="ng-user-cell">
+                    <div class="ng-avatar ng-avatar--group">
+                      <i class="mdi mdi-account-group-outline"></i>
+                    </div>
+                    <div class="ng-user-info">
+                      <.link navigate={~p"/access-groups/#{g.id}"} class="ng-user-email">
+                        <%= g.name %>
+                      </.link>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class={"ng-source-badge ng-source-badge--#{g.source}"}>
+                    <%= g.source %>
+                  </span>
+                </td>
+                <td class="ng-td-muted">
+                  <%= g.description || "—" %>
+                </td>
+                <td class="ng-td-center">
+                  <button
+                    class="ng-dismiss-btn"
+                    title="Remove from group"
+                    phx-click="remove_from_group"
+                    phx-value-group_id={g.id}
+                    data-confirm={"Remove #{@user.email} from #{g.name}?"}
+                  >
+                    <i class="mdi mdi-account-minus-outline"></i>
+                  </button>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
+  </div>
+
+  <%# ── L7 Access Scope ─────────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-shield-key-outline"></i> L7 Access Scope
+      </span>
+      <span class={"ng-scope-badge ng-scope-badge--#{@user.access_scope}"}>
+        <%= @user.access_scope %>
+      </span>
+    </div>
+    <div style="padding: 1.25rem 1.5rem;">
+      <p class="ng-form-hint" style="margin-top:0">
+        Controls whether L7-managed apps enforce group membership for this user.
+        <strong>Limited</strong> is the default — normal group-intersection check applies.
+        <strong>All</strong> is a break-glass bypass that lets the user reach every
+        managed app without group membership. Use sparingly; every change is audited.
+      </p>
+
+      <div class="ng-form-inline" style="margin-top:1rem">
+        <%= if @user.access_scope == :limited do %>
+          <button
+            class="ng-danger-btn"
+            phx-click="set_access_scope"
+            phx-value-scope="all"
+            data-confirm={"Grant ALL-apps bypass to #{@user.email}? This is a break-glass action and will be audited."}
+          >
+            <i class="mdi mdi-key-variant"></i> Grant bypass (set to ALL)
+          </button>
+        <% else %>
+          <button
+            class="ng-secondary-btn"
+            phx-click="set_access_scope"
+            phx-value-scope="limited"
+            data-confirm={"Revert #{@user.email} to LIMITED scope? Group-intersection will be enforced again."}
+          >
+            <i class="mdi mdi-shield-check-outline"></i> Revert to LIMITED
+          </button>
+        <% end %>
+      </div>
+    </div>
+  </div>
+
   <%# ── OIDC Connections ────────────────────────────────────────────────────── %>
   <%= if length(@connections) > 0 do %>
     <.live_component

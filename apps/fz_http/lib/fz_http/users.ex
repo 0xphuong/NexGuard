@@ -159,6 +159,44 @@ defmodule FzHttp.Users do
     |> Repo.update()
   end
 
+  @doc """
+  Update a user's L7 access_scope (`:limited` | `:all`). Admin only,
+  audited. `:all` is a break-glass bypass — never set by default,
+  always logged with both before+after values.
+  """
+  def set_access_scope(%User{} = user, scope,
+                       %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil)
+      when scope in [:limited, :all] do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()) do
+      if user.access_scope == scope do
+        {:ok, user}
+      else
+        case user
+             |> Ecto.Changeset.change(%{access_scope: scope})
+             |> Repo.update() do
+          {:ok, updated} ->
+            AuditLogs.log("user.access_scope.change",
+              actor_id: actor.id,
+              actor_email: actor.email,
+              ip_address: ip_address,
+              target_type: "user",
+              target_id: updated.id,
+              target_label: updated.email,
+              metadata: %{
+                before: to_string(user.access_scope),
+                after:  to_string(scope)
+              }
+            )
+
+            {:ok, updated}
+
+          other ->
+            other
+        end
+      end
+    end
+  end
+
   def update_self(attrs, %Auth.Subject{actor: {:user, %User{} = user}} = subject, ip_address \\ nil) do
     with :ok <- Auth.ensure_has_permissions(subject, Authorizer.edit_own_profile_permission()),
          {:ok, updated_user} <-

@@ -111,8 +111,8 @@ security bugs.
 - [x] **U-3**: `AccessGroupsLive.Show` — inline edit name/desc, member roster (table) with add-by-email + remove, danger zone delete
 - [x] **U-4**: Empty state on Index — "No groups yet — create one to start gating apps"
 - [x] **U-5**: Delete confirm — `data-confirm` warns about member + app reference cascade
-- [ ] **U-6**: extend `UserLive.Show` — "Group Memberships" section with multi-select
-- [ ] **U-7**: extend `UserLive.Show` — `access_scope` dropdown with warning text on 'all'
+- [x] **U-6**: extend `UserLive.Show` — "Group Memberships" card; add-by-dropdown form, table with remove, navigates to group detail on name click
+- [x] **U-7**: extend `UserLive.Show` — "L7 Access Scope" card with badge (`limited`/`all`); single-button toggle with `data-confirm` break-glass warning; `Users.set_access_scope/4` audited
 - [ ] **U-8**: extend `ApplicationLive.New/Edit` — add "L7 Settings" panel
 - [ ] **U-9**: hostname field + RFC 1035 validation indicator
 - [ ] **U-10**: backend URL field + validation

@@ -5,7 +5,7 @@ defmodule FzHttpWeb.UserLive.Show do
   """
   use FzHttpWeb, :live_view
 
-  alias FzHttp.{Devices, Auth.OIDC, Users}
+  alias FzHttp.{Devices, Auth.OIDC, Users, AccessGroups}
   alias FzHttpWeb.ErrorHelpers
 
   @impl Phoenix.LiveView
@@ -24,7 +24,32 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:page_title, "Users")
      |> assign(:rules_path, ~p"/rules")
      |> assign(:show_delete_confirm, false)
-     |> assign(:show_mote_confirm, false)}
+     |> assign(:show_mote_confirm, false)
+     |> load_l7_assigns(user)}
+  end
+
+  # ── L7 group memberships + access_scope ──────────────────────────
+
+  defp load_l7_assigns(socket, user) do
+    user_groups =
+      case AccessGroups.list_groups(socket.assigns.subject) do
+        {:ok, all} ->
+          {user_groups, available} =
+            Enum.split_with(all, fn g ->
+              g.id in Enum.map(AccessGroups.list_groups_for_user(user), & &1.id)
+            end)
+
+          socket
+          |> assign(:user_groups, user_groups)
+          |> assign(:available_groups, available)
+
+        _ ->
+          socket
+          |> assign(:user_groups, [])
+          |> assign(:available_groups, [])
+      end
+
+    user_groups
   end
 
   @doc """
@@ -83,6 +108,64 @@ defmodule FzHttpWeb.UserLive.Show do
          socket
          |> assign(:show_mote_confirm, false)
          |> put_flash(:error, "Error updating user: #{inspect(reason)}")}
+    end
+  end
+
+  # ── Group membership handlers ────────────────────────────────────
+
+  def handle_event("add_to_group", %{"group_id" => group_id}, socket) do
+    user = socket.assigns.user
+
+    with {:ok, group} <- AccessGroups.fetch_group_by_id(group_id, socket.assigns.subject),
+         {:ok, _} <- AccessGroups.add_member(group, user, socket.assigns.subject,
+                       socket.assigns.remote_ip) do
+      {:noreply,
+       socket
+       |> load_l7_assigns(user)
+       |> put_flash(:info, "Added to #{group.name}.")}
+    else
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not add to group.")}
+    end
+  end
+
+  def handle_event("remove_from_group", %{"group_id" => group_id}, socket) do
+    user = socket.assigns.user
+
+    with {:ok, group} <- AccessGroups.fetch_group_by_id(group_id, socket.assigns.subject),
+         {:ok, :removed} <- AccessGroups.remove_member(group, user, socket.assigns.subject,
+                              socket.assigns.remote_ip) do
+      {:noreply,
+       socket
+       |> load_l7_assigns(user)
+       |> put_flash(:info, "Removed from #{group.name}.")}
+    else
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not remove from group.")}
+    end
+  end
+
+  # ── Access scope toggle ──────────────────────────────────────────
+
+  def handle_event("set_access_scope", %{"scope" => scope}, socket) do
+    scope_atom = String.to_existing_atom(scope)
+
+    case Users.set_access_scope(socket.assigns.user, scope_atom, socket.assigns.subject,
+                                  socket.assigns.remote_ip) do
+      {:ok, updated} ->
+        msg =
+          case scope_atom do
+            :all      -> "Access scope set to ALL — this user now bypasses L7 group checks."
+            :limited  -> "Access scope reset to LIMITED — normal group checks apply."
+          end
+
+        {:noreply,
+         socket
+         |> assign(:user, updated)
+         |> put_flash(:info, msg)}
+
+      {:error, _} ->
+        {:noreply, put_flash(socket, :error, "Could not update access scope.")}
     end
   end
 
