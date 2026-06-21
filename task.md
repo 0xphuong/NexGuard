@@ -72,7 +72,7 @@ proxy security bugs.
 
 ##### Phase 1 — JWT signing infrastructure (~0.5 day)
 
-- [ ] **B-1**: migration `l7_signing_keys` — singleton-style; columns `id`, `kid` (UUID, public), `private_pem` (Cloak-encrypted), `public_pem`, `algorithm` (`RS256`), `active` boolean, `rotated_at`, timestamps
+- [x] **B-1**: migration `20260621000001_create_l7_signing_keys` — `id` UUID, `kid` (unique), `algorithm` default `RS256`, `private_pem :binary` (Cloak-encrypted at app layer), `public_pem :text`, `active boolean`, `rotated_at`, partial unique index on `active = true` enforces single-active-key invariant
 - [ ] **B-2**: `FzHttp.L7.JwtSigner` GenServer — loads active key on boot; `sign/2` returns compact JWS; in-memory cache of last N keys for verification grace window
 - [ ] **B-3**: `FzHttp.L7.JwtSigner.rotate/0` — generates new RS256 keypair, deactivates old (kept for `verify` grace), audit `l7.signing_key.rotate`
 - [ ] **B-4**: `GET /.well-known/jwks.json` public endpoint serving active + recent keys in JWKS format
