@@ -79,13 +79,13 @@ proxy security bugs.
 
 ##### Phase 2 — Identity API (~1 day)
 
-- [ ] **B-5**: `FzHttp.L7.Identity` context — `lookup_by_vpn_ip/1` returns `%{user_id, email, role, access_scope, groups: [name], device_id, mfa_age_seconds, signed_in_at}` or `:not_found`
-- [ ] **B-6**: VPN-IP → device join — query `devices.ipv4` OR `devices.ipv6` matching the input; fail-closed on multi-match (would indicate data corruption)
-- [ ] **B-7**: `mfa_age_seconds` = `(now - users.last_signed_in_at)` when MFA verified at sign-in; nil when MFA was never asked
-- [ ] **B-8**: `FzHttpWeb.Internal.IdentityController` + `GET /internal/sessions/by_vpn_ip/:ip` route
-- [ ] **B-9**: 404 with `{"error":"unknown_vpn_ip"}` when no device matches — proxy treats as "deny, force re-auth"
-- [ ] **B-10**: Cache-Control: max-age=30 + ETag based on user.updated_at — proxy hits us at most once per 30 s per connection
-- [ ] **B-11**: `test/fz_http/l7/identity_test.exs` — lookup by IPv4, IPv6, 404, mfa_age computation
+- [x] **B-5**: `FzHttp.L7.Identity.lookup_by_vpn_ip/1` returns `{:ok, identity, cache_meta}` or `:not_found`. Cache meta carries `user.updated_at` for ETag (kept out of the wire payload so the identity map remains a strict projection of public fields)
+- [x] **B-6**: Single preloaded `from(d in Device, where: d.ipv4 == ^inet or d.ipv6 == ^inet, preload: [user: :groups])`; multi-match falls through the `with` clause to `:not_found`. Also fail-closes on `user.disabled_at != nil`
+- [x] **B-7**: `mfa_age_seconds` = `DateTime.diff(now, last_signed_in_at)` when `Repo.exists?(mfa_methods where user_id = ?)`; nil when no MFA method (timestamp would reflect password-only sign-in) or when `last_signed_in_at` is nil
+- [x] **B-8**: `FzHttpWeb.Internal.IdentityController.show/2` mounted at `GET /internal/sessions/by_vpn_ip/:ip` under new `:api_internal` pipeline (placeholder; Phase 6 B-27 inserts the mTLS plug)
+- [x] **B-9**: 404 + `{"error":"unknown_vpn_ip"}` on unparseable / unknown / disabled / multi-match
+- [x] **B-10**: `Cache-Control: private, max-age=30` + weak ETag `W/"md5(user_id:user.updated_at)"`. `If-None-Match` returns 304. PubSub topic `nexguard:l7:identity` (Phase 5 B-23) handles group/scope mutations that don't move `updated_at`
+- [x] **B-11**: `test/fz_http/l7/identity_test.exs` — IPv4 + IPv6 lookup, 404 paths, disabled-user fail-close, group projection, MFA-age three branches. Plus `test/fz_http_web/controllers/internal/identity_controller_test.exs` for the HTTP layer (cache header + 304 + etag invalidation)
 
 ##### Phase 3 — Bundle compile (~1-1.5 days)
 

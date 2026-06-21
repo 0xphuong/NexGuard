@@ -33,6 +33,13 @@ defmodule FzHttpWeb.Router do
     plug FzHttpWeb.Plug.NativeAuthBearer
   end
 
+  # L7 proxy ↔ NexGuard pipeline. Phase 1 mounts routes here unauthenticated;
+  # Phase 6 (B-27) inserts FzHttpWeb.Plugs.MtlsInternal to require a valid
+  # internal-CA client cert without any route change.
+  pipeline :api_internal do
+    plug :accepts, ["json"]
+  end
+
   pipeline :browser_static do
     plug :accepts, ["html", "xml"]
   end
@@ -277,6 +284,14 @@ defmodule FzHttpWeb.Router do
     pipe_through :api_public
 
     get "/jwks.json", WellKnownController, :jwks
+  end
+
+  # L7 ZTNA — internal proxy ↔ NexGuard control endpoints (ADR-010).
+  # Phase 1 unauthenticated; Phase 6 swaps :api_internal to require mTLS.
+  scope "/internal", FzHttpWeb.Internal do
+    pipe_through :api_internal
+
+    get "/sessions/by_vpn_ip/:ip", IdentityController, :show
   end
 
   if Mix.env() in [:dev, :test] do
