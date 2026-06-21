@@ -270,6 +270,15 @@ defmodule FzHttpWeb.Router do
     get "/config.xml", BrowserController, :config
   end
 
+  # L7 ZTNA — public JWKS for proxy/verifier consumption (ADR-010, RFC 8615).
+  # Intentionally unauthenticated: public keys are not secrets, and Envoy must
+  # fetch them before any TLS handshake against `/internal/*`.
+  scope "/.well-known", FzHttpWeb do
+    pipe_through :api_public
+
+    get "/jwks.json", WellKnownController, :jwks
+  end
+
   if Mix.env() in [:dev, :test] do
     import Phoenix.LiveDashboard.Router
 
