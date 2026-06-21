@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-06-19 · Server at **v2.1.1** · Pairs with NexGuard Connect **v0.0.9**
+Last updated: 2026-06-21 · Server at **v2.2.0** · Pairs with NexGuard Connect **v0.0.9**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).
@@ -14,6 +14,7 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v2.2.0** (2026-06-21) | L7-A: admin data + UI for upcoming L7 proxy — access groups + applications with full L7 rules editor + cert upload + org kill switch. Proxy ships dormant in 2.2.0; data plane lands in L7-B → L7-F |
 | **v2.1.1** (2026-06-19) | Admin notifications for pending device approvals — in-portal badge + Notifications page fire on enrollment, auto-clear on approve/revoke/delete |
 | **v2.1.0** (2026-06-14) | Admin IP override (per-device IPv4/IPv6) + device approval workflow (`status: pending → approved`) |
 | **v2.0.1** (2026-06-14) | MFA support for native client flow (reuses portal MFA challenge) |
@@ -24,13 +25,13 @@ Connect client. Headline releases:
 
 ## ⏳ Pending — ready to implement when prioritized
 
-### 🚀 ZTNA L7 — Phase 2 (design locked, ready to start)
+### 🚧 ZTNA L7 — Phase 2 in progress
 
 Layer 7 identity-aware access. L3/L4 enforcement is shipped (nftables
 + WG); L7 adds HTTP-method / path / header / MFA-age policy via a
 TLS-terminating transparent proxy in front of managed apps. Full
 architecture in [`docs/decisions.md`](docs/decisions.md) ADR-007 →
-ADR-013 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture).
+ADR-014 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture).
 
 **Locked design** (chốt 2026-06-19):
 - **Scope**: L7 enforces **only on declared internal-domain apps**;
@@ -39,32 +40,197 @@ ADR-013 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguar
 - Proxy: custom Go binary (ADR-007)
 - Policy language: inline JSONB rules, first-match, default deny; OPA Rego deferred (ADR-008)
 - TLS: terminate by default; passthrough deferred to v2 (ADR-009)
-- **Per-app cert source**: `upload` (admin's own cert, typical for
-  real-DNS hostnames) OR `step_ca` (internal CA, typical for `.lan` /
-  `.internal` hostnames). Both first-class (ADR-011 + ADR-014).
+- **Per-app cert source**: `upload` OR `step_ca` (ADR-011 + ADR-014)
 - Identity propagation: plain headers + RS256-signed JWT, IAP-style (ADR-010)
-- Internal CA: smallstep `step-ca`, 90-day leaf certs via ACME — **deployed only when at least one declared app uses `cert_source: step_ca`** (ADR-011)
-- DNS: CoreDNS hosts plugin, **selective override** — only declared
-  hostnames; everything else passes through to upstream DNS (ADR-012)
+- Internal CA: smallstep `step-ca`, ACME-issued 90-day leafs — conditional (ADR-011)
+- DNS: CoreDNS hosts plugin, **selective override** only (ADR-012)
 - Policy distribution: Phoenix-pulled JSON bundle + PubSub invalidation (ADR-013)
-- ext_authz gRPC interface: **document only**, not implemented in v1
+- ext_authz gRPC interface: **document only**, not v1
 
-| ID | Phase | Scope | Effort | Tag |
-|---|---|---|---|---|
-| **L7-A** | Foundation | DB schema (`access_groups`, `user_group_memberships`, `application_allowed_groups`, `applications.{hostname, virtual_ip, backend, cert_source, cert_pem, key_pem, l7_rules, enabled}`, `users.access_scope`, `org_settings.l7_enabled`); admin UI: groups + **per-app declaration form** (hostname, backend URL, cert source picker, upload-cert form, required groups, L7 rules editor); VIP allocator (10.99.0.0/16); per-org L7 toggle | 5-7 days | server `v2.2.0` |
-| **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}`, `/internal/bundle.json` (signed, mTLS) — includes only `enabled = true` apps; Phoenix.PubSub broadcasts (`:bundle_updated`, `:identity_updated`, `:l7_enabled_changed`) | 3-5 days | server `v2.3.0` |
-| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `org_settings.l7_enabled`); CoreDNS deploy with hosts plugin + reload; **selective hosts file** generated from declared apps only; non-declared queries forward upstream | 3-4 days | server `v2.4.0` |
-| **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT-signed header inject, reverse proxy; **rejects unknown VIPs with 404 + `X-NexGuard-Reason: unknown-app`** | 7-10 days | server `v3.0.0` |
-| **L7-E** | Operations | Hot-reload bundle (atomic swap + last-known-good fallback), audit log integration, branded deny / unknown-app pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` |
-| **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate setup, leaf cert per app — **only deployed if any declared app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` |
-| **L7-G** | Client integration (conditional) | NexGuard Connect auto-installs internal CA root via `Security.framework` — **only invoked when the active server has `cert_source: step_ca` apps**; admin banner on install; MDM `.mobileconfig` template documented | 1-2 days | client `v0.1.0` |
+| ID | Phase | Scope | Effort | Tag | Status |
+|---|---|---|---|---|---|
+| **L7-A** | Foundation | DB schema + contexts + admin UI for groups, apps, L7 rules editor, org toggle | 5-7 days | server `v2.2.0` | ✅ **shipped 2026-06-21** |
+| **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed, mTLS); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ⏳ **active** |
+| **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ⏳ |
+| **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ⏳ |
+| **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` | ⏳ |
+| **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate, leaf per app — **only if any app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` | ⏳ |
+| **L7-G** | Client integration (conditional) | NexGuard Connect auto-installs internal CA root via `Security.framework`; MDM `.mobileconfig` documented | 1-2 days | client `v0.1.0` | ⏳ |
 
-**Total estimate**: ~3-5 weeks dev + ~1-2 weeks integration testing.
+**Total remaining**: ~2.5-4 weeks dev + ~1-2 weeks integration testing.
 
 **Risks tracked** in [`docs/decisions.md`](docs/decisions.md):
 TPROXY edge cases (asymmetric routing, IPv6) · smallstep CA outage ·
-bundle compile latency at scale · browser cert trust UX · custom proxy
-security bugs.
+bundle compile latency at scale · browser cert trust UX · custom
+proxy security bugs.
+
+---
+
+#### L7-B detailed checklist — Identity API + bundle compile (server `v2.3.0`, ~3-5 days)
+
+**Scope reminder**: pure Phoenix work — no daemons deployed yet. Adds the two HTTP endpoints the future L7 proxy (L7-D) will read from. Output is mTLS-only.
+
+##### Phase 1 — JWT signing infrastructure (~0.5 day)
+
+- [ ] **B-1**: migration `l7_signing_keys` — singleton-style; columns `id`, `kid` (UUID, public), `private_pem` (Cloak-encrypted), `public_pem`, `algorithm` (`RS256`), `active` boolean, `rotated_at`, timestamps
+- [ ] **B-2**: `FzHttp.L7.JwtSigner` GenServer — loads active key on boot; `sign/2` returns compact JWS; in-memory cache of last N keys for verification grace window
+- [ ] **B-3**: `FzHttp.L7.JwtSigner.rotate/0` — generates new RS256 keypair, deactivates old (kept for `verify` grace), audit `l7.signing_key.rotate`
+- [ ] **B-4**: `GET /.well-known/jwks.json` public endpoint serving active + recent keys in JWKS format
+
+##### Phase 2 — Identity API (~1 day)
+
+- [ ] **B-5**: `FzHttp.L7.Identity` context — `lookup_by_vpn_ip/1` returns `%{user_id, email, role, access_scope, groups: [name], device_id, mfa_age_seconds, signed_in_at}` or `:not_found`
+- [ ] **B-6**: VPN-IP → device join — query `devices.ipv4` OR `devices.ipv6` matching the input; fail-closed on multi-match (would indicate data corruption)
+- [ ] **B-7**: `mfa_age_seconds` = `(now - users.last_signed_in_at)` when MFA verified at sign-in; nil when MFA was never asked
+- [ ] **B-8**: `FzHttpWeb.Internal.IdentityController` + `GET /internal/sessions/by_vpn_ip/:ip` route
+- [ ] **B-9**: 404 with `{"error":"unknown_vpn_ip"}` when no device matches — proxy treats as "deny, force re-auth"
+- [ ] **B-10**: Cache-Control: max-age=30 + ETag based on user.updated_at — proxy hits us at most once per 30 s per connection
+- [ ] **B-11**: `test/fz_http/l7/identity_test.exs` — lookup by IPv4, IPv6, 404, mfa_age computation
+
+##### Phase 3 — Bundle compile (~1-1.5 days)
+
+- [ ] **B-12**: `FzHttp.L7.BundleBuilder` GenServer — subscribes to `nexguard:l7:apps`, `nexguard:l7:settings`, `nexguard:l7:groups`
+- [ ] **B-13**: Debounced recompile (300 ms quiet-time after last event) so a burst of admin clicks compiles once
+- [ ] **B-14**: Bundle JSON schema (immutable, versioned):
+  ```jsonc
+  { "schema_version": 1,
+    "bundle_version": <monotonic int>,
+    "compiled_at": "2026-06-21T...Z",
+    "org_settings": { "l7_enabled": true },
+    "jwks": [<active + grace keys>],
+    "apps": [
+      { "id", "hostname", "virtual_ip", "backend",
+        "tls_mode", "cert_source", "cert_pem",
+        "l7_rules": [...],
+        "allowed_group_ids": [...],
+        "inject_headers", "strip_headers" }
+    ],
+    "groups": [{ "id", "name", "user_ids": [...] }]
+  }
+  ```
+- [ ] **B-15**: Sign the bundle — detached RS256 signature; header `X-NexGuard-Bundle-Signature: <jws-compact>`
+- [ ] **B-16**: Store latest in `:ets` table for O(1) read; keep last N for last-known-good rollback
+- [ ] **B-17**: Bump `bundle_version` on every successful compile; broadcast `{:bundle_updated, version}` after ETS write
+
+##### Phase 4 — Bundle endpoint (~0.5 day)
+
+- [ ] **B-18**: `FzHttpWeb.Internal.BundleController` + `GET /internal/bundle.json`
+- [ ] **B-19**: Returns ETS-cached bundle; ETag = `"<bundle_version>"`; 304 on If-None-Match match (proxy poll-cheap)
+- [ ] **B-20**: `?since=<n>` query param — return 304 if `bundle_version <= n` (proxy long-poll)
+- [ ] **B-21**: `test/fz_http_web/internal/bundle_controller_test.exs`
+
+##### Phase 5 — PubSub broadcast wiring + identity invalidation (~0.5 day)
+
+- [ ] **B-22**: Add `nexguard:l7:groups` PubSub broadcasts to `AccessGroups.create_group/3`, `update_group/4`, `delete_group/3`, `add_member/4`, `remove_member/4` — currently missing
+- [ ] **B-23**: `nexguard:l7:identity` topic + `{:identity_updated, vpn_ip}` broadcasts from `Users.set_access_scope/4`, `Users.update_user/4`, `AccessGroups.add_member/4` + `remove_member/4` (when target user has VPN device)
+- [ ] **B-24**: Helper `FzHttp.L7.broadcast_identity_change/1` — resolves user → devices → VPN IPs → one broadcast per IP
+- [ ] **B-25**: Document broadcast topics + payloads in `NEXGUARD_LOGIC.md` §17
+
+##### Phase 6 — mTLS internal scope (~0.5 day)
+
+- [ ] **B-26**: New router scope `pipe_through [:mtls_internal]` mounting `/internal/*` + `/.well-known/jwks.json`
+- [ ] **B-27**: `FzHttpWeb.Plugs.MtlsInternal` — verifies client cert against the internal-CA pool; on fail returns 401
+- [ ] **B-28**: Generate proxy client cert via existing `FzHttp.Vault` storage; admin can rotate via `mix nexguard.rotate_proxy_cert`
+- [ ] **B-29**: Public `/.well-known/jwks.json` exempted from mTLS (verifiers need it without a cert)
+- [ ] **B-30**: Runbook section for proxy cert provisioning
+
+##### Phase 7 — Polish + release (~0.5 day)
+
+- [ ] **B-31**: Update `CHANGELOG.md` `[2.3.0]` entry covering identity API, bundle endpoint, JWT signing, PubSub wiring
+- [ ] **B-32**: Update `NEXGUARD_LOGIC.md` §17 — bundle schema, identity payload, mTLS endpoint config
+- [ ] **B-33**: `docs/migrations/v2.3.0.md` runbook — `l7_signing_keys` migration + bootstrap key generation (`mix nexguard.l7.bootstrap_keys`)
+- [ ] **B-34**: Update Obsidian `Roadmap.md` + `L7-Architecture.md` with L7-B shipped
+- [ ] **B-35**: Tag `v2.3.0` + push + bump `nexguard-releases/versions.json`
+
+##### Acceptance criteria
+
+- [ ] Admin can hit `GET /.well-known/jwks.json` from any client → returns JWKS JSON with active key
+- [ ] Proxy with valid client cert hits `GET /internal/sessions/by_vpn_ip/100.64.0.5` → identity payload OR 404
+- [ ] Proxy with valid client cert hits `GET /internal/bundle.json` → signed bundle with `apps` and `groups` arrays
+- [ ] Admin toggles L7 via `/settings/l7` → bundle recompiles within 300 ms → `bundle_version` increments → PubSub `{:bundle_updated, N+1}` broadcast received by test subscriber
+- [ ] Admin adds user to group → `{:identity_updated, vpn_ip}` broadcast received (when that user has an active VPN device)
+- [ ] Anonymous (no client cert) request to `/internal/bundle.json` → 401
+- [ ] **No proxy / CoreDNS / step-ca process running** — endpoints exist but L7 enforcement still dormant
+
+##### Dependencies
+
+- **Blocked by**: nothing — L7-A is shipped
+- **Blocks**: L7-D (proxy needs both endpoints + JWKS)
+
+---
+
+#### L7-C summary checklist — Network plumbing (server `v2.4.0`, ~3-4 days)
+
+- [ ] **C-1**: Extend `fz_wall` with TPROXY chain — install when `l7_enabled = true`, remove on toggle off
+- [ ] **C-2**: PubSub subscriber in `fz_wall` listening for `{:l7_enabled_changed, bool}` to install/remove chain in real time
+- [ ] **C-3**: Route table 100 + `ip rule add fwmark 0x1 lookup 100` setup on boot
+- [ ] **C-4**: CoreDNS container added to `docker-compose.prod.yml`
+- [ ] **C-5**: `FzHttp.L7.CoreDnsHosts` generates `/etc/nexguard/internal-hosts` from declared `enabled = true` apps
+- [ ] **C-6**: CoreDNS `reload` plugin watching the hosts file (1 s)
+- [ ] **C-7**: PubSub subscriber regenerates hosts file on `:apps_changed`
+- [ ] **C-8**: VIP routing verification — packet to 10.99.0.x correctly steered to `:8443`
+- [ ] **C-9**: Integration test using `nft list ruleset` + actual TCP connection to a mock VIP
+- [ ] **C-10**: Runbook for kernel ≥ 5.6.9 + IPv6-disabled until L7-D handles dual stack
+- [ ] **C-11**: Tag `v2.4.0` + docs
+
+---
+
+#### L7-D summary checklist — L7 Proxy Go binary (server `v3.0.0`, ~7-10 days, biggest)
+
+- [ ] **D-1**: New repo `0xphuong/nexguard-l7-proxy` or subdirectory `proxy/`; Go module layout
+- [ ] **D-2**: `IP_TRANSPARENT` socket setup + `SO_ORIGINAL_DST` retrieval (Linux-only)
+- [ ] **D-3**: TLS listener on `:8443` with per-host SNI cert lookup from bundle
+- [ ] **D-4**: Identity client — `GET /internal/sessions/by_vpn_ip/:ip` with 30 s cache, ETag-aware, PubSub-invalidated via Phoenix Channel
+- [ ] **D-5**: Bundle client — `GET /internal/bundle.json` on startup + on `{:bundle_updated, v}` broadcast; atomic pointer swap
+- [ ] **D-6**: Group intersection check (user.groups ∩ app.allowed_group_ids)
+- [ ] **D-7**: L7 rule evaluator — first-match wins, default deny; method / path_prefix / require_groups / require_mfa_age_seconds
+- [ ] **D-8**: JWT signing — RS256-signed identity header `X-NexGuard-Identity-Jwt` (claims: user_id, email, groups, mfa_age, exp)
+- [ ] **D-9**: Header inject (X-NexGuard-*) + strip user-supplied X-NexGuard-Spoof-* per app config
+- [ ] **D-10**: Reverse proxy to backend with HTTP/1.1 + HTTP/2 + keep-alive
+- [ ] **D-11**: Deny page rendering (template loaded from disk)
+- [ ] **D-12**: Unknown-VIP handler → 404 with `X-NexGuard-Reason: unknown-app`
+- [ ] **D-13**: Structured logging (JSON) — per-request entry with decision, latency, identity
+- [ ] **D-14**: Prometheus metrics endpoint (`/metrics` on a separate port)
+- [ ] **D-15**: `/healthz` + `/readyz`
+- [ ] **D-16**: Dockerfile + `docker-compose.prod.yml` integration
+- [ ] **D-17**: Unit tests for rule eval, identity cache, bundle client
+- [ ] **D-18**: Integration test — end-to-end with Phoenix backend + mock app
+- [ ] **D-19**: Performance test — 1k req/s sustained, p99 < 50 ms
+- [ ] **D-20**: Security review (security-review skill)
+- [ ] **D-21**: Tag `v3.0.0` + docs + runbook
+
+---
+
+#### L7-E summary checklist — Operations (server `v3.0.1`, ~2-3 days)
+
+- [ ] **E-1**: Bundle atomic swap (Go: `atomic.Value` pointer) + LKG fallback if new bundle fails validation
+- [ ] **E-2**: Audit log integration — proxy POSTs each `allow` / `deny` to Phoenix audit endpoint (batched + sampled)
+- [ ] **E-3**: Branded deny page — Bulma + NexGuard logo + reason code + reference ID for admin lookup
+- [ ] **E-4**: JWT signing key rotation flow — admin triggers from `/settings/l7`; proxy picks up new JWKS within 30 s
+- [ ] **E-5**: Kill switch graceful shutdown — on `{:l7_enabled_changed, false}` proxy drains connections + stops listening
+- [ ] **E-6**: Tests + docs
+
+---
+
+#### L7-F summary checklist — Internal CA, conditional (server `v3.1.0`, ~3-4 days)
+
+- [ ] **F-1**: smallstep `step-ca` Docker container added (only when any app has `cert_source: step_ca`)
+- [ ] **F-2**: Root CA + intermediate CA generation script
+- [ ] **F-3**: ACME provisioner config
+- [ ] **F-4**: Phoenix-side cert request when admin sets `cert_source: step_ca` → step-ca issues leaf, stored in `applications.cert_pem`
+- [ ] **F-5**: 90-day rotation cron — Oban job re-issues 30 days before expiry
+- [ ] **F-6**: Tests + runbook + root key backup procedure
+
+---
+
+#### L7-G summary checklist — Client CA provisioning, conditional (client `v0.1.0`, ~1-2 days)
+
+- [ ] **G-1**: NexGuard Connect downloads CA root via `Security.framework` (macOS) — uses internal API `/.well-known/nexguard-ca.pem`
+- [ ] **G-2**: Install in System keychain (per-user trust to avoid root prompt)
+- [ ] **G-3**: Admin banner on success / failure
+- [ ] **G-4**: MDM `.mobileconfig` payload template for enterprise distribution
+- [ ] **G-5**: Trigger only when active server has at least one `cert_source: step_ca` app
+- [ ] **G-6**: Tests + docs
 
 ---
 
