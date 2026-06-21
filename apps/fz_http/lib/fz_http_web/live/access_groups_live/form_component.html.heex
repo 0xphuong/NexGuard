@@ -1,12 +1,13 @@
-<.form
-  :let={f}
-  for={@changeset}
-  as={:group}
-  id={@form}
-  phx-target={@myself}
-  phx-change="validate"
-  phx-submit="save"
->
+<div>
+  <.form
+    :let={f}
+    for={@changeset}
+    as={:group}
+    id={@form}
+    phx-target={@myself}
+    phx-change="validate"
+    phx-submit="save"
+  >
   <div class="ng-form-row">
     <%= label(f, :name, "Name", class: "ng-form-label") %>
     <%= text_input(f, :name,
@@ -33,4 +34,5 @@
     <.link patch={@return_to} class="ng-secondary-btn">Cancel</.link>
     <%= submit("Create Group", class: "ng-primary-btn", phx_disable_with: "Creating…") %>
   </div>
-</.form>
+  </.form>
+</div>
