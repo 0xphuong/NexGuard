@@ -170,11 +170,11 @@ shipping alone in v2.3.0 since there's no consumer yet.
 
 #### L7-D summary checklist — L7 Proxy Go binary (server `v3.0.0`, ~7-10 days, biggest)
 
-- [ ] **D-1**: New repo `0xphuong/nexguard-l7-proxy` or subdirectory `proxy/`; Go module layout
+- [x] **D-1**: Go module `github.com/0xphuong/NexGuard/proxy` at subdirectory `proxy/` (chốt: cùng repo NexGuard). Layout: `cmd/nexguard-proxy/main.go` + `internal/{bundle,identity,logging}/`
 - [ ] **D-2**: `IP_TRANSPARENT` socket setup + `SO_ORIGINAL_DST` retrieval (Linux-only)
 - [ ] **D-3**: TLS listener on `:8443` with per-host SNI cert lookup from bundle
-- [ ] **D-4**: Identity client — `GET /internal/sessions/by_vpn_ip/:ip` with 30 s cache, ETag-aware, PubSub-invalidated via Phoenix Channel
-- [ ] **D-5**: Bundle client — `GET /internal/bundle.json` on startup + on `{:bundle_updated, v}` broadcast; atomic pointer swap
+- [x] **D-4 (partial)**: Identity client `internal/identity/{client,types}.go` — TTL cache (30 s default), `If-None-Match` + 304 path, 404 → `ErrUnknownVPNIP` + cache invalidation, `Invalidate/InvalidateAll`. PubSub-driven invalidation via Phoenix Channel/SSE pending (later commit)
+- [x] **D-5 (partial)**: Bundle client `internal/bundle/{client,types}.go` — `Fetch` issues conditional GET (`If-None-Match` + `?since=N`), 304 path keeps current, 200 path atomic-swaps via `atomic.Pointer[Bundle]`. PubSub-driven refresh (`{:bundle_updated, v}` event) pending
 - [ ] **D-6**: Group intersection check (user.groups ∩ app.allowed_group_ids)
 - [ ] **D-7**: L7 rule evaluator — first-match wins, default deny; method / path_prefix / require_groups / require_mfa_age_seconds
 - [ ] **D-8**: JWT signing — RS256-signed identity header `X-NexGuard-Identity-Jwt` (claims: user_id, email, groups, mfa_age, exp)
@@ -186,7 +186,7 @@ shipping alone in v2.3.0 since there's no consumer yet.
 - [ ] **D-14**: Prometheus metrics endpoint (`/metrics` on a separate port)
 - [ ] **D-15**: `/healthz` + `/readyz`
 - [ ] **D-16**: Dockerfile + `docker-compose.prod.yml` integration
-- [ ] **D-17**: Unit tests for rule eval, identity cache, bundle client
+- [x] **D-17 (partial)**: Unit tests landed for bundle client (200/304/503 paths + `FindAppByVIP`/`FindGroup`) and identity client (first fetch + cache hit, 404 → `ErrUnknownVPNIP` + cache clear, 304 TTL refresh, `Invalidate`, `HasAnyGroup`). Rule-eval tests pending the eval module
 - [ ] **D-18**: Integration test — end-to-end with Phoenix backend + mock app
 - [ ] **D-19**: Performance test — 1k req/s sustained, p99 < 50 ms
 - [ ] **D-20**: Security review (security-review skill)
