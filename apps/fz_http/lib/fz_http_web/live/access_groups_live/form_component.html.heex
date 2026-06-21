@@ -8,31 +8,32 @@
     phx-change="validate"
     phx-submit="save"
   >
-  <div class="ng-form-row">
-    <%= label(f, :name, "Name", class: "ng-form-label") %>
-    <%= text_input(f, :name,
-          class: "ng-form-input",
-          placeholder: "e.g. engineering, wiki-readers",
-          autocomplete: "off",
-          required: true) %>
-    <%= error_tag(f, :name) %>
-    <p class="ng-form-hint">
-      Letters, numbers, spaces, dashes, dots, and underscores. 2-100 chars.
+    <p class="ng-modal-form-hint">
+      Groups gate which users can reach L7-managed applications.
+      Members are added on the next screen.
     </p>
-  </div>
 
-  <div class="ng-form-row">
-    <%= label(f, :description, "Description (optional)", class: "ng-form-label") %>
-    <%= textarea(f, :description,
-          class: "ng-form-input",
-          rows: 3,
-          placeholder: "Short description of what this group is for.") %>
-    <%= error_tag(f, :description) %>
-  </div>
+    <div class="ng-field">
+      <%= label(f, :name, "Name", class: "ng-label") %>
+      <%= text_input(f, :name,
+            class: "ng-input #{input_error_class(f, :name)}",
+            placeholder: "engineering, wiki-readers, security-officers",
+            autocomplete: "off",
+            phx_debounce: "300") %>
+      <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+      <p class="ng-field-hint">
+        Letters, numbers, spaces, dashes, dots, underscores. 2–100 chars.
+        Pick a name that maps to a real team if you plan to sync from an IdP later.
+      </p>
+    </div>
 
-  <div class="ng-form-actions">
-    <.link patch={@return_to} class="ng-secondary-btn">Cancel</.link>
-    <%= submit("Create Group", class: "ng-primary-btn", phx_disable_with: "Creating…") %>
-  </div>
+    <div class="ng-field">
+      <%= label(f, :description, "Description", class: "ng-label") %>
+      <%= textarea(f, :description,
+            class: "ng-input #{input_error_class(f, :description)}",
+            rows: 3,
+            placeholder: "Optional — what this group is for, who owns it.") %>
+      <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+    </div>
   </.form>
 </div>

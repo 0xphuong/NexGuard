@@ -12,7 +12,10 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
   @impl Phoenix.LiveView
   def mount(%{"id" => id}, _session, socket) do
     with {:ok, group} <- AccessGroups.fetch_group_by_id(id, socket.assigns.subject) do
-      {:ok, load_group_assigns(socket, group)}
+      {:ok,
+       socket
+       |> assign(:show_delete_confirm, false)
+       |> load_group_assigns(group)}
     else
       {:error, :not_found} ->
         {:ok,
@@ -21,6 +24,12 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
          |> redirect(to: ~p"/access-groups")}
     end
   end
+
+  def handle_event("show_delete_confirm", _, socket),
+    do: {:noreply, assign(socket, :show_delete_confirm, true)}
+
+  def handle_event("cancel_delete", _, socket),
+    do: {:noreply, assign(socket, :show_delete_confirm, false)}
 
   @impl Phoenix.LiveView
   def handle_params(_params, _url, socket), do: {:noreply, socket}

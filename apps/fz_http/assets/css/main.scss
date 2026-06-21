@@ -830,6 +830,18 @@ pre {
     text-decoration: none;
     transform: translateY(-1px);
   }
+
+  &:disabled,
+  &[disabled] {
+    background: #cbd5e1;
+    cursor: not-allowed;
+    transform: none;
+
+    &:hover {
+      background: #cbd5e1;
+      transform: none;
+    }
+  }
 }
 
 // Generic table
@@ -902,6 +914,75 @@ pre {
 
   &--admin        { background: linear-gradient(135deg, #1e3a8a, #2563eb); }
   &--unprivileged { background: linear-gradient(135deg, #374151, #6b7280); }
+
+  /* L7 group avatar — distinguishes from user-role colors. */
+  &--group        {
+    background: linear-gradient(135deg, #0e7490, #06b6d4);
+    .mdi { font-size: 1.1rem; line-height: 1; }
+  }
+}
+
+/* Org-wide pulse strip — small KPI tiles above an index table.
+   Used by /access-groups Index. Visually quieter than dashboard
+   cards because this sits inside a section, not on the dashboard. */
+.ng-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.ng-stat-tile {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+}
+
+.ng-stat-tile-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.1;
+}
+
+.ng-stat-tile-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* Inline form layout for "Add member" inside Members card. */
+.ng-form-inline {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 1rem;
+}
+
+/* CTA inside empty state (e.g., "Create first group" on empty list). */
+.ng-empty-state-cta {
+  margin-top: 1.5rem;
+  display: inline-flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+/* Description meta line under a primary cell label in tables. */
+.ng-td-meta {
+  display: block;
+  font-size: 0.75rem;
+  margin-top: 0.15rem;
+}
+
+/* Hint text below a form field (companion to .ng-field-error). */
+.ng-field-hint {
+  color: #64748b;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
 }
 
 .ng-user-info {
@@ -929,6 +1010,23 @@ pre {
 
   &--admin        { background: #eff6ff; color: #1d4ed8; }
   &--unprivileged { background: #f1f5f9; color: #475569; }
+}
+
+/* Source provenance — applied to access_groups.source and
+   user_group_memberships.source. Manual = quiet gray, idp_sync =
+   blue (IdP-managed), system = warm amber to flag synthetic rows. */
+.ng-source-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: capitalize;
+
+  &--manual    { background: #f1f5f9; color: #475569; }
+  &--idp_sync  { background: #eef2ff; color: #4338ca; }
+  &--system    { background: #fef3c7; color: #92400e; }
 }
 
 .ng-device-count {
@@ -970,6 +1068,22 @@ pre {
   padding: 4rem 2rem;
   text-align: center;
   color: #94a3b8;
+
+  /* Used inside a card or section — smaller padding, no full-page feel. */
+  &--inline {
+    padding: 1.5rem 1rem;
+    background: #f8fafc;
+    border-radius: 6px;
+    border: 1px dashed #cbd5e1;
+  }
+}
+
+/* Right-aligned action row at the bottom of a form (Save / Cancel). */
+.ng-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
 }
 
 .ng-empty-state-icon {

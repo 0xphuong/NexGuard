@@ -2,13 +2,14 @@
   <%= live_modal(
     FzHttpWeb.AccessGroupsLive.FormComponent,
     return_to: ~p"/access-groups",
-    title: "Add Group",
+    title: "New Access Group",
     id: "access-group-form-component",
     group: nil,
     subject: @subject,
     remote_ip: @remote_ip,
     action: @live_action,
-    form: "access-group-form"
+    form: "access-group-form",
+    button_text: "Create Group"
   ) %>
 <% end %>
 
@@ -17,7 +18,7 @@
     <div>
       <h1 class="ng-page-title">Access Groups</h1>
       <p class="ng-page-subtitle">
-        <%= length(@groups) %> group<%= if length(@groups) != 1, do: "s" %> · gate L7 application access via membership
+        Group membership decides which users reach each L7-managed application.
       </p>
     </div>
     <.link replace={true} patch={~p"/access-groups/new"} class="ng-primary-btn">
@@ -32,42 +33,79 @@
   <%= if @groups == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-account-group ng-empty-state-icon"></i>
-      <p class="ng-empty-state-title">No groups yet</p>
+      <p class="ng-empty-state-title">No access groups yet</p>
       <p class="ng-empty-state-hint">
-        Create a group to start gating which users reach your L7-managed apps.
+        Create a group to start gating which users reach your L7 apps.
       </p>
+      <.link replace={true} patch={~p"/access-groups/new"} class="ng-primary-btn ng-empty-state-cta">
+        <i class="mdi mdi-account-multiple-plus"></i> Create first group
+      </.link>
     </div>
   <% else %>
+    <%# ── Stats strip (org-wide pulse) ─────────────────────────── %>
+    <div class="ng-stat-strip">
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= length(@groups) %></div>
+        <div class="ng-stat-tile-label">Groups</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.sum(Enum.map(@groups, & &1.member_count || 0)) %>
+        </div>
+        <div class="ng-stat-tile-label">Memberships</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.count(@groups, & &1.source == :manual) %>
+        </div>
+        <div class="ng-stat-tile-label">Manual</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.count(@groups, & &1.source == :idp_sync) %>
+        </div>
+        <div class="ng-stat-tile-label">IdP-synced</div>
+      </div>
+    </div>
+
+    <%# ── Groups list ──────────────────────────────────────────── %>
     <div class="ng-table-wrap">
       <table class="ng-table">
         <thead>
           <tr>
-            <th>Name</th>
-            <th>Source</th>
+            <th>Group</th>
             <th class="ng-th-center">Members</th>
+            <th>Source</th>
             <th>Created</th>
-            <th class="ng-th-center">Actions</th>
+            <th class="ng-th-center" style="width: 3rem;"></th>
           </tr>
         </thead>
         <tbody>
           <%= for group <- @groups do %>
             <tr id={"access-group-#{group.id}"}>
               <td>
-                <.link navigate={~p"/access-groups/#{group}"} class="ng-link-strong">
-                  <%= group.name %>
-                </.link>
-                <%= if group.description do %>
-                  <div class="ng-td-muted ng-td-meta"><%= group.description %></div>
-                <% end %>
-              </td>
-              <td>
-                <span class={"ng-source-badge ng-source-badge--#{group.source}"}>
-                  <%= group.source %>
-                </span>
+                <div class="ng-user-cell">
+                  <div class="ng-avatar ng-avatar--group">
+                    <i class="mdi mdi-account-group-outline"></i>
+                  </div>
+                  <div class="ng-user-info">
+                    <.link navigate={~p"/access-groups/#{group}"} class="ng-user-email">
+                      <%= group.name %>
+                    </.link>
+                    <%= if group.description && group.description != "" do %>
+                      <span class="ng-td-muted ng-td-meta"><%= group.description %></span>
+                    <% end %>
+                  </div>
+                </div>
               </td>
               <td class="ng-td-center">
                 <span class="ng-device-count">
                   <i class="mdi mdi-account"></i> <%= group.member_count || 0 %>
+                </span>
+              </td>
+              <td>
+                <span class={"ng-source-badge ng-source-badge--#{group.source}"}>
+                  <%= group.source %>
                 </span>
               </td>
               <td

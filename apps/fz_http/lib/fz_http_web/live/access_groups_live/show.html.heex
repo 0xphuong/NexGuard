@@ -1,16 +1,60 @@
+<%# ── Delete Confirmation Modal ────────────────────────────────────────── %>
+<%= if @show_delete_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete Access Group
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @group.name %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
+          <li>Remove <%= length(@members) %> member assignment<%= if length(@members) != 1, do: "s" %></li>
+          <li>Detach this group from every application that requires it</li>
+        </ul>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete_group">
+          <i class="mdi mdi-delete"></i> Delete Group
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Hero / page header ───────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
-    <div>
-      <h1 class="ng-page-title"><%= @group.name %></h1>
-      <p class="ng-page-subtitle">
-        <span class={"ng-source-badge ng-source-badge--#{@group.source}"}>
-          <%= @group.source %>
-        </span>
-        · <%= length(@members) %> member<%= if length(@members) != 1, do: "s" %>
-      </p>
+    <div class="ng-user-cell">
+      <div class="ng-avatar ng-avatar--lg ng-avatar--group">
+        <i class="mdi mdi-account-group-outline"></i>
+      </div>
+      <div class="ng-user-info">
+        <h1 class="ng-page-title"><%= @group.name %></h1>
+        <p class="ng-page-subtitle">
+          <span class={"ng-source-badge ng-source-badge--#{@group.source}"}>
+            <%= @group.source %>
+          </span>
+          ·
+          <span class="ng-device-count">
+            <i class="mdi mdi-account"></i> <%= length(@members) %>
+            member<%= if length(@members) != 1, do: "s" %>
+          </span>
+        </p>
+      </div>
     </div>
     <.link navigate={~p"/access-groups"} class="ng-secondary-btn">
-      <i class="mdi mdi-arrow-left"></i> Back to all groups
+      <i class="mdi mdi-arrow-left"></i> All groups
     </.link>
   </div>
 </div>
@@ -18,62 +62,84 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Edit name / description ────────────────────────────────────── %>
-  <div class="ng-settings-card">
-    <h2 class="ng-card-title">Details</h2>
+  <%# ── Details card ────────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span><i class="mdi mdi-information-outline"></i> Details</span>
+    </div>
+    <div style="padding: 1.25rem 1.5rem;">
+      <.form
+        :let={f}
+        for={@changeset}
+        as={:group}
+        id="group-edit-form"
+        phx-change="validate"
+        phx-submit="update"
+      >
+        <div class="ng-field">
+          <%= label(f, :name, "Name", class: "ng-label") %>
+          <%= text_input(f, :name,
+                class: "ng-input #{input_error_class(f, :name)}",
+                phx_debounce: "300",
+                required: true) %>
+          <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+        </div>
 
-    <.form
-      :let={f}
-      for={@changeset}
-      as={:group}
-      id="group-edit-form"
-      phx-change="validate"
-      phx-submit="update"
-    >
-      <div class="ng-form-row">
-        <%= label(f, :name, "Name", class: "ng-form-label") %>
-        <%= text_input(f, :name, class: "ng-form-input", required: true) %>
-        <%= error_tag(f, :name) %>
-      </div>
+        <div class="ng-field">
+          <%= label(f, :description, "Description", class: "ng-label") %>
+          <%= textarea(f, :description,
+                class: "ng-input #{input_error_class(f, :description)}",
+                rows: 3,
+                placeholder: "Optional context — what this group is for, who owns it.") %>
+          <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+        </div>
 
-      <div class="ng-form-row">
-        <%= label(f, :description, "Description", class: "ng-form-label") %>
-        <%= textarea(f, :description, class: "ng-form-input", rows: 3) %>
-        <%= error_tag(f, :description) %>
-      </div>
-
-      <div class="ng-form-actions">
-        <%= submit("Save", class: "ng-primary-btn", phx_disable_with: "Saving…") %>
-      </div>
-    </.form>
+        <div class="ng-form-actions" style="margin-top: 1rem;">
+          <%= submit("Save changes",
+                class: "ng-primary-btn",
+                phx_disable_with: "Saving…",
+                disabled: map_size(@changeset.changes) == 0) %>
+        </div>
+      </.form>
+    </div>
   </div>
 
-  <%# ── Member roster ───────────────────────────────────────────────── %>
-  <div class="ng-settings-card">
-    <h2 class="ng-card-title">Members</h2>
+  <%# ── Members roster ──────────────────────────────────────────────────── %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span><i class="mdi mdi-account-multiple"></i> Members</span>
+      <span class="ng-td-muted"><%= length(@members) %> total</span>
+    </div>
 
-    <form id="add-member-form" phx-submit="add_member" class="ng-form-inline">
-      <input
-        type="email"
-        name="email"
-        class="ng-form-input"
-        placeholder="user@example.com"
-        autocomplete="off"
-        required
-      />
-      <button type="submit" class="ng-primary-btn">
-        <i class="mdi mdi-account-plus"></i> Add member
-      </button>
-    </form>
+    <div style="padding: 1.25rem 1.5rem;">
+      <form id="add-member-form" phx-submit="add_member" class="ng-form-inline" autocomplete="off">
+        <div class="ng-field" style="flex: 1; margin: 0;">
+          <%= label(:add_member, :email, "Add member", class: "ng-label") %>
+          <input
+            type="email"
+            name="email"
+            class="ng-input"
+            placeholder="user@example.com"
+            required
+          />
+        </div>
+        <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
+          <i class="mdi mdi-account-plus"></i> Add
+        </button>
+      </form>
+    </div>
 
     <%= if @members == [] do %>
-      <div class="ng-empty-state ng-empty-state--inline">
-        <p class="ng-empty-state-hint">
-          No members yet. Add one by email above.
-        </p>
+      <div style="padding: 0 1.5rem 1.5rem;">
+        <div class="ng-empty-state ng-empty-state--inline">
+          <p class="ng-empty-state-hint">
+            No members yet. Add one by email above. They'll keep their VPN
+            access unchanged — group membership only affects L7-managed apps.
+          </p>
+        </div>
       </div>
     <% else %>
-      <div class="ng-table-wrap">
+      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
         <table class="ng-table">
           <thead>
             <tr>
@@ -81,13 +147,27 @@
               <th>Source</th>
               <th>Added by</th>
               <th>Added</th>
-              <th class="ng-th-center">Actions</th>
+              <th class="ng-th-center" style="width: 3rem;"></th>
             </tr>
           </thead>
           <tbody>
             <%= for m <- @members do %>
               <tr id={"member-#{m.user_id}"}>
-                <td><%= m.user.email %></td>
+                <td>
+                  <div class="ng-user-cell">
+                    <div class={"ng-avatar ng-avatar--#{m.user.role}"}>
+                      <%= m.user.email |> String.first() |> String.upcase() %>
+                    </div>
+                    <div class="ng-user-info">
+                      <.link navigate={~p"/users/#{m.user.id}"} class="ng-user-email">
+                        <%= m.user.email %>
+                      </.link>
+                      <span class={"ng-role-badge ng-role-badge--#{m.user.role}"}>
+                        <%= m.user.role %>
+                      </span>
+                    </div>
+                  </div>
+                </td>
                 <td>
                   <span class={"ng-source-badge ng-source-badge--#{m.source}"}>
                     <%= m.source %>
@@ -123,19 +203,25 @@
     <% end %>
   </div>
 
-  <%# ── Danger zone ─────────────────────────────────────────────────── %>
-  <div class="ng-settings-card ng-settings-card--danger">
-    <h2 class="ng-card-title">Danger zone</h2>
-    <p class="ng-form-hint">
-      Deleting this group also removes every member assignment and every
-      application reference to it. Members' user accounts are NOT touched.
-    </p>
-    <button
-      class="ng-danger-btn"
-      phx-click="delete_group"
-      data-confirm={"Delete group \"#{@group.name}\"? This cannot be undone."}
-    >
-      <i class="mdi mdi-trash-can-outline"></i> Delete group
-    </button>
+  <%# ── Danger zone ─────────────────────────────────────────────────────── %>
+  <div class="ng-danger-zone">
+    <div class="ng-danger-zone-header">
+      <i class="mdi mdi-alert-octagon"></i>
+      <span>Danger zone</span>
+    </div>
+    <div class="ng-danger-zone-body">
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">Delete this group</div>
+          <p class="ng-danger-zone-desc">
+            Removes every member assignment and detaches this group from any
+            application that requires it. Member accounts are not affected.
+          </p>
+        </div>
+        <button class="ng-danger-btn" phx-click="show_delete_confirm">
+          <i class="mdi mdi-trash-can-outline"></i> Delete group
+        </button>
+      </div>
+    </div>
   </div>
 </section>
