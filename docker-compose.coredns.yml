@@ -1,0 +1,52 @@
+# L7 ZTNA — opt-in CoreDNS overlay (ADR-012).
+#
+# Activate alongside the main prod compose:
+#
+#   docker compose -f docker-compose.prod.yml -f docker-compose.coredns.yml up -d
+#
+# Adds a CoreDNS sidecar that serves DNS for VPN clients:
+#   * Declared L7 application hostnames    → virtual IP (10.99.0.0/16)
+#   * Everything else                      → upstream forwarders
+#
+# Both nexguard and coredns containers mount the host path
+# `${FZ_INSTALL_DIR:-.}/coredns-hosts` as `/etc/nexguard`. The Phoenix
+# `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts`
+# from inside the nexguard container; CoreDNS reads it read-only from
+# the same path inside its container thanks to the shared bind mount.
+#
+# `network_mode: host` lets CoreDNS bind directly to gateway interfaces
+# at port 53 (the only realistic way to answer queries from WireGuard
+# clients configured with `DNS = <gateway-wg-ip>`). On hosts where
+# systemd-resolved is already on :53, disable its stub or rebind:
+#
+#   sudo systemctl stop systemd-resolved
+#   sudo systemctl disable systemd-resolved
+#
+# Until L7-D ships there's no consumer for the VIP responses, so
+# activating this overlay only adds CoreDNS as a generic upstream
+# resolver — it does NOT break anything. The hosts file is empty
+# unless an admin marks at least one Application as `enabled = true`.
+
+version: '3.7'
+
+services:
+  nexguard:
+    volumes:
+      # Shared bind mount so the Phoenix-side hosts generator and the
+      # CoreDNS container see the same file path. The host directory
+      # is created on first up if it doesn't exist.
+      - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard
+
+  coredns:
+    image: coredns/coredns:1.11.3
+    command: ["-conf", "/Corefile"]
+    volumes:
+      - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
+      - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
+    network_mode: "host"
+    cap_add:
+      - NET_BIND_SERVICE
+    depends_on:
+      nexguard:
+        condition: service_started
+    restart: unless-stopped

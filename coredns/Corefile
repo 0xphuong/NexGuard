@@ -1,0 +1,26 @@
+# NexGuard L7 ZTNA CoreDNS configuration (ADR-012).
+#
+# - Resolves declared L7 application hostnames to their virtual IPs
+#   (10.99.0.0/16) via the `hosts` plugin reading a file generated
+#   by `FzHttp.L7.CoreDnsHosts` whenever an admin mutates an
+#   `Application` row.
+# - Everything else falls through to upstream DNS (Cloudflare + Google
+#   are the defaults; replace as needed).
+#
+# `reload 1s` polls the hosts file for mtime changes every second,
+# so a regenerate is live within ~1s of the admin click without any
+# reload signal.
+
+. {
+  hosts /etc/nexguard/internal-hosts {
+    reload 1s
+    ttl 30
+    fallthrough
+  }
+  forward . 1.1.1.1 8.8.8.8 {
+    max_concurrent 1000
+  }
+  cache 30
+  errors
+  log . "{remote}:{port} {>id} {type} {name} -> {rcode} {>rflags} {rsize} {duration}"
+}
