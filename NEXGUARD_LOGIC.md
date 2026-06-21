@@ -1474,6 +1474,7 @@ freshness.
       "tls_mode":          "terminate" | "passthrough",
       "cert_source":       "upload" | "step_ca",
       "cert_pem":          "-----BEGIN CERTIFICATE-----\n...",
+      "key_pem":           "-----BEGIN PRIVATE KEY-----\n...",
       "l7_rules":          [ /* admin-configured per-app rules */ ],
       "allowed_group_ids": ["<group-uuid>", ...],
       "inject_headers":    [],
@@ -1486,10 +1487,12 @@ freshness.
 }
 ```
 
-`bundle_version` is monotonic (`:ets.update_counter`). `cert_pem`
-ships in the bundle; `key_pem` (Cloak-encrypted column) never
-leaves the app process. `inject_headers` / `strip_headers` are
-emitted as `[]` until the `applications` schema gains those columns.
+`bundle_version` is monotonic (`:ets.update_counter`). Both
+`cert_pem` and `key_pem` ship in the bundle — `key_pem` is
+Cloak-encrypted at rest but Ecto decrypts on load, and the L7
+proxy needs the cleartext to terminate TLS for the app's SNI
+cert. `inject_headers` / `strip_headers` are emitted as `[]`
+until the `applications` schema gains those columns.
 
 `signing_key.private_pem` is the **private** half of
 `l7_signing_keys.private_pem`, decrypted in-process by

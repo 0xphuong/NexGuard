@@ -53,6 +53,7 @@ type App struct {
 	TLSMode         string   `json:"tls_mode"`
 	CertSource      string   `json:"cert_source"`
 	CertPEM         string   `json:"cert_pem"`
+	KeyPEM          string   `json:"key_pem"`
 	L7Rules         []Rule   `json:"l7_rules"`
 	AllowedGroupIDs []string `json:"allowed_group_ids"`
 	InjectHeaders   []Header `json:"inject_headers"`

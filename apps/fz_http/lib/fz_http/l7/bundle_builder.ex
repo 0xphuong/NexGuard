@@ -212,6 +212,12 @@ defmodule FzHttp.L7.BundleBuilder do
         "tls_mode" => app.tls_mode,
         "cert_source" => app.cert_source,
         "cert_pem" => app.cert_pem,
+        # key_pem is Cloak-encrypted at rest; Ecto decrypts on load
+        # so app.key_pem is plaintext in this process. The proxy
+        # (L7-D) needs it to terminate TLS for the app's SNI cert.
+        # Same threat model as signing_key — the whole bundle is a
+        # secret-bearing artifact gated by :api_internal.
+        "key_pem" => app.key_pem,
         "l7_rules" => app.l7_rules,
         "allowed_group_ids" => Enum.map(app.allowed_groups, & &1.id),
         # Schema doesn't carry these fields yet — emit empty so the

@@ -25,6 +25,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/url"
 	"os"
 	"os/signal"
@@ -32,14 +33,18 @@ import (
 	"time"
 
 	"github.com/0xphuong/NexGuard/proxy/internal/bundle"
+	"github.com/0xphuong/NexGuard/proxy/internal/cert"
 	"github.com/0xphuong/NexGuard/proxy/internal/identity"
 	"github.com/0xphuong/NexGuard/proxy/internal/jwt"
+	"github.com/0xphuong/NexGuard/proxy/internal/listener"
 	"github.com/0xphuong/NexGuard/proxy/internal/logging"
 )
 
 const (
 	envServerURL     = "NEXGUARD_SERVER_URL"
-	bundlePollPeriod = 30 * time.Second
+	envListenAddr    = "NEXGUARD_PROXY_LISTEN"
+	defaultListenAddr = "127.0.0.1:8443"
+	bundlePollPeriod  = 30 * time.Second
 )
 
 func main() {
@@ -63,21 +68,38 @@ func main() {
 	bc := bundle.New(serverURL.String())
 	ic := identity.New(serverURL.String())
 	var signers jwt.SignerHolder
+	var certs cert.Holder
 
-	if err := bootstrapBundle(ctx, log, bc, &signers); err != nil {
+	if err := bootstrapBundle(ctx, log, bc, &signers, &certs); err != nil {
 		log.Error("bundle bootstrap failed", "error", err)
 		os.Exit(1)
 	}
 
+	listenAddr := os.Getenv(envListenAddr)
+	if listenAddr == "" {
+		listenAddr = defaultListenAddr
+	}
+
+	ln, err := listener.Listen(ctx, listener.Config{
+		ListenAddr:   listenAddr,
+		Certificates: &certs,
+	})
+	if err != nil {
+		log.Error("transparent listener failed", "error", err)
+		os.Exit(1)
+	}
+	defer ln.Close()
+
+	log.Info("listening for TPROXY-redirected TLS",
+		slog.String("addr", listenAddr),
+		slog.Int("apps_with_certs", certs.Get().Size()),
+	)
+
 	// Stub: poll the bundle endpoint to demonstrate the client works.
 	// A later commit replaces this with PubSub-driven refresh (SSE or
 	// websocket from the NexGuard server).
-	go pollBundle(ctx, log, bc, &signers)
-
-	log.Info("bones ready; awaiting later commits for TLS + TPROXY + reverse proxy")
-	// Silence the unused-import nag — ic will be wired into the
-	// request hot path once the TLS listener lands.
-	_ = ic
+	go pollBundle(ctx, log, bc, &signers, &certs)
+	go acceptLoop(ctx, log, ln, ic)
 
 	<-ctx.Done()
 	log.Info("shutting down on signal")
@@ -98,7 +120,7 @@ func getRequiredURL(env string) (*url.URL, error) {
 	return u, nil
 }
 
-func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder) error {
+func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder) error {
 	v, _, err := bc.Fetch(ctx)
 	if err != nil {
 		return err
@@ -106,14 +128,18 @@ func bootstrapBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, s
 	if err := refreshSigner(bc.Current(), signers); err != nil {
 		return fmt.Errorf("signer bootstrap: %w", err)
 	}
+	if err := refreshCerts(bc.Current(), certs); err != nil {
+		return fmt.Errorf("cert bootstrap: %w", err)
+	}
 	log.Info("bundle bootstrap complete",
 		slog.Int("version", v),
 		slog.String("signing_kid", signers.Get().Kid()),
+		slog.Int("apps_with_certs", certs.Get().Size()),
 	)
 	return nil
 }
 
-func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder) {
+func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signers *jwt.SignerHolder, certs *cert.Holder) {
 	t := time.NewTicker(bundlePollPeriod)
 	defer t.Stop()
 
@@ -136,9 +162,16 @@ func pollBundle(ctx context.Context, log *slog.Logger, bc *bundle.Client, signer
 					"error", err)
 				continue
 			}
+			if err := refreshCerts(bc.Current(), certs); err != nil {
+				log.Warn("cert refresh failed on bundle pivot",
+					slog.Int("version", v),
+					"error", err)
+				continue
+			}
 			log.Info("bundle updated",
 				slog.Int("version", v),
 				slog.String("signing_kid", signers.Get().Kid()),
+				slog.Int("apps_with_certs", certs.Get().Size()),
 			)
 		}
 	}
@@ -162,4 +195,59 @@ func refreshSigner(b *bundle.Bundle, holder *jwt.SignerHolder) error {
 	}
 	holder.Set(s)
 	return nil
+}
+
+// refreshCerts rebuilds the SNI cert store from the freshly-fetched
+// bundle and atomic-swaps it into the holder. Apps without cert
+// material (cert_source pending issuance) are silently skipped;
+// their TLS handshakes will fail with ErrUnknownHost until certs
+// arrive on a later bundle.
+func refreshCerts(b *bundle.Bundle, holder *cert.Holder) error {
+	if b == nil {
+		return errors.New("bundle is nil")
+	}
+	s, err := cert.FromBundle(b)
+	if err != nil {
+		return err
+	}
+	holder.Set(s)
+	return nil
+}
+
+// acceptLoop pulls accepted TLS connections off the listener and
+// hands each to a goroutine. Phase 4 has no request handler yet —
+// connections close immediately. The reverse-proxy hot path lands
+// in Phase 5 (D-9 → D-12).
+func acceptLoop(ctx context.Context, log *slog.Logger, ln net.Listener, ic *identity.Client) {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+			}
+			log.Warn("accept failed", "error", err)
+			continue
+		}
+
+		// Identity client still unused on the hot path. Silence the
+		// compiler nag; the request handler in Phase 5 will pass
+		// `conn.RemoteAddr()` to `ic.Lookup(...)`.
+		_ = ic
+
+		go func(c net.Conn) {
+			defer c.Close()
+			dst, err := listener.OriginalDST(c)
+			if err != nil {
+				log.Warn("could not read original DST", "error", err)
+				return
+			}
+			log.Debug("accepted",
+				slog.String("client", c.RemoteAddr().String()),
+				slog.String("original_dst", dst.String()),
+			)
+			// Phase 5 will: lookup identity, eval policy, reverse proxy.
+		}(conn)
+	}
 }

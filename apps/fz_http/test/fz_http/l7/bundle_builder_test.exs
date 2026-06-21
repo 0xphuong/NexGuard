@@ -75,6 +75,26 @@ defmodule FzHttp.L7.BundleBuilderTest do
       assert v3 == 3
     end
 
+    test "apps in the bundle project key_pem alongside cert_pem", %{table: table} do
+      # cert_source: :step_ca means both cert_pem + key_pem are nil
+      # in the DB (the proxy/step-ca pipeline issues them later). We
+      # just need to assert the key_pem field is PRESENT in the JSON
+      # — the actual PEM-round-trip path is covered when an admin
+      # uploads through the LiveView in real deployments.
+      _app =
+        FzHttp.ApplicationsFixtures.create_application(%{
+          "enabled" => true,
+          "cert_source" => :step_ca
+        })
+
+      {:ok, _v} = BundleBuilder.compile_now()
+      %{bundle_json: json} = BundleBuilder.current(table)
+
+      [app_payload | _] = Jason.decode!(json)["apps"]
+      assert Map.has_key?(app_payload, "cert_pem")
+      assert Map.has_key?(app_payload, "key_pem")
+    end
+
     test "groups in the bundle carry user_ids", %{table: table} do
       user = FzHttp.UsersFixtures.create_user_with_role(:unprivileged)
       group = AccessGroupsFixtures.create_group()
