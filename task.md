@@ -140,10 +140,10 @@ security bugs.
 
 ##### Phase 4 — Polish + docs (~0.5 day)
 
-- [ ] **P-1**: update `NEXGUARD_LOGIC.md` with new L7 §: tables, relationships, lifecycle
-- [ ] **P-2**: migration runbook — `docs/migrations/v2.2.0.md` — order, downtime (none expected — additive only), rollback procedure
-- [ ] **P-3**: `CHANGELOG.md` entry — `[2.2.0] - 2026-06-XX` — L7-A scope
-- [ ] **P-4**: update Obsidian — `Nexguard-Logic.md` add L7 schema; `Roadmap.md` move L7-A from Planned → Done after release
+- [x] **P-1**: `NEXGUARD_LOGIC.md` §17 — L7 tables + contexts + authorizers + admin routes + two-level opt-in + routing preview
+- [x] **P-2**: `docs/migrations/v2.2.0.md` — preflight, apply, verify (links the `verify_l7a_schema.sql` script), rollback, operational impact
+- [x] **P-3**: `CHANGELOG.md` `[2.2.0] - 2026-06-21` — full L7-A description (data model + contexts + UI + tests + new x509 dep + dormant-on-deploy note)
+- [x] **P-4**: Obsidian `Roadmap.md` — added 2.2.0 to Released table + marked L7-A shipped in the L7 ZTNA section; `00-Index.md` Latest release bumped
 - [ ] **P-5**: `git tag v2.2.0` + push + update `nexguard-releases/versions.json`
 
 ##### Acceptance criteria

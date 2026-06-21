@@ -9,6 +9,124 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.2.0] - 2026-06-21
+
+L7 ZTNA Phase 1 — admin data + UI surface for the upcoming layer-7
+transparent proxy (see `docs/decisions.md` ADR-007 → ADR-014). The
+proxy itself (CoreDNS + Go binary + smallstep) ships in L7-B → L7-F
+across later releases; this release lands the database, contexts, and
+admin tooling that those data-plane pieces will read from. **No
+runtime behaviour change for end users on 2.2.0** — the L7 subsystem
+ships dormant until the org-level toggle is flipped AND the proxy
+binaries are deployed (planned for v3.0.0).
+
+### Added
+
+#### Data model (Phase 1 — DB schema)
+
+Six additive migrations (`20260620000001` → `20260620000006`), safe
+to apply on a running production. See
+[`docs/migrations/v2.2.0.md`](docs/migrations/v2.2.0.md) for the
+runbook.
+
+- **`access_groups`** — manual / IdP-synced groups that gate L7-app
+  reachability (ADR-014).
+- **`user_group_memberships`** — composite-PK M:N join with provenance
+  (`source: manual | idp_sync`) so a SCIM reconciliation job can leave
+  manual memberships alone.
+- **`applications`** — NEW table for L7-managed apps. Columns:
+  `hostname` (unique, RFC 1035 validated), `virtual_ip` (`inet`,
+  unique inside `10.99.0.0/16`), `backend`, `cert_source` enum
+  (`upload | step_ca`), `cert_pem`, `key_pem` (Cloak-encrypted at
+  rest), `tls_mode` (`terminate | passthrough`, passthrough deferred
+  to v2), `l7_rules` (`jsonb`), `enabled`.
+- **`application_allowed_groups`** — composite-PK M:N between apps
+  and groups (ADR-014 group intersection check).
+- **`users.access_scope`** — break-glass bypass marker
+  (`limited | all`, default `limited` per ADR-008).
+- **`org_settings`** — singleton row (CHECK constraint enforces
+  `id = 1`), seeded with `l7_enabled = false`. Kill switch per
+  ADR-014.
+
+#### Elixir context layer (Phase 2)
+
+- `FzHttp.AccessGroups` — CRUD + member add/remove + identity-API
+  + bundle readers (`list_groups_for_user/1`,
+  `list_groups_with_members/0`).
+- `FzHttp.Applications` — CRUD with **in-transaction VIP allocation**
+  so concurrent admin requests can't collide on the same VIP; M:N
+  allowed-groups; per-mutation PubSub on `nexguard:l7:apps`.
+- `FzHttp.OrgSettings` — singleton get/toggle + PubSub on
+  `nexguard:l7:settings`. No-op detection skips audit + broadcast on
+  identical writes.
+- `FzHttp.L7.VipAllocator` — first-free scan over
+  `10.99.0.1` → `10.99.255.254` with a Postgres advisory lock so two
+  concurrent `create_application` requests serialise.
+- New authorizers: `FzHttp.AccessGroups.Authorizer`,
+  `FzHttp.Applications.Authorizer`, `FzHttp.OrgSettings.Authorizer` —
+  admin-only; unprivileged subjects see nothing. All three registered
+  in `FzHttp.Auth.Roles.list_authorizers/0`.
+
+#### Admin UI (Phase 3)
+
+- **`/access-groups`** — list (with stats strip), create-via-modal,
+  detail page with inline edit, member roster, danger-zone delete.
+- **`/users/:id`** — two new cards on the existing user detail page:
+  - **Group Memberships** — add-to-group dropdown of unlinked groups,
+    table of current memberships with link back to each group's
+    detail page, styled-modal remove.
+  - **L7 Access Scope** — `limited` / `all` badge in the header,
+    single-button toggle with a styled break-glass confirmation modal
+    showing before → after badge transition.
+- **`/applications`** — list with stats strip + delete via styled
+  modal.
+- **`/applications/new`** + **`/applications/:id`** +
+  **`/applications/:id/edit`** — full form: name, description,
+  hostname (RFC 1035 live-validated), backend URL,
+  card-style cert source picker, conditional cert + key PEM textareas
+  with inline X.509 preview (Subject, SANs, expiry) when the PEM
+  parses; Show page with hero, Routing card, L7 Rules row editor
+  (action / methods as pill checkboxes / path_prefix / require_groups
+  / require_mfa_age + up/down reorder + implicit-deny indicator
+  pinned at the bottom), Allowed Groups picker, danger zone with
+  Enable/Disable + Delete.
+- **`/settings/l7`** — org kill switch. Status banner listing
+  enabled-apps count + VIP subnet + TPROXY port when active.
+  Confirmation modals with concrete bullet lists for both directions.
+- All destructive actions (group delete, member remove, app delete,
+  access-scope flip, L7 toggle) use the canonical
+  `modal-card` + `ng-modal-*` Bulma pattern instead of browser
+  `confirm()` dialogs.
+
+#### Tests
+
+- `test/fz_http/access_groups_test.exs`,
+  `test/fz_http/applications_test.exs`,
+  `test/fz_http/l7/vip_allocator_test.exs`,
+  `test/fz_http/org_settings_test.exs` — context-layer coverage
+  (~590 LOC).
+- `test/fz_http_web/live/{access_groups_live,applications_live,setting_live,user_live}/...` —
+  4 LiveView test files covering happy-path + critical validation +
+  styled-modal flows.
+
+### Dependencies
+
+- `{:x509, "~> 0.8"}` — parses uploaded cert PEMs so the changeset can
+  refuse a cert whose SAN/CN doesn't cover the declared hostname.
+
+### Notes
+
+- **L7 enforcement is dormant after this release.** The
+  `org_settings.l7_enabled` toggle defaults to `false`; flipping it
+  on doesn't break anything because the data plane (CoreDNS + L7
+  proxy + step-ca) is not deployed yet — those land in L7-B → L7-F.
+- The `key_pem` column stores Cloak-encrypted ciphertext; the
+  `FzHttp.Vault` config must be set in your prod env if you intend to
+  use the `upload` cert source. The `step_ca` path doesn't touch
+  the column.
+
+---
+
 ## [2.1.1] - 2026-06-19
 
 Admin-facing notifications for the device approval workflow. The

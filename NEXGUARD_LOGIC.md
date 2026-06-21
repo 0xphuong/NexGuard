@@ -1317,3 +1317,82 @@ ansible-playbook -i inventory playbook.yml
 ```bash
 kubectl apply -f k8s-ingress-zerotrust.yaml
 ```
+
+---
+
+## 17. L7 ZTNA — Phase 1 (data + admin UI)
+
+Landed in `v2.2.0`. Architectural decisions in `docs/decisions.md`
+(ADR-007 → ADR-014); full proxy spec lives in
+[`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture).
+This section is the **server-side data model** that ships in `2.2.0`
+— the proxy + CoreDNS + step-ca daemons land in later releases
+(L7-B → L7-F).
+
+### Tables
+
+| Table | Role |
+|---|---|
+| `access_groups` | Manual / IdP-synced groups (`source ENUM('manual','idp_sync','system')`, `external_id` for SCIM reconciliation). |
+| `user_group_memberships` | Composite-PK M:N with `source` provenance + `added_by_id` nilify. Immutable rows. |
+| `applications` | `hostname` unique, `virtual_ip inet` unique inside `10.99.0.0/16`, `backend`, `cert_source ENUM('upload','step_ca')`, `cert_pem`, `key_pem` (`bytea`, encrypted via `FzHttp.Encrypted.Binary`), `tls_mode`, `l7_rules jsonb`, `enabled`. |
+| `application_allowed_groups` | Composite-PK M:N — gate apps by group intersection. |
+| `org_settings` | Singleton (CHECK `id = 1`) — `l7_enabled` kill switch, seeded by migration. |
+
+Added to existing tables:
+
+| Table | Column | Default | Purpose |
+|---|---|---|---|
+| `users` | `access_scope ENUM('limited','all')` | `'limited'` | Break-glass bypass at L7 (ADR-008). |
+
+### Contexts
+
+- `FzHttp.AccessGroups` — CRUD + members; bundle/identity-API readers.
+- `FzHttp.Applications` — CRUD with in-transaction VIP allocation; M:N
+  allowed-groups; PubSub `nexguard:l7:apps` per mutation.
+- `FzHttp.OrgSettings` — singleton get/toggle + PubSub
+  `nexguard:l7:settings`; no-op detection on identical writes.
+- `FzHttp.L7.VipAllocator` — first-free scan inside `10.99.0.0/16`
+  with advisory lock. Two entry points: own-transaction vs share
+  caller's transaction so VIP pick + INSERT atomic.
+
+### Authorizers
+
+Admin-only; unprivileged sees nothing. All three registered in
+`FzHttp.Auth.Roles.list_authorizers/0`:
+`AccessGroups.Authorizer`, `Applications.Authorizer`,
+`OrgSettings.Authorizer`.
+
+### Admin surfaces (LiveView)
+
+| Route | Purpose |
+|---|---|
+| `/access-groups` | List + stats strip + create + delete |
+| `/access-groups/:id` | Edit, member roster, danger zone |
+| `/users/:id` | + Group Memberships card + L7 Access Scope card |
+| `/applications` | List + stats strip + delete |
+| `/applications/new` + `/edit` | Form: name, hostname (RFC 1035), backend, cert source picker, conditional PEM textareas with inline X.509 preview |
+| `/applications/:id` | Routing card, L7 Rules row editor (pill methods + reorder + implicit-deny), Allowed Groups picker, danger zone |
+| `/settings/l7` | Org kill switch with status banner + confirmation modals |
+
+### Two-level opt-in (ADR-014)
+
+L7 enforcement requires **both** switches ON:
+
+1. **Org-wide** `org_settings.l7_enabled` (toggled at `/settings/l7`).
+2. **Per-app** `applications.enabled` (requires cert + ≥ 1 L7 rule).
+
+Both flips are audited and broadcast on PubSub so the future proxy
+can hot-reload its policy bundle.
+
+### Routing (preview of L7-D)
+
+```
+Client DNS query
+  ├─ hostname in declared apps     → CoreDNS returns VIP (10.99.0.0/16)
+  └─ everything else (Google, etc) → upstream DNS → real public IP
+
+Packet at gateway
+  ├─ dst IP ∈ 10.99.0.0/16         → TPROXY → L7 proxy :8443
+  └─ dst IP ∉ 10.99.0.0/16         → existing L3/L4 nftables forward
+```
