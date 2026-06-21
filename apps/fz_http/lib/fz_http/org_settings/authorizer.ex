@@ -1,5 +1,6 @@
 defmodule FzHttp.OrgSettings.Authorizer do
   use FzHttp.Auth.Authorizer
+  import Ecto.Query
   alias FzHttp.OrgSettings.Settings
 
   def view_org_settings_permission,   do: build(Settings, :view)

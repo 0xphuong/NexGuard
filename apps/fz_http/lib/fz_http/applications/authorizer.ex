@@ -1,5 +1,6 @@
 defmodule FzHttp.Applications.Authorizer do
   use FzHttp.Auth.Authorizer
+  import Ecto.Query
   alias FzHttp.Applications.Application
 
   def view_applications_permission,   do: build(Application, :view)

@@ -1,5 +1,6 @@
 defmodule FzHttp.AccessGroups.Authorizer do
   use FzHttp.Auth.Authorizer
+  import Ecto.Query
   alias FzHttp.AccessGroups.Group
 
   def view_access_groups_permission,    do: build(Group, :view)
