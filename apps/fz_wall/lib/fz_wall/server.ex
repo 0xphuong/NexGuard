@@ -26,10 +26,17 @@ defmodule FzWall.Server do
     # L7 ZTNA plumbing (ADR-007). The fwmark route is installed once
     # regardless of the toggle — zero cost when no marked packets
     # flow. The TPROXY chain itself follows `l7_enabled`.
-    cli().setup_fwmark_route()
+    #
+    # CRITICAL: nft errors here must NOT crash the GenServer.
+    # fz_wall.Server crashing repeatedly takes down the whole BEAM
+    # (see v3.0.0 deploy bug — bad `tproxy to` syntax crash-looped
+    # the node). L7 plumbing is opt-in; if it fails to install, we
+    # log loudly + keep running so the base L3/L4 firewall stays up
+    # and the operator can flip `l7_enabled` off to recover.
+    try_l7(&cli().setup_fwmark_route/0, "fwmark route")
 
     if l7_enabled?() do
-      cli().install_l7()
+      try_l7(&cli().install_l7/0, "TPROXY chain")
     end
 
     PubSub.subscribe(FzHttp.PubSub, @l7_settings_topic)
@@ -40,13 +47,13 @@ defmodule FzWall.Server do
   @impl GenServer
   def handle_info({:l7_enabled_changed, true}, state) do
     Logger.info("[fz_wall] :l7_enabled_changed → true; installing TPROXY chain")
-    cli().install_l7()
+    try_l7(&cli().install_l7/0, "TPROXY chain")
     {:noreply, state}
   end
 
   def handle_info({:l7_enabled_changed, false}, state) do
     Logger.info("[fz_wall] :l7_enabled_changed → false; removing TPROXY chain")
-    cli().remove_l7()
+    try_l7(&cli().remove_l7/0, "TPROXY chain removal")
     {:noreply, state}
   end
 
@@ -60,6 +67,20 @@ defmodule FzWall.Server do
     e ->
       Logger.warning("[fz_wall] OrgSettings.l7_enabled?/0 raised: #{inspect(e)}")
       false
+  end
+
+  # Wrap any L7 nft / ip shell-out so a failure does NOT propagate
+  # to the supervisor — fz_wall going down crashes the whole BEAM,
+  # which is far worse than L7 just being silently inactive.
+  defp try_l7(fun, what) do
+    fun.()
+  rescue
+    e ->
+      Logger.error(
+        "[fz_wall][L7] #{what} install failed; L7 will be inactive until next boot. " <>
+          "Error: #{Exception.message(e)}"
+      )
+      :error
   end
 
   @impl GenServer

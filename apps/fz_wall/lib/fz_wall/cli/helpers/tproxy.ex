@@ -49,11 +49,16 @@ defmodule FzWall.CLI.Helpers.Tproxy do
           "{ type filter hook prerouting priority mangle ; policy accept ; }'"
       )
 
+      # `tproxy ip to ...` — the explicit `ip` family is required
+      # inside an `inet` (dual-family) table. Without it nft errors:
+      #   "conflicting protocols specified: ip vs. unknown. You must
+      #    specify ip or ip6 family in tproxy statement"
+      # (NexGuard L7 is IPv4-only in v3.0.0; v3.0.x will add ip6.)
       exec!(
         "#{nft()} 'add rule inet #{@table} #{@chain} " <>
           "meta iifname #{wireguard_interface_name()} " <>
           "ip daddr #{@vip_cidr} tcp dport { 80, 443 } " <>
-          "meta mark set #{@fwmark} tproxy to #{@proxy_addr} accept'"
+          "meta mark set #{@fwmark} tproxy ip to #{@proxy_addr} accept'"
       )
 
       Logger.info("[L7] installed nftables TPROXY chain '#{@chain}'")
