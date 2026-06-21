@@ -133,10 +133,10 @@ security bugs.
 - [x] **U-17**: `SettingLive.L7` — `/settings/l7` route + sidebar entry under Settings; renders status badge + master toggle card
 - [x] **U-18**: Pre-toggle confirmation modal — distinct enable / disable copy each spelling out the concrete consequences (TPROXY chain, CoreDNS overrides, bundle reload, per-app preserve-on-disable) plus a link to SPEC §8
 - [x] **U-19**: Post-enable status banner — green card listing "X enabled apps", VIP subnet `10.99.0.0/16`, TPROXY port `:8443`. Special hint when zero apps enabled (proxy idle) with link to declare one
-- [ ] **T-5**: LiveView tests — `access_groups_live_test.exs` (mount, list, create, delete confirm)
-- [ ] **T-6**: LiveView tests — `application_live_l7_test.exs` (form validation, cert preview, rules editor)
-- [ ] **T-7**: LiveView tests — `settings_live_l7_test.exs` (toggle works)
-- [ ] **T-8**: LiveView tests — `user_live_groups_test.exs` (membership assignment)
+- [x] **T-5**: `test/fz_http_web/live/access_groups_live/index_live_test.exs` — empty state, stats strip + row, unprivileged blocked, create-via-modal, duplicate-name validation, delete removes row
+- [x] **T-6**: `test/fz_http_web/live/applications_live/live_test.exs` — Index empty + populated, create via step_ca path, hostname validation, allowed-group picker, L7 rule add, implicit-deny row always rendered
+- [x] **T-7**: `test/fz_http_web/live/setting_live/l7_live_test.exs` — DISABLED default, unprivileged blocked, enable + disable via modal flips state + broadcasts PubSub `{:l7_enabled_changed, ...}`
+- [x] **T-8**: `test/fz_http_web/live/user_live/l7_show_test.exs` — Group Memberships add + remove via styled modal; Access Scope default `:limited`, flip-to-`:all` modal warning + badge update
 
 ##### Phase 4 — Polish + docs (~0.5 day)
 
