@@ -110,21 +110,28 @@ proxy security bugs.
 - [x] **B-24**: New module `FzHttp.L7` with `broadcast_identity_change/1` — preloads `:devices`, flat-maps ipv4 + ipv6, drops nils, emits one event per unique IP on `nexguard:l7:identity`. Includes `subscribe_identity/0` for proxy/test consumers
 - [x] **B-25**: `NEXGUARD_LOGIC.md` §17 extended with a PubSub topics table (source vs downstream) plus an L7-B HTTP endpoints table covering JWKS, identity, and bundle
 
-##### Phase 6 — mTLS internal scope (~0.5 day)
+##### Phase 6 — mTLS internal scope (DEFERRED to L7-D)
+
+Deferred so cert provisioning + the proxy daemon ship in the same drop.
+Until then `/internal/*` is internal by network convention only. The
+upstream Caddy block of `/internal/*` from public DNS is a one-line
+directive added at the same time the L7 proxy daemon lands; not worth
+shipping alone in v2.3.0 since there's no consumer yet.
 
 - [ ] **B-26**: New router scope `pipe_through [:mtls_internal]` mounting `/internal/*` + `/.well-known/jwks.json`
 - [ ] **B-27**: `FzHttpWeb.Plugs.MtlsInternal` — verifies client cert against the internal-CA pool; on fail returns 401
 - [ ] **B-28**: Generate proxy client cert via existing `FzHttp.Vault` storage; admin can rotate via `mix nexguard.rotate_proxy_cert`
-- [ ] **B-29**: Public `/.well-known/jwks.json` exempted from mTLS (verifiers need it without a cert)
+- [ ] **B-29**: Public `/.well-known/jwks.json` exempted from mTLS (verifiers need it without a cert) — partially preempted by B-4 mounting JWKS under `:api_public`
 - [ ] **B-30**: Runbook section for proxy cert provisioning
 
 ##### Phase 7 — Polish + release (~0.5 day)
 
-- [ ] **B-31**: Update `CHANGELOG.md` `[2.3.0]` entry covering identity API, bundle endpoint, JWT signing, PubSub wiring
-- [ ] **B-32**: Update `NEXGUARD_LOGIC.md` §17 — bundle schema, identity payload, mTLS endpoint config
-- [ ] **B-33**: `docs/migrations/v2.3.0.md` runbook — `l7_signing_keys` migration + bootstrap key generation (`mix nexguard.l7.bootstrap_keys`)
-- [ ] **B-34**: Update Obsidian `Roadmap.md` + `L7-Architecture.md` with L7-B shipped
-- [ ] **B-35**: Tag `v2.3.0` + push + bump `nexguard-releases/versions.json`
+- [x] **B-31**: `CHANGELOG.md` `[2.3.0]` entry — covers JWT signing infrastructure, identity API, bundle compile + endpoint, PubSub wiring, the audit whitelist fix, and the error_view 404-renderer fix
+- [x] **B-32**: `NEXGUARD_LOGIC.md` §17 extended with PubSub topics table, L7-B HTTP endpoints table, identity payload shape, and bundle JSON schema reference
+- [x] **B-33**: `docs/migrations/v2.3.0.md` runbook — `l7_signing_keys` migration + verification steps for JWKS / identity / bundle endpoints + audit row check. No `mix nexguard.l7.bootstrap_keys` task needed — `JwtSigner` bootstraps automatically on first `init/1`
+- [ ] **B-34**: Update Obsidian `Roadmap.md` + `L7-Architecture.md` with L7-B shipped — **manual step (outside repo, in personal vault)**
+- [x] **B-35a**: Bump `Dockerfile.prod` `ARG VERSION` `2.2.0` → `2.3.0`
+- [ ] **B-35b**: Tag `v2.3.0` + push to `origin` + bump `nexguard-releases/versions.json` — **manual step** (push requires explicit user authorization)
 
 ##### Acceptance criteria
 

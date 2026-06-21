@@ -9,6 +9,131 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [2.3.0] - 2026-06-21
+
+L7 ZTNA Phase 2 — the **server-side data plane** the upcoming L7
+proxy daemon (ships in L7-D) will read from. This release adds the
+JWT signing infrastructure, identity lookup API, signed policy
+bundle, and PubSub invalidation channels. **Still no runtime
+behaviour change for end users** — the L7 subsystem stays dormant
+until the proxy daemon lands. Endpoints are reachable but no
+consumer is calling them yet.
+
+mTLS gating of `/internal/*` (Phase 6 of L7-B) is **deferred** to
+the L7-D release so cert provisioning + the proxy daemon ship in
+the same drop — see `task.md`.
+
+### Added
+
+#### JWT signing infrastructure (Phase 1)
+
+- **`l7_signing_keys` table** (migration `20260621000001`) — UUID PK,
+  unique `kid`, `algorithm` (default `RS256`), Cloak-encrypted
+  `private_pem`, plain `public_pem`, `active boolean`, `rotated_at`.
+  Partial unique index on `active = true` enforces single-active-key
+  invariant at the DB level.
+- **`FzHttp.L7.JwtSigner`** GenServer — cold-boot bootstrap (generates
+  an RS256 keypair + audits `l7.signing_key.bootstrap` on first init),
+  `sign/2`, `verify/1`, `active_kid/0`, `jwks/0`, `rotate/3`. Grace
+  window keeps the last 3 rotated keys in memory so in-flight tokens
+  still verify across a rotation. Follows the singleton-with-name
+  override convention shared with `FzHttp.Notifications` so tests can
+  spawn isolated instances under `start_supervised!/1`.
+- **`GET /.well-known/jwks.json`** — public RFC 8615 + RFC 7517
+  endpoint serving active + grace keys. `Cache-Control: public,
+  max-age=300` matches the grace window so a stale proxy cache still
+  verifies in-flight tokens until refresh.
+- Whitelist `l7.signing_key.{bootstrap,rotate}` actions in
+  `FzHttp.AuditLogs.AuditLog.changeset/2` — otherwise the changeset
+  silently rejected the rows and key-lifecycle events never landed
+  in the audit log.
+
+#### Identity API (Phase 2)
+
+- **`FzHttp.L7.Identity.lookup_by_vpn_ip/1`** — single preloaded
+  query joining `devices` ↔ `users` ↔ `access_groups` matched on
+  `devices.ipv4` OR `devices.ipv6`. Returns `{:ok, identity,
+  cache_meta}` or `:not_found`. Fail-closed on unparseable IP,
+  multi-match (data corruption), and disabled users.
+- **`mfa_age_seconds`** = elapsed seconds since `last_signed_in_at`
+  when the user has at least one configured MFA method; `nil`
+  otherwise so the proxy doesn't mistake a password-only sign-in
+  timestamp for MFA freshness.
+- **`GET /internal/sessions/by_vpn_ip/:ip`** — `FzHttpWeb.Internal.IdentityController`.
+  `Cache-Control: private, max-age=30` + weak ETag
+  `W/"md5(user_id:user.updated_at)"`. `If-None-Match` returns 304.
+  404 + `{"error":"unknown_vpn_ip"}` on any fail-closed path.
+
+#### Bundle compile + endpoint (Phases 3 + 4)
+
+- **`FzHttp.L7.BundleBuilder`** GenServer — subscribes to
+  `nexguard:l7:{apps,settings,groups}`; any event schedules a 300 ms
+  debounced recompile so a burst of admin clicks coalesces to one.
+  On compile, builds the bundle map (`schema_version`,
+  `bundle_version`, `compiled_at`, `org_settings`, `jwks`, `apps`,
+  `groups`), encodes to JSON, signs, writes to a public ETS table
+  (`{:current, entry}` + `{{:history, n}, entry}` LKG ring of last 3
+  versions), and broadcasts `{:bundle_updated, version}` on
+  `nexguard:l7:bundle`.
+- **Bundle signature**: JWT with `bundle_sha256` claim signed by
+  `JwtSigner.sign/2` and carried in the
+  `X-NexGuard-Bundle-Signature` response header. Pragmatic
+  alternative to a strict RFC 7797 detached JWS — proxy verifies
+  the JWT against the public JWKS, computes its own SHA-256 of the
+  body, and compares.
+- **`GET /internal/bundle.json`** — `FzHttpWeb.Internal.BundleController`.
+  Reads `BundleBuilder.current/0` directly from ETS — no GenServer
+  hop on the hot path. `ETag: "v<N>"`, `If-None-Match` → 304.
+  `?since=N` long-poll: 304 when `current_version <= N`. 503 +
+  `bundle_not_compiled` when the table is empty.
+
+#### PubSub wiring + identity invalidation (Phase 5)
+
+- **`FzHttp.AccessGroups.{create,update,delete}_group` + `{add,remove}_member`**
+  now broadcast `:groups_changed` on `nexguard:l7:groups`
+  (previously the BundleBuilder subscribed but no one published).
+  Public `subscribe_groups/0` helper.
+- **`FzHttp.L7.broadcast_identity_change/1`** — new helper that
+  fans out one `{:identity_updated, vpn_ip}` event per active VPN
+  IP attached to a user's devices, so the proxy invalidates its
+  30 s identity cache only for the keys that actually changed.
+  Called from `Users.update_user/4` (only when role changes),
+  `Users.set_access_scope/4` (only on real change), and
+  `AccessGroups.{add,remove}_member/4`.
+
+### Fixed
+
+- **`FzHttpWeb.ErrorView.template_not_found/2`** no longer returns
+  the raw exception struct (`%Phoenix.Router.NoRouteError{}`) when
+  the router 404s on a path with no template. Crawlers hitting
+  `/sitemap.xml`, `/robots.txt`, etc. were causing a secondary
+  `Protocol.UndefinedError` because `Phoenix.HTML.Safe` has no impl
+  for arbitrary structs. The view now always emits a plain string
+  for HTML and a JSON-safe map for JSON.
+
+### Migrations
+
+One additive migration: `20260621000001_create_l7_signing_keys`.
+Safe to apply on a running production. See
+[`docs/migrations/v2.3.0.md`](docs/migrations/v2.3.0.md) for the
+runbook. No manual bootstrap step — `JwtSigner` generates the
+first key on its first init.
+
+### Notes
+
+- `/internal/*` endpoints are **reachable from any client that can
+  reach the public DNS for the portal**. Until L7-D ships with mTLS
+  enforcement, this is a small but real information-leak surface
+  for an attacker who can guess a valid VPN IP. The risk is
+  bounded by VPN IP allocation (100.64.0.0/10) and by the fact
+  that the data plane (proxy + step-ca) is not deployed yet.
+- `FzHttp.L7.JwtSigner` private-pem column is Cloak-encrypted — the
+  same vault config that gates `applications.key_pem` since v2.2.0.
+  If the vault is misconfigured, the GenServer crashes on first
+  bootstrap (visible in container logs).
+
+---
+
 ## [2.2.0] - 2026-06-21
 
 L7 ZTNA Phase 1 — admin data + UI surface for the upcoming layer-7

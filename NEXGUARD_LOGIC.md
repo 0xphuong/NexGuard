@@ -1422,5 +1422,66 @@ groups doesn't force every proxy connection to refetch.
 | Method | Path | Auth | Purpose |
 |---|---|---|---|
 | `GET` | `/.well-known/jwks.json` | Public (RFC 8615) | Public RS256 keys for JWT verifiers. `Cache-Control: public, max-age=300` — matches grace window so a stale cache still verifies in-flight tokens |
-| `GET` | `/internal/sessions/by_vpn_ip/:ip` | `:api_internal` (Phase 1 unauth; Phase 6 mTLS) | VPN-IP → identity payload. `Cache-Control: private, max-age=30` + weak ETag `W/"md5(user_id:user.updated_at)"`. 404 = `{"error":"unknown_vpn_ip"}` |
+| `GET` | `/internal/sessions/by_vpn_ip/:ip` | `:api_internal` (currently unauth; mTLS deferred to L7-D) | VPN-IP → identity payload. `Cache-Control: private, max-age=30` + weak ETag `W/"md5(user_id:user.updated_at)"`. 404 = `{"error":"unknown_vpn_ip"}` |
 | `GET` | `/internal/bundle.json` | `:api_internal` | Latest signed policy bundle. `ETag: "v<N>"` + `X-NexGuard-Bundle-Signature: <jwt>`. `If-None-Match` → 304. `?since=N` → 304 if `bundle_version <= N` |
+
+### Identity payload shape
+
+`GET /internal/sessions/by_vpn_ip/:ip` returns JSON of the form
+(produced by `FzHttp.L7.Identity.lookup_by_vpn_ip/1`):
+
+```jsonc
+{
+  "user_id":         "<uuid>",
+  "email":           "alice@example.com",
+  "role":            "admin" | "unprivileged",
+  "access_scope":    "limited" | "all",
+  "groups":          ["devops", "oncall"],
+  "device_id":       "<uuid>",
+  "mfa_age_seconds": 142,    // null if user has no MFA method
+  "signed_in_at":    "2026-06-21T08:49:11.820363Z"
+}
+```
+
+`mfa_age_seconds` is `(now - users.last_signed_in_at)` only when the
+user has at least one row in `mfa_methods`; otherwise nil so the
+proxy doesn't read a password-only sign-in timestamp as MFA
+freshness.
+
+### Bundle JSON schema
+
+`GET /internal/bundle.json` returns the body that
+`FzHttp.L7.BundleBuilder` writes to ETS on each compile:
+
+```jsonc
+{
+  "schema_version": 1,
+  "bundle_version": 42,
+  "compiled_at":    "2026-06-21T...Z",
+  "org_settings":   { "l7_enabled": true },
+  "jwks":           [ /* active + grace RS256 public JWKs */ ],
+  "apps": [
+    {
+      "id":                "<uuid>",
+      "hostname":          "wiki.internal",
+      "virtual_ip":        "10.99.0.5",
+      "backend":           "wiki.svc.cluster.local:8080",
+      "tls_mode":          "terminate" | "passthrough",
+      "cert_source":       "upload" | "step_ca",
+      "cert_pem":          "-----BEGIN CERTIFICATE-----\n...",
+      "l7_rules":          [ /* admin-configured per-app rules */ ],
+      "allowed_group_ids": ["<group-uuid>", ...],
+      "inject_headers":    [],
+      "strip_headers":     []
+    }
+  ],
+  "groups": [
+    { "id": "<uuid>", "name": "devops", "user_ids": ["<uuid>", ...] }
+  ]
+}
+```
+
+`bundle_version` is monotonic (`:ets.update_counter`). `cert_pem`
+ships in the bundle; `key_pem` (Cloak-encrypted column) never
+leaves the app process. `inject_headers` / `strip_headers` are
+emitted as `[]` until the `applications` schema gains those columns.
