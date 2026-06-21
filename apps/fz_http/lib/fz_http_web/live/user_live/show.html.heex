@@ -141,6 +141,73 @@
   </div>
 <% end %>
 
+<%# ── Access-Scope Change Confirmation Modal ──────────────────────────────── %>
+<%= if @scope_change_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_set_access_scope" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_set_access_scope"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <%= if @scope_change_confirm == :all do %>
+            <i class="mdi mdi-key-variant ng-modal-title-icon"></i>
+            Grant L7 Access Bypass
+          <% else %>
+            <i class="mdi mdi-shield-check-outline ng-modal-title-icon"></i>
+            Revert to LIMITED Scope
+          <% end %>
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_set_access_scope">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to change L7 access scope for:</p>
+        <div class="ng-modal-entity"><%= @user.email %></div>
+
+        <div class="ng-mote-transition" style="margin: 1rem 0;">
+          <span class={"ng-scope-badge ng-scope-badge--#{@user.access_scope}"}>
+            <%= @user.access_scope %>
+          </span>
+          <i class="mdi mdi-arrow-right ng-mote-arrow"></i>
+          <span class={"ng-scope-badge ng-scope-badge--#{@scope_change_confirm}"}>
+            <%= @scope_change_confirm %>
+          </span>
+        </div>
+
+        <%= if @scope_change_confirm == :all do %>
+          <p class="ng-modal-cons">This is a <strong>break-glass</strong> action:</p>
+          <ul class="ng-modal-list">
+            <li>User will reach <strong>every</strong> L7-managed application without group checks</li>
+            <li>Group membership becomes irrelevant for this user</li>
+            <li>Every flip is audited as <code>user.access_scope.change</code></li>
+          </ul>
+          <p class="ng-modal-warn">
+            Use only for incident response, founders / leads, or audit accounts.
+            Revert as soon as the reason ends.
+          </p>
+        <% else %>
+          <p class="ng-modal-desc">
+            Group-intersection enforcement will resume. The user will lose access
+            to any L7-managed application they are not in a required group for.
+          </p>
+        <% end %>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_set_access_scope">Cancel</button>
+        <%= if @scope_change_confirm == :all do %>
+          <button class="ng-danger-btn ng-danger-btn--filled" phx-click="set_access_scope">
+            <i class="mdi mdi-key-variant"></i> Grant bypass
+          </button>
+        <% else %>
+          <button class="ng-primary-btn" phx-click="set_access_scope">
+            <i class="mdi mdi-shield-check-outline"></i> Revert to LIMITED
+          </button>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Page Header ──────────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -308,18 +375,16 @@
         <%= if @user.access_scope == :limited do %>
           <button
             class="ng-danger-btn"
-            phx-click="set_access_scope"
+            phx-click="confirm_set_access_scope"
             phx-value-scope="all"
-            data-confirm={"Grant ALL-apps bypass to #{@user.email}? This is a break-glass action and will be audited."}
           >
             <i class="mdi mdi-key-variant"></i> Grant bypass (set to ALL)
           </button>
         <% else %>
           <button
             class="ng-secondary-btn"
-            phx-click="set_access_scope"
+            phx-click="confirm_set_access_scope"
             phx-value-scope="limited"
-            data-confirm={"Revert #{@user.email} to LIMITED scope? Group-intersection will be enforced again."}
           >
             <i class="mdi mdi-shield-check-outline"></i> Revert to LIMITED
           </button>

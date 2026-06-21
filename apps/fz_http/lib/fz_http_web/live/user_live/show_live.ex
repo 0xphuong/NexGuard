@@ -26,6 +26,7 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:show_delete_confirm, false)
      |> assign(:show_mote_confirm, false)
      |> assign(:remove_group_confirm, nil)
+     |> assign(:scope_change_confirm, nil)
      |> load_l7_assigns(user)}
   end
 
@@ -165,9 +166,17 @@ defmodule FzHttpWeb.UserLive.Show do
 
   # ── Access scope toggle ──────────────────────────────────────────
 
-  def handle_event("set_access_scope", %{"scope" => scope}, socket) do
-    scope_atom = String.to_existing_atom(scope)
+  def handle_event("confirm_set_access_scope", %{"scope" => scope}, socket)
+      when scope in ["limited", "all"] do
+    {:noreply, assign(socket, :scope_change_confirm, String.to_existing_atom(scope))}
+  end
 
+  def handle_event("cancel_set_access_scope", _, socket),
+    do: {:noreply, assign(socket, :scope_change_confirm, nil)}
+
+  def handle_event("set_access_scope", _params,
+                    %{assigns: %{scope_change_confirm: scope_atom}} = socket)
+      when not is_nil(scope_atom) do
     case Users.set_access_scope(socket.assigns.user, scope_atom, socket.assigns.subject,
                                   socket.assigns.remote_ip) do
       {:ok, updated} ->
@@ -180,10 +189,14 @@ defmodule FzHttpWeb.UserLive.Show do
         {:noreply,
          socket
          |> assign(:user, updated)
+         |> assign(:scope_change_confirm, nil)
          |> put_flash(:info, msg)}
 
       {:error, _} ->
-        {:noreply, put_flash(socket, :error, "Could not update access scope.")}
+        {:noreply,
+         socket
+         |> assign(:scope_change_confirm, nil)
+         |> put_flash(:error, "Could not update access scope.")}
     end
   end
 
