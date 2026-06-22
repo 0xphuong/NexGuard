@@ -54,7 +54,10 @@ defmodule FzHttpWeb.WireguardConfigView do
   end
 
   defp allowed_ips_config(device, defaults) do
-    allowed_ips = Devices.get_allowed_ips(device, defaults)
+    allowed_ips =
+      device
+      |> Devices.get_allowed_ips(defaults)
+      |> with_l7_vip_cidr()
 
     if field_empty?(allowed_ips) do
       ""
@@ -62,6 +65,32 @@ defmodule FzHttpWeb.WireguardConfigView do
       "AllowedIPs = #{Enum.join(allowed_ips, ",")}"
     end
   end
+
+  # ADR-014: declared L7 apps live at virtual IPs inside the VIP /16
+  # subnet (`10.99.0.0/16` by default). For traffic to those VIPs to
+  # flow through the WG tunnel — and therefore through the L7 proxy's
+  # TPROXY chain — the client's `AllowedIPs` must include that CIDR.
+  #
+  # We append it here at render time so the admin doesn't have to
+  # remember to add it manually to "Default Allowed IPs" (the v3.0.0
+  # smoke caught exactly this footgun — `AllowedIPs = 10.0.0.0/16`
+  # without the VIP range and curl to a declared app silently
+  # hangs because the client routes the VIP to its local network).
+  #
+  # Dedup so an admin who DID add the CIDR (e.g. before this auto-
+  # inject shipped) doesn't see it twice.
+  defp with_l7_vip_cidr(allowed_ips) when is_list(allowed_ips) do
+    vip = FzHttp.L7.vip_cidr()
+    rendered = Enum.map(allowed_ips, &to_string/1)
+
+    if vip in rendered do
+      rendered
+    else
+      rendered ++ [vip]
+    end
+  end
+
+  defp with_l7_vip_cidr(other), do: other
 
   defp persistent_keepalive_config(device, defaults) do
     pk = Devices.get_persistent_keepalive(device, defaults)

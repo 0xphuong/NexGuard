@@ -21,6 +21,17 @@ defmodule FzHttp.L7 do
 
   @identity_topic "nexguard:l7:identity"
 
+  # The IPv4 /16 reserved for L7 application virtual IPs (ADR-014).
+  # Mirrored by `FzWall.CLI.Helpers.Tproxy`'s nft rule + the
+  # `VipAllocator` subnet. If you ever change this, grep `10.99.0.0/16`
+  # across the repo — there are at least three other call sites that
+  # must move in lockstep (nft TPROXY rule, allocator bounds doc,
+  # vip_allocator integer math).
+  @vip_cidr "10.99.0.0/16"
+
+  @doc "The IPv4 /16 reserved for L7 application virtual IPs."
+  def vip_cidr, do: @vip_cidr
+
   @doc """
   Broadcasts `{:identity_updated, vpn_ip_string}` on
   `nexguard:l7:identity` once per active VPN IP (IPv4 + IPv6) attached
