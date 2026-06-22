@@ -42,24 +42,28 @@ services:
     image: coredns/coredns:1.11.3
     command: ["-conf", "/Corefile"]
     environment:
-      # Split-horizon resolution — internal zones go to the
-      # operator's authoritative resolver; everything else is
-      # forwarded to public DNS hardcoded in the Corefile.
+      # Three knobs, each a single host or zone. Tune to match your
+      # company's DNS topology — there are two common shapes:
       #
-      #   COREDNS_INTERNAL_ZONES   — space-separated internal zones,
-      #                              e.g. "sevensystem.vn"
-      #                              (placeholder default never
-      #                              matches a real query)
-      #   COREDNS_INTERNAL_FORWARD — single authoritative resolver
-      #                              IP, e.g. "10.0.235.250"
+      # Shape 1 — company has ONE internal DNS that resolves both
+      # internal + public (most enterprises):
+      #   COREDNS_INTERNAL_ZONES=internal.invalid    # disabled
+      #   COREDNS_INTERNAL_FORWARD=127.0.0.255       # disabled
+      #   COREDNS_PUBLIC_FORWARD=10.0.235.250        # YOUR local DNS
       #
-      # NOTE: CoreDNS `{$VAR}` substitution produces a single token,
-      # so COREDNS_INTERNAL_FORWARD must be ONE server. To use
-      # multiple public DNS servers, edit `coredns/Corefile`
-      # directly (the forward . line is bind-mounted, no rebuild
-      # needed — restart coredns to pick up the change).
+      # Shape 2 — split-horizon: internal zones go to local DNS,
+      # public goes to fast public DNS:
+      #   COREDNS_INTERNAL_ZONES=sevensystem.vn      # YOUR internal zone(s)
+      #   COREDNS_INTERNAL_FORWARD=10.0.235.250      # YOUR local DNS
+      #   COREDNS_PUBLIC_FORWARD=1.1.1.1             # public resolver
+      #
+      # Each env var must be ONE host — CoreDNS env substitution
+      # produces a single token. For multi-server redundancy with
+      # health checks / failover, edit `coredns/Corefile` directly
+      # (it's bind-mounted) and `docker compose restart coredns`.
       COREDNS_INTERNAL_ZONES:   ${COREDNS_INTERNAL_ZONES:-internal.invalid}
       COREDNS_INTERNAL_FORWARD: ${COREDNS_INTERNAL_FORWARD:-127.0.0.255}
+      COREDNS_PUBLIC_FORWARD:   ${COREDNS_PUBLIC_FORWARD:-1.1.1.1}
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro

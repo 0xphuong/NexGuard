@@ -45,13 +45,21 @@
     ttl 30
     fallthrough
   }
-  # Public DNS hardcoded — env substitution can't pass a
-  # multi-server list to the forward plugin. If you need
-  # different public resolvers, edit this Corefile directly
-  # (it's bind-mounted into the container).
-  forward . 1.1.1.1 8.8.8.8 9.9.9.9 1.0.0.1 8.8.4.4 {
+  # Default-zone forwarder. Set COREDNS_PUBLIC_FORWARD in .env to
+  # the resolver that fits your topology:
+  #
+  #   * Pure public: 1.1.1.1 (or 8.8.8.8, 9.9.9.9, etc.)
+  #   * Company DNS handles everything (typical enterprise):
+  #     point at your local DNS, e.g. 10.0.235.250
+  #
+  # Each env var here must be a SINGLE host — CoreDNS env
+  # substitution produces one token, so a value like
+  # "1.1.1.1 8.8.8.8" arrives as a single broken string. To use
+  # multiple resolvers with policy/healthcheck, edit this
+  # Corefile directly (bind-mounted from coredns/Corefile in the
+  # repo — changes take effect on `docker compose restart coredns`).
+  forward . {$COREDNS_PUBLIC_FORWARD} {
     max_concurrent 1000
-    policy random
     health_check 5s
   }
   cache 300
