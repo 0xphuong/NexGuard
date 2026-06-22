@@ -19,7 +19,9 @@ package handler
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/tls"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
@@ -56,7 +58,7 @@ type Deps struct {
 	Identity     *identity.Client
 	Signers      *jwt.SignerHolder
 	Certs        *cert.Holder // unused on the HTTP hot path; passed in case we want a debug endpoint
-	DenyPage     func(w http.ResponseWriter, code int, reason, hostname string)
+	DenyPage     func(w http.ResponseWriter, code int, reason, hostname, requestID string)
 	HeaderPrefix string // typically "X-NexGuard-"
 	Logger       *slog.Logger // structured per-request access log; defaults to a discard logger
 	Metrics      *observability.Metrics // safe to leave nil — RecordRequest is a no-op on nil receiver
@@ -120,21 +122,43 @@ func (rw *recordingWriter) Write(b []byte) (int, error) {
 // travels the pipeline. Updated by each stage; consumed by the
 // deferred log + metric emit at the end of ServeHTTP.
 type observation struct {
-	appID    string
-	userID   string
-	decision string // allow | deny | error
-	reason   string
-	vip      string
+	requestID string // short hex ID, also rendered on deny pages
+	appID     string
+	userID    string
+	decision  string // allow | deny | error
+	reason    string
+	vip       string
+}
+
+// newRequestID returns an 8-byte random hex (16 chars). Short enough
+// for a user to read off a deny page and paste into a support
+// ticket; entropy enough that collisions across one access-log
+// retention window are negligible.
+func newRequestID() string {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
 }
 
 func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	start := time.Now()
 	rec := &recordingWriter{ResponseWriter: w}
-	obs := &observation{decision: "error", reason: "uninitialized"}
+	obs := &observation{
+		requestID: newRequestID(),
+		decision:  "error",
+		reason:    "uninitialized",
+	}
+
+	// Surface the request ID on every response (deny + allow). The
+	// deny page also shows it in human-readable form so users can
+	// copy-paste into a support request and the admin can grep the
+	// access log for the matching entry.
+	w.Header().Set(p.deps.HeaderPrefix+"Request-Id", obs.requestID)
 
 	defer func() {
 		dur := time.Since(start)
 		p.deps.Logger.Info("request",
+			slog.String("request_id", obs.requestID),
 			slog.String("decision", obs.decision),
 			slog.String("reason", obs.reason),
 			slog.String("app_id", obs.appID),
@@ -158,7 +182,7 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	b := p.deps.Bundle.Current()
 	if b == nil {
 		obs.decision, obs.reason = "error", reasonNoBundle
-		p.deny(w, r, http.StatusServiceUnavailable, reasonNoBundle, "")
+		p.deny(w, r, obs, http.StatusServiceUnavailable, reasonNoBundle, "")
 		return
 	}
 
@@ -166,14 +190,14 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	vip, ok := localAddrIP(r.Context())
 	if !ok {
 		obs.decision, obs.reason = "error", reasonUnknownApp
-		p.deny(w, r, http.StatusInternalServerError, reasonUnknownApp, "")
+		p.deny(w, r, obs, http.StatusInternalServerError, reasonUnknownApp, "")
 		return
 	}
 	obs.vip = vip
 	app := b.FindAppByVIP(vip)
 	if app == nil {
 		obs.decision, obs.reason = "deny", reasonUnknownApp
-		p.deny(w, r, http.StatusNotFound, reasonUnknownApp, "")
+		p.deny(w, r, obs, http.StatusNotFound, reasonUnknownApp, "")
 		return
 	}
 	obs.appID = app.ID
@@ -185,18 +209,18 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	clientIP, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		obs.decision, obs.reason = "error", reasonUnknownVPNIP
-		p.deny(w, r, http.StatusBadRequest, reasonUnknownVPNIP, app.Hostname)
+		p.deny(w, r, obs, http.StatusBadRequest, reasonUnknownVPNIP, app.Hostname)
 		return
 	}
 	id, err := p.deps.Identity.Lookup(r.Context(), clientIP)
 	if err != nil {
 		if errors.Is(err, identity.ErrUnknownVPNIP) {
 			obs.decision, obs.reason = "deny", reasonUnknownVPNIP
-			p.deny(w, r, http.StatusUnauthorized, reasonUnknownVPNIP, app.Hostname)
+			p.deny(w, r, obs, http.StatusUnauthorized, reasonUnknownVPNIP, app.Hostname)
 			return
 		}
 		obs.decision, obs.reason = "error", reasonBackendError
-		p.deny(w, r, http.StatusBadGateway, reasonBackendError, app.Hostname)
+		p.deny(w, r, obs, http.StatusBadGateway, reasonBackendError, app.Hostname)
 		return
 	}
 	obs.userID = id.UserID
@@ -205,7 +229,7 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	dec := policy.Decide(b, app, id, r)
 	if !dec.Allow {
 		obs.decision, obs.reason = "deny", dec.Reason
-		p.deny(w, r, http.StatusForbidden, reasonDenied, app.Hostname)
+		p.deny(w, r, obs, http.StatusForbidden, reasonDenied, app.Hostname)
 		return
 	}
 
@@ -233,15 +257,15 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 	p.injectIdentityHeaders(r, id)
 	if err := p.injectJWT(r, id); err != nil {
 		obs.decision, obs.reason = "error", reasonBackendError
-		p.deny(w, r, http.StatusInternalServerError, reasonBackendError, app.Hostname)
+		p.deny(w, r, obs, http.StatusInternalServerError, reasonBackendError, app.Hostname)
 		return
 	}
 
 	// 5. Reverse proxy.
-	rp, err := p.buildReverseProxy(app)
+	rp, err := p.buildReverseProxy(app, obs)
 	if err != nil {
 		obs.decision, obs.reason = "error", reasonBackendInvalid
-		p.deny(w, r, http.StatusInternalServerError, reasonBackendInvalid, app.Hostname)
+		p.deny(w, r, obs, http.StatusInternalServerError, reasonBackendInvalid, app.Hostname)
 		return
 	}
 
@@ -311,7 +335,7 @@ func (p *proxy) injectJWT(r *http.Request, id *identity.Identity) error {
 // compromises bundle compilation.
 var allowedBackendSchemes = map[string]bool{"http": true, "https": true}
 
-func (p *proxy) buildReverseProxy(app *bundle.App) (*httputil.ReverseProxy, error) {
+func (p *proxy) buildReverseProxy(app *bundle.App, obs *observation) (*httputil.ReverseProxy, error) {
 	target, err := url.Parse(app.Backend)
 	if err != nil {
 		return nil, fmt.Errorf("handler: parse backend %q: %w", app.Backend, err)
@@ -353,7 +377,7 @@ func (p *proxy) buildReverseProxy(app *bundle.App) (*httputil.ReverseProxy, erro
 	}
 
 	rp.ErrorHandler = func(w http.ResponseWriter, r *http.Request, err error) {
-		p.deny(w, r, http.StatusBadGateway, reasonBackendError, app.Hostname)
+		p.deny(w, r, obs, http.StatusBadGateway, reasonBackendError, app.Hostname)
 	}
 
 	return rp, nil
@@ -379,7 +403,11 @@ func stripReservedHeaders(h http.Header, prefix string) {
 }
 
 // deny renders the HTML deny page with the X-NexGuard-Reason header set.
-func (p *proxy) deny(w http.ResponseWriter, r *http.Request, code int, reason, hostname string) {
+// The deny page surfaces a request ID the user can quote in a support
+// ticket; admins grep the access log for the matching entry. The
+// observation struct is the canonical source of that ID — same value
+// gets logged so user-facing ID == log entry ID.
+func (p *proxy) deny(w http.ResponseWriter, r *http.Request, obs *observation, code int, reason, hostname string) {
 	w.Header().Set(p.deps.HeaderPrefix+"Reason", reason)
-	p.deps.DenyPage(w, code, reason, hostname)
+	p.deps.DenyPage(w, code, reason, hostname, obs.requestID)
 }
