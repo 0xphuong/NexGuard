@@ -23,10 +23,17 @@
 # to the gateway's WG-side IP).
 
 . {
+  # `fallthrough .` (with the root zone explicit) is the syntax
+  # that actually falls through on miss across ALL zones — not
+  # just the ones the hosts plugin auto-infers from its entries.
+  # Without the `.`, having `hq.sevensystem.vn` in the file made
+  # CoreDNS claim authority over the whole `sevensystem.vn` zone:
+  # sister names like `loki-grafana.sevensystem.vn` got
+  # NXDOMAIN-authoritative immediately, never forwarded upstream.
   hosts /etc/nexguard/internal-hosts {
     reload 1s
     ttl 30
-    fallthrough
+    fallthrough .
   }
   forward . {$COREDNS_FORWARD_TO} {
     max_concurrent 1000
