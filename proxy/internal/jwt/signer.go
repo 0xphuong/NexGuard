@@ -19,6 +19,7 @@ import (
 	"crypto/sha256"
 	"crypto/x509"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"errors"
@@ -46,14 +47,30 @@ type Signer struct {
 	key *rsa.PrivateKey
 }
 
+// Issuer is stamped into every JWT's `iss` claim. Backends MUST
+// verify this to reject tokens that didn't come from a NexGuard
+// proxy — defence in depth against any future leak of the signing
+// key into something that signs different `iss`.
+const Issuer = "nexguard-proxy"
+
 // Claims is the payload the proxy injects into
-// X-NexGuard-Identity-Jwt. Mirrors what the backend's auth filters
-// expect — see ADR-010.
+// X-NexGuard-Identity-Jwt. ADR-010 + v3.0.1 security review.
+//
+// Standard JWT claims (`iss`, `aud`, `jti`, `nbf`, `iat`, `exp`)
+// land alongside the NexGuard-specific identity fields. Backends
+// MUST verify at minimum `iss == "nexguard-proxy"` AND
+// `aud == <this app's identifier>` — without those checks a token
+// signed for App X is bit-for-bit valid for App Y, opening a
+// cross-app replay window for the JWT's 5-min TTL.
 type Claims struct {
+	Issuer        string   `json:"iss"`
+	Audience      string   `json:"aud"`
+	JTI           string   `json:"jti"`
 	UserID        string   `json:"user_id"`
 	Email         string   `json:"email"`
 	Groups        []string `json:"groups,omitempty"`
 	MFAAgeSeconds *int     `json:"mfa_age_seconds,omitempty"`
+	NotBefore     int64    `json:"nbf"`
 	IssuedAt      int64    `json:"iat"`
 	ExpiresAt     int64    `json:"exp"`
 }
@@ -106,13 +123,26 @@ func FromPEM(kid string, pemBytes []byte) (*Signer, error) {
 func (s *Signer) Kid() string { return s.kid }
 
 // Sign produces a JWS Compact Serialization (`header.payload.sig`)
-// over the given claims with RS256. `iat` and `exp` are stamped here
-// — callers should leave them zero in the input.
-func (s *Signer) Sign(claims Claims, ttl time.Duration) (string, error) {
+// over the given claims with RS256. The Signer stamps the standard
+// envelope claims (iss, jti, nbf, iat, exp) — caller only fills
+// the identity fields and the per-request audience.
+//
+// `audience` is REQUIRED: it pins the token to a specific app
+// (typically `app.ID` or `app.Hostname`) so backends can refuse
+// tokens minted for a different app. An empty audience is rejected
+// — failing closed beats silently signing replayable tokens.
+func (s *Signer) Sign(claims Claims, audience string, ttl time.Duration) (string, error) {
+	if audience == "" {
+		return "", errors.New("jwt: audience is required (pins token to a specific app)")
+	}
 	if ttl == 0 {
 		ttl = DefaultTTL
 	}
 	now := time.Now().Unix()
+	claims.Issuer = Issuer
+	claims.Audience = audience
+	claims.JTI = newJTI()
+	claims.NotBefore = now
 	claims.IssuedAt = now
 	claims.ExpiresAt = now + int64(ttl.Seconds())
 
@@ -154,6 +184,16 @@ type SignerHolder struct {
 
 func (h *SignerHolder) Set(s *Signer) { h.v.Store(s) }
 func (h *SignerHolder) Get() *Signer  { return h.v.Load() }
+
+// newJTI returns 16 random hex chars (8 bytes of entropy) — a JWT
+// ID for replay-detection on the backend side. Backends with a
+// short window (~5 min, matching the token TTL) can dedupe by jti
+// to reject reuse of an exfiltrated token.
+func newJTI() string {
+	var b [8]byte
+	_, _ = rand.Read(b[:])
+	return hex.EncodeToString(b[:])
+}
 
 // b64 = base64url with no padding, per RFC 7515 §2.
 func b64(b []byte) string {

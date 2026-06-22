@@ -292,7 +292,7 @@ func (p *proxy) handle(w http.ResponseWriter, r *http.Request, obs *observation)
 		r.Header.Set(h.Name, h.Value)
 	}
 	p.injectIdentityHeaders(r, id)
-	if err := p.injectJWT(r, id); err != nil {
+	if err := p.injectJWT(r, id, app); err != nil {
 		obs.decision, obs.reason = "error", reasonBackendError
 		p.deny(w, r, obs, http.StatusInternalServerError, reasonBackendError, app.Hostname)
 		return
@@ -372,17 +372,21 @@ func (p *proxy) injectIdentityHeaders(r *http.Request, id *identity.Identity) {
 	}
 }
 
-func (p *proxy) injectJWT(r *http.Request, id *identity.Identity) error {
+func (p *proxy) injectJWT(r *http.Request, id *identity.Identity, app *bundle.App) error {
 	s := p.deps.Signers.Get()
 	if s == nil {
 		return errors.New("handler: no signer loaded")
 	}
+	// `aud` = app.ID pins the token to this specific app. A backend
+	// that strictly verifies aud rejects a token minted for a
+	// different app — closing the cross-app replay window the
+	// previous Claims schema left open.
 	jws, err := s.Sign(jwt.Claims{
 		UserID:        id.UserID,
 		Email:         id.Email,
 		Groups:        id.Groups,
 		MFAAgeSeconds: id.MFAAgeSeconds,
-	}, 0)
+	}, app.ID, 0)
 	if err != nil {
 		return err
 	}

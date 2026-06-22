@@ -109,7 +109,7 @@ func TestSign_RoundTrip_PreservesClaims(t *testing.T) {
 		MFAAgeSeconds: &mfaAge,
 	}
 
-	jws, err := s.Sign(c, 60*time.Second)
+	jws, err := s.Sign(c, "test-app-id", 60*time.Second)
 	if err != nil {
 		t.Fatalf("Sign: %v", err)
 	}
@@ -158,7 +158,7 @@ func TestSign_DefaultTTL_IsFiveMinutes(t *testing.T) {
 	kid, pemBytes, _ := genTestPEM(t, 2048, "pkcs1")
 	s, _ := FromPEM(kid, pemBytes)
 
-	jws, err := s.Sign(Claims{UserID: "u"}, 0)
+	jws, err := s.Sign(Claims{UserID: "u"}, "aud-test", 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -168,6 +168,61 @@ func TestSign_DefaultTTL_IsFiveMinutes(t *testing.T) {
 	iat, exp := payload["iat"].(float64), payload["exp"].(float64)
 	if exp-iat != float64(DefaultTTL.Seconds()) {
 		t.Errorf("default TTL: want %v, got %v", DefaultTTL.Seconds(), exp-iat)
+	}
+}
+
+func TestSign_StampsStandardClaims(t *testing.T) {
+	kid, pemBytes, _ := genTestPEM(t, 2048, "pkcs1")
+	s, _ := FromPEM(kid, pemBytes)
+
+	jws, err := s.Sign(Claims{UserID: "u-1", Email: "a@b.c"}, "app-id-42", 30*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	parts := strings.Split(jws, ".")
+	payload := decodeJSONPart(t, parts[1])
+
+	if payload["iss"] != Issuer {
+		t.Errorf("iss: want %q, got %v", Issuer, payload["iss"])
+	}
+	if payload["aud"] != "app-id-42" {
+		t.Errorf("aud: want %q, got %v", "app-id-42", payload["aud"])
+	}
+	jti, _ := payload["jti"].(string)
+	if len(jti) != 16 {
+		t.Errorf("jti: want 16-char hex, got %q", jti)
+	}
+	nbf, _ := payload["nbf"].(float64)
+	iat, _ := payload["iat"].(float64)
+	if nbf != iat {
+		t.Errorf("nbf and iat should match at issue time; nbf=%v iat=%v", nbf, iat)
+	}
+}
+
+func TestSign_RejectsEmptyAudience(t *testing.T) {
+	kid, pemBytes, _ := genTestPEM(t, 2048, "pkcs1")
+	s, _ := FromPEM(kid, pemBytes)
+	if _, err := s.Sign(Claims{UserID: "u"}, "", 60*time.Second); err == nil {
+		t.Fatal("empty audience must be rejected")
+	}
+}
+
+func TestSign_JTI_UniquePerCall(t *testing.T) {
+	kid, pemBytes, _ := genTestPEM(t, 2048, "pkcs1")
+	s, _ := FromPEM(kid, pemBytes)
+	seen := map[string]bool{}
+	for i := 0; i < 100; i++ {
+		jws, err := s.Sign(Claims{UserID: "u"}, "a", 60*time.Second)
+		if err != nil {
+			t.Fatal(err)
+		}
+		parts := strings.Split(jws, ".")
+		jti, _ := decodeJSONPart(t, parts[1])["jti"].(string)
+		if seen[jti] {
+			t.Fatalf("jti collision after %d calls: %q", i, jti)
+		}
+		seen[jti] = true
 	}
 }
 
