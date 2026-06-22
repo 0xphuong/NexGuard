@@ -21,6 +21,7 @@ defmodule FzHttp.AuditLogs.AuditLog do
     user.disable
     user.enable
     user.password.change
+    user.access_scope.change
     device.create
     device.delete
     device.ip.change
@@ -41,6 +42,18 @@ defmodule FzHttp.AuditLogs.AuditLog do
     saml_provider.delete
     l7.signing_key.bootstrap
     l7.signing_key.rotate
+    access_group.create
+    access_group.update
+    access_group.delete
+    access_group.add_member
+    access_group.remove_member
+    application.create
+    application.update
+    application.delete
+    application.enabled.change
+    application.allow_group
+    application.revoke_group
+    org_settings.l7_enabled.change
   )
 
   @valid_results ~w(success failure)
