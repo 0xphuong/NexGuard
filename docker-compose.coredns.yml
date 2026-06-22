@@ -42,9 +42,24 @@ services:
     image: coredns/coredns:1.11.3
     command: ["-conf", "/Corefile"]
     environment:
-      # Upstream resolver for anything not in the L7 hosts file.
-      # Set in .env: COREDNS_FORWARD_TO=10.0.235.250
-      COREDNS_FORWARD_TO: ${COREDNS_FORWARD_TO:-1.1.1.1 8.8.8.8}
+      # Split-horizon resolution — internal zones go to the
+      # operator's authoritative resolver; everything else is
+      # forwarded to public DNS hardcoded in the Corefile.
+      #
+      #   COREDNS_INTERNAL_ZONES   — space-separated internal zones,
+      #                              e.g. "sevensystem.vn"
+      #                              (placeholder default never
+      #                              matches a real query)
+      #   COREDNS_INTERNAL_FORWARD — single authoritative resolver
+      #                              IP, e.g. "10.0.235.250"
+      #
+      # NOTE: CoreDNS `{$VAR}` substitution produces a single token,
+      # so COREDNS_INTERNAL_FORWARD must be ONE server. To use
+      # multiple public DNS servers, edit `coredns/Corefile`
+      # directly (the forward . line is bind-mounted, no rebuild
+      # needed — restart coredns to pick up the change).
+      COREDNS_INTERNAL_ZONES:   ${COREDNS_INTERNAL_ZONES:-internal.invalid}
+      COREDNS_INTERNAL_FORWARD: ${COREDNS_INTERNAL_FORWARD:-127.0.0.255}
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
