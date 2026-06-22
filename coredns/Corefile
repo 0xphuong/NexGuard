@@ -1,43 +1,26 @@
 # NexGuard L7 ZTNA CoreDNS configuration (ADR-012).
 #
-# Two-tier resolution for VPN clients pointing DNS at the gateway:
+# Single forwarder model — the operator chooses ONE resolver to
+# forward everything to via the `COREDNS_FORWARD_TO` env var:
 #
-#   * Internal corporate zones (COREDNS_INTERNAL_ZONES) → operator's
-#     internal DNS (COREDNS_INTERNAL_FORWARD, e.g. 10.0.235.250).
-#     Used for non-L7 internal hostnames.
+#   * Use the company's internal DNS (e.g. 10.0.235.250) if the
+#     same resolver handles both internal corporate names AND
+#     forwards public queries upstream. Typical enterprise setup.
+#     Trade-off: public lookups go through one extra hop.
 #
-#   * Default (everything else) → public DNS direct
-#     (COREDNS_PUBLIC_FORWARD, e.g. 1.1.1.1 8.8.8.8 9.9.9.9).
-#     Avoids the slow-because-double-forward path we hit when ALL
-#     queries went to the internal resolver and IT forwarded public
-#     names upstream — first cold-cache query took 2s+.
+#   * Use a public resolver (1.1.1.1, 8.8.8.8) if VPN clients only
+#     need public DNS plus the L7 app hostnames from the hosts
+#     file. Fastest public lookups; non-L7 internal names won't
+#     resolve.
 #
-# Declared L7 application hostnames are handled by the `hosts`
+# Declared L7 application hostnames are resolved by the `hosts`
 # plugin (reads /etc/nexguard/internal-hosts, written by Phoenix's
-# FzHttp.L7.CoreDnsHosts) before either forward runs.
+# FzHttp.L7.CoreDnsHosts) BEFORE the forward — so L7 apps always
+# resolve to their VIP regardless of which upstream is configured.
 #
 # Bind to all interfaces inside the shared nexguard net namespace
 # so the wg-nexguard tunnel sees us (VPN clients send DNS queries
 # to the gateway's WG-side IP).
-
-# Internal zones — operator's authoritative resolver. The zone
-# token is env-substituted; if the operator hasn't set internal
-# zones, the placeholder `internal.invalid` matches nothing real,
-# leaving the default block to handle everything.
-#
-# `{$VAR}` env substitution in CoreDNS produces a SINGLE token even
-# if the value contains spaces — so each of these vars must be a
-# single host or single zone. List multiple zones with the
-# `COREDNS_INTERNAL_ZONES` value space-separated (which Caddyfile
-# parses correctly at the SERVER label position).
-{$COREDNS_INTERNAL_ZONES} {
-  forward . {$COREDNS_INTERNAL_FORWARD} {
-    max_concurrent 100
-    health_check 5s
-  }
-  cache 300
-  errors
-}
 
 . {
   hosts /etc/nexguard/internal-hosts {
@@ -45,20 +28,7 @@
     ttl 30
     fallthrough
   }
-  # Default-zone forwarder. Set COREDNS_PUBLIC_FORWARD in .env to
-  # the resolver that fits your topology:
-  #
-  #   * Pure public: 1.1.1.1 (or 8.8.8.8, 9.9.9.9, etc.)
-  #   * Company DNS handles everything (typical enterprise):
-  #     point at your local DNS, e.g. 10.0.235.250
-  #
-  # Each env var here must be a SINGLE host — CoreDNS env
-  # substitution produces one token, so a value like
-  # "1.1.1.1 8.8.8.8" arrives as a single broken string. To use
-  # multiple resolvers with policy/healthcheck, edit this
-  # Corefile directly (bind-mounted from coredns/Corefile in the
-  # repo — changes take effect on `docker compose restart coredns`).
-  forward . {$COREDNS_PUBLIC_FORWARD} {
+  forward . {$COREDNS_FORWARD_TO} {
     max_concurrent 1000
     health_check 5s
   }

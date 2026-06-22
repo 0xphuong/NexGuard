@@ -42,28 +42,23 @@ services:
     image: coredns/coredns:1.11.3
     command: ["-conf", "/Corefile"]
     environment:
-      # Three knobs, each a single host or zone. Tune to match your
-      # company's DNS topology — there are two common shapes:
+      # One DNS server — admin chooses what fits the deployment.
+      # Set COREDNS_FORWARD_TO in .env to:
       #
-      # Shape 1 — company has ONE internal DNS that resolves both
-      # internal + public (most enterprises):
-      #   COREDNS_INTERNAL_ZONES=internal.invalid    # disabled
-      #   COREDNS_INTERNAL_FORWARD=127.0.0.255       # disabled
-      #   COREDNS_PUBLIC_FORWARD=10.0.235.250        # YOUR local DNS
+      #   * Your company's internal DNS (e.g. 10.0.235.250) if it
+      #     resolves both internal corporate names AND forwards
+      #     public queries upstream (typical enterprise).
       #
-      # Shape 2 — split-horizon: internal zones go to local DNS,
-      # public goes to fast public DNS:
-      #   COREDNS_INTERNAL_ZONES=sevensystem.vn      # YOUR internal zone(s)
-      #   COREDNS_INTERNAL_FORWARD=10.0.235.250      # YOUR local DNS
-      #   COREDNS_PUBLIC_FORWARD=1.1.1.1             # public resolver
+      #   * A public resolver (1.1.1.1, 8.8.8.8) if you only need
+      #     public DNS plus the L7 app hostnames from the hosts
+      #     file.
       #
-      # Each env var must be ONE host — CoreDNS env substitution
-      # produces a single token. For multi-server redundancy with
-      # health checks / failover, edit `coredns/Corefile` directly
-      # (it's bind-mounted) and `docker compose restart coredns`.
-      COREDNS_INTERNAL_ZONES:   ${COREDNS_INTERNAL_ZONES:-internal.invalid}
-      COREDNS_INTERNAL_FORWARD: ${COREDNS_INTERNAL_FORWARD:-127.0.0.255}
-      COREDNS_PUBLIC_FORWARD:   ${COREDNS_PUBLIC_FORWARD:-1.1.1.1}
+      # Single host only — CoreDNS `{$VAR}` substitution produces
+      # one token, so "1.1.1.1 8.8.8.8" arrives as a broken string.
+      # For multi-server redundancy with failover, edit
+      # `coredns/Corefile` directly (it's bind-mounted, no rebuild
+      # — `docker compose restart coredns` picks it up).
+      COREDNS_FORWARD_TO: ${COREDNS_FORWARD_TO:-1.1.1.1}
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
