@@ -145,6 +145,39 @@ func TestDecide_PathPrefix(t *testing.T) {
 	}
 }
 
+func TestDecide_PathTraversalRejected(t *testing.T) {
+	// Defense vs the classic bypass: an attacker tries
+	// `/public/../admin/delete` hoping the prefix-only check
+	// matches `/public/`. The path-normalisation guard in
+	// ruleMatches rejects any URL containing `..` outright so the
+	// rule falls through to default-deny.
+	b := newBundleFixture(bundle.App{
+		ID: "app-1",
+		L7Rules: []bundle.Rule{
+			{Action: "allow", PathPrefix: "/public/"},
+			// no explicit catch-all — relying on default deny
+		},
+	}, nil)
+	id := &identity.Identity{UserID: "u-1", AccessScope: "limited"}
+
+	// Legit /public/* paths still allowed.
+	if d := Decide(b, &b.Apps[0], id, req(t, "GET", "/public/index.html")); !d.Allow {
+		t.Errorf("/public/index.html should pass: %+v", d)
+	}
+
+	// Traversal attempts MUST NOT match the /public/ rule.
+	hostile := []string{
+		"/public/../admin",
+		"/public/../../etc/passwd",
+		"/public/..%2fadmin", // raw URL-encoded dot-slash, not Clean'able but contains ".."
+	}
+	for _, p := range hostile {
+		if d := Decide(b, &b.Apps[0], id, req(t, "GET", p)); d.Allow {
+			t.Errorf("traversal %q should NOT match permissive rule, got %+v", p, d)
+		}
+	}
+}
+
 func TestDecide_FirstMatchWins(t *testing.T) {
 	b := newBundleFixture(bundle.App{
 		ID: "app-1",

@@ -362,6 +362,13 @@ func refreshSigner(b *bundle.Bundle, holder *jwt.SignerHolder) error {
 		return err
 	}
 	holder.Set(s)
+	// Drop the raw PEM string from the bundle struct now that the
+	// signer holds the parsed *rsa.PrivateKey. Go strings are
+	// immutable so this only makes the original bytes unreachable
+	// (subject to GC) — it does NOT scrub the heap pages — but
+	// unreachable is strictly better than dangling for the bundle's
+	// lifetime. Real zeroing would need a []byte we can overwrite.
+	b.SigningKey.PrivatePEM = ""
 	return nil
 }
 

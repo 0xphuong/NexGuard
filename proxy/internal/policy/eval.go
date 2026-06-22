@@ -26,6 +26,7 @@ package policy
 
 import (
 	"net/http"
+	"path"
 	"strings"
 
 	"github.com/0xphuong/NexGuard/proxy/internal/bundle"
@@ -120,7 +121,17 @@ func ruleMatches(r bundle.Rule, req *http.Request) bool {
 		}
 	}
 	if r.PathPrefix != "" {
-		if !strings.HasPrefix(req.URL.Path, r.PathPrefix) {
+		// Defense against path-traversal bypass: a request to
+		// `/public/../admin/secret` would naively prefix-match
+		// `/public/` BUT resolves to `/admin/secret` once the
+		// backend cleans it. Reject any path that contains `..` so
+		// it never matches a permissive rule — and compare against
+		// the cleaned form so trailing-slash / "//" variants line up.
+		if strings.Contains(req.URL.Path, "..") {
+			return false
+		}
+		clean := path.Clean("/" + strings.TrimPrefix(req.URL.Path, "/"))
+		if !strings.HasPrefix(clean, r.PathPrefix) {
 			return false
 		}
 	}

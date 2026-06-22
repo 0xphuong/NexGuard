@@ -105,6 +105,15 @@ type recordingWriter struct {
 }
 
 func (rw *recordingWriter) WriteHeader(code int) {
+	// stdlib's http.ResponseWriter already complains on a second
+	// WriteHeader, but our access log only captures the FIRST status
+	// so the metric counter labels match what the client saw. The
+	// guard also matters on the deny path: if a backend wrote a
+	// status before ErrorHandler tried to render the deny page, the
+	// log entry should keep the original code.
+	if rw.status != 0 {
+		return
+	}
 	rw.status = code
 	rw.ResponseWriter.WriteHeader(code)
 }
@@ -128,6 +137,25 @@ type observation struct {
 	decision  string // allow | deny | error
 	reason    string
 	vip       string
+}
+
+// queryKeys returns a comma-separated list of query parameter NAMES
+// from r.URL — no values. Used in the access log so operators can
+// see which params a request carried (e.g. `?next=…&token=…`)
+// without the secrets that live in the values.
+func queryKeys(u *url.URL) string {
+	if u == nil || u.RawQuery == "" {
+		return ""
+	}
+	q := u.Query()
+	if len(q) == 0 {
+		return ""
+	}
+	keys := make([]string, 0, len(q))
+	for k := range q {
+		keys = append(keys, k)
+	}
+	return strings.Join(keys, ",")
 }
 
 // newRequestID returns an 8-byte random hex (16 chars). Short enough
@@ -168,7 +196,16 @@ func (p *proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			slog.Int64("bytes_out", rec.bytes),
 			slog.Duration("latency", dur),
 			slog.String("method", r.Method),
+			// `r.URL.Path` is the path-only component — Go's parser
+			// separates path from query, so tokens in query strings
+			// (e.g. /reset?token=abc) never reach the access log.
+			// Query KEY NAMES (without values) are logged for debug
+			// visibility — useful for spotting common params without
+			// leaking secrets. Note: secrets in the URL PATH itself
+			// (e.g. /reset/<token>) WILL be logged; backends should
+			// avoid putting secrets in path components.
 			slog.String("path", r.URL.Path),
+			slog.String("query_keys", queryKeys(r.URL)),
 			slog.String("ua", r.UserAgent()),
 			slog.String("client", r.RemoteAddr),
 		)
@@ -292,6 +329,24 @@ func localAddrIP(ctx context.Context) (string, bool) {
 	return tcp.IP.String(), true
 }
 
+// xffSpoofHeaders is the well-known set of forwarded-IP headers
+// downstream backends use to learn the client's IP. We strip them
+// from the incoming request so Go's stdlib httputil.ReverseProxy
+// (which APPENDS to X-Forwarded-For after the Director runs) sets
+// the header to ONLY the proxy-observed client IP. Without this
+// strip, a client sending `X-Forwarded-For: 1.2.3.4` would end up
+// with `X-Forwarded-For: 1.2.3.4, 10.0.55.10` reaching the backend
+// — and naive backends that trust the FIRST entry get spoofed.
+var xffSpoofHeaders = []string{
+	"X-Forwarded-For",
+	"X-Forwarded-Proto",
+	"X-Forwarded-Host",
+	"X-Forwarded-Port",
+	"X-Real-Ip",
+	"Forwarded", // RFC 7239
+	"Via",
+}
+
 func (p *proxy) stripSpoofedHeaders(r *http.Request) {
 	// net/http canonicalizes header keys (`X-NexGuard-` becomes
 	// `X-Nexguard-` because canonical title-cases only the first
@@ -299,6 +354,11 @@ func (p *proxy) stripSpoofedHeaders(r *http.Request) {
 	// helper handles the case-insensitive walk; this is the entry
 	// point on the ingress (client → proxy) leg.
 	stripReservedHeaders(r.Header, p.deps.HeaderPrefix)
+
+	// XFF / Forwarded family — see comment on xffSpoofHeaders.
+	for _, name := range xffSpoofHeaders {
+		r.Header.Del(name)
+	}
 }
 
 func (p *proxy) injectIdentityHeaders(r *http.Request, id *identity.Identity) {

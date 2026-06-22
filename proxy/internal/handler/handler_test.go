@@ -56,6 +56,12 @@ func newRig(t *testing.T) *testRig {
 		w.Header().Set("X-Echo-User-Id", req.Header.Get("X-NexGuard-User-Id"))
 		w.Header().Set("X-Echo-Jwt", req.Header.Get("X-NexGuard-Identity-Jwt"))
 		w.Header().Set("X-Echo-Spoof", req.Header.Get("X-NexGuard-Spoof"))
+		// XFF echo — assert proxy didn't pass the client's spoofed
+		// value through (Go appends the real client IP, but the
+		// SPOOFED part must be gone).
+		w.Header().Set("X-Echo-Xff", req.Header.Get("X-Forwarded-For"))
+		w.Header().Set("X-Echo-Real-Ip", req.Header.Get("X-Real-Ip"))
+		w.Header().Set("X-Echo-Forwarded", req.Header.Get("Forwarded"))
 		w.WriteHeader(200)
 		_, _ = io.WriteString(w, "backend response\n")
 	}))
@@ -162,6 +168,44 @@ func TestHappyPath_AllowsAndForwards(t *testing.T) {
 	}
 	if got := rec.Header().Get("X-Echo-Spoof"); got != "" {
 		t.Errorf("X-NexGuard-Spoof should have been stripped before forwarding, got %q", got)
+	}
+}
+
+func TestStripsXFFSpoofFamily(t *testing.T) {
+	r := newRig(t)
+	defer r.close()
+
+	req := withVIP(httptest.NewRequest(http.MethodGet, "http://wiki.internal/page", nil), "10.99.0.5")
+	req.RemoteAddr = "100.64.0.5:54321"
+
+	// Client tries to spoof every common forwarded-IP header.
+	req.Header.Set("X-Forwarded-For", "1.2.3.4")
+	req.Header.Set("X-Real-Ip", "5.6.7.8")
+	req.Header.Set("Forwarded", "for=9.10.11.12;proto=http")
+
+	rec := httptest.NewRecorder()
+	r.handler.ServeHTTP(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("status: want 200, got %d", rec.Code)
+	}
+
+	// X-Forwarded-For: Go's stdlib reverse-proxy ALWAYS appends the
+	// client IP it observed (100.64.0.5). We need to be sure the
+	// SPOOFED prefix "1.2.3.4," is gone — i.e. the backend sees
+	// ONLY the proxy-observed IP, not the client-injected list.
+	xff := rec.Header().Get("X-Echo-Xff")
+	if strings.Contains(xff, "1.2.3.4") {
+		t.Errorf("spoofed X-Forwarded-For survived strip: %q", xff)
+	}
+	if xff != "100.64.0.5" {
+		t.Errorf("X-Forwarded-For: want only proxy-observed IP, got %q", xff)
+	}
+
+	if got := rec.Header().Get("X-Echo-Real-Ip"); got != "" {
+		t.Errorf("X-Real-Ip should have been stripped, got %q", got)
+	}
+	if got := rec.Header().Get("X-Echo-Forwarded"); got != "" {
+		t.Errorf("Forwarded should have been stripped, got %q", got)
 	}
 }
 
