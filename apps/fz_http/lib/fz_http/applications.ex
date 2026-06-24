@@ -135,21 +135,44 @@ defmodule FzHttp.Applications do
          {:ok, updated} <- Repo.update(changeset) do
       broadcast(:apps_changed)
 
-      audit(subject, "application.update", updated, ip_address, %{
-        before: %{
-          name: app.name,
-          backend: app.backend,
-          tls_mode: app.tls_mode
-        },
-        after: %{
-          name: updated.name,
-          backend: updated.backend,
-          tls_mode: updated.tls_mode
-        }
-      })
+      audit(subject, "application.update", updated, ip_address,
+            update_audit_metadata(app, updated))
 
       {:ok, updated}
     end
+  end
+
+  # Capture a per-field diff of the fields the update changeset
+  # actually accepts. L7 rules and cert config are part of this set
+  # because they ARE the ZTNA policy surface — post-incident the
+  # audit log must answer "who allowed DELETE /admin/* and when?".
+  # We snapshot the rules verbatim (typically small JSON array) so
+  # rule re-ordering and content changes are both recoverable; if
+  # the array ever grows past a few KB, swap to a sha256 of the
+  # canonical encoding.
+  defp update_audit_metadata(before, after_) do
+    %{
+      before: %{
+        name:           before.name,
+        hostname:       before.hostname,
+        backend:        before.backend,
+        cert_source:    before.cert_source,
+        tls_cert_id:    before.tls_cert_id,
+        tls_auto_match: before.tls_auto_match,
+        tls_mode:       before.tls_mode,
+        l7_rules:       before.l7_rules
+      },
+      after: %{
+        name:           after_.name,
+        hostname:       after_.hostname,
+        backend:        after_.backend,
+        cert_source:    after_.cert_source,
+        tls_cert_id:    after_.tls_cert_id,
+        tls_auto_match: after_.tls_auto_match,
+        tls_mode:       after_.tls_mode,
+        l7_rules:       after_.l7_rules
+      }
+    }
   end
 
   def set_application_enabled(%Application{} = app, value, %Auth.Subject{} = subject,

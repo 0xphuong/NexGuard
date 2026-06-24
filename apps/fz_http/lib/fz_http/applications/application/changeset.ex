@@ -19,7 +19,24 @@ defmodule FzHttp.Applications.Application.Changeset do
     tls_mode l7_rules enabled
   ]a
 
+  # Explicit, NOT `@permitted_create -- [...]`. The subtraction
+  # pattern relied on a reader to spot `[:virtual_ip]` and quietly
+  # ALSO let `:enabled` through — which bypassed
+  # `validate_required_for_enable/1` (the rules + cert gate that's
+  # ONLY run by `set_enabled_changeset/2`). A malicious / mis-typed
+  # `update_application(app, %{"enabled" => true})` could flip an
+  # under-configured app live. Keep `:enabled` out of this list;
+  # callers MUST go through `Applications.set_application_enabled/4`.
+  @permitted_update ~w[
+    name description
+    hostname backend
+    cert_source cert_pem key_pem
+    tls_cert_id tls_auto_match
+    tls_mode l7_rules
+  ]a
+
   @required_create ~w[name hostname virtual_ip backend cert_source]a
+  @required_update ~w[name hostname backend cert_source]a
 
   @doc """
   Create changeset — used by admin app declaration form.
@@ -45,15 +62,22 @@ defmodule FzHttp.Applications.Application.Changeset do
   end
 
   @doc """
-  Update changeset — `virtual_ip` is **immutable** post-creation
-  (changing it would orphan in-flight connections and break the
-  proxy bundle cache). To change a VIP, delete and re-create the
-  app via admin UI.
+  Update changeset.
+
+  Two fields are deliberately NOT in `@permitted_update`:
+
+    * `virtual_ip` — immutable post-creation. Changing it would orphan
+      in-flight connections and invalidate the proxy bundle cache. To
+      change a VIP, delete and re-create the app.
+
+    * `enabled` — must go through `set_enabled_changeset/2` so the
+      rules-present + cert-present guards run. See the comment above
+      `@permitted_update` for the bypass we're closing.
   """
   def update_changeset(%Application{} = app, attrs) do
     app
-    |> cast(attrs, @permitted_create -- [:virtual_ip])
-    |> validate_required([:name, :hostname, :backend, :cert_source])
+    |> cast(attrs, @permitted_update)
+    |> validate_required(@required_update)
     |> normalize_hostname()
     |> validate_format(:hostname, @hostname_regex,
          message: "must be a valid DNS hostname")

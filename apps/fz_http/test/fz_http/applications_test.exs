@@ -1,7 +1,7 @@
 defmodule FzHttp.ApplicationsTest do
   use FzHttp.DataCase, async: true
 
-  alias FzHttp.Applications
+  alias FzHttp.{Applications, AuditLogs}
   alias FzHttp.Applications.Application
   alias FzHttp.{ApplicationsFixtures, AccessGroupsFixtures, SubjectFixtures, UsersFixtures}
 
@@ -205,6 +205,67 @@ defmodule FzHttp.ApplicationsTest do
     test "no-op when value matches current state", %{admin_subject: subject} do
       app = ApplicationsFixtures.create_application_via_context()
       assert {:ok, ^app} = Applications.set_application_enabled(app, false, subject)
+    end
+  end
+
+  describe "update_application/4 — enable-bypass guard" do
+    test "update with enabled: true does NOT flip enabled (must go through set_application_enabled)",
+         %{admin_subject: subject} do
+      # Without `set_application_enabled/4`'s validate_required_for_enable
+      # guard, a posted `enabled=true` on the generic update path would
+      # turn an under-configured app live. The update changeset MUST
+      # silently drop `:enabled` from cast so this regression can't
+      # surface via the API.
+      app = ApplicationsFixtures.create_application_via_context()
+      assert app.enabled == false
+
+      {:ok, updated} =
+        Applications.update_application(app, %{"enabled" => true}, subject)
+
+      assert updated.enabled == false
+    end
+
+    test "update with virtual_ip change is silently dropped (immutable)",
+         %{admin_subject: subject} do
+      app = ApplicationsFixtures.create_application_via_context()
+      original_vip = app.virtual_ip
+
+      {:ok, updated} =
+        Applications.update_application(app, %{"virtual_ip" => "10.99.99.99"}, subject)
+
+      assert updated.virtual_ip == original_vip
+    end
+  end
+
+  describe "update_application/4 — audit metadata" do
+    test "captures l7_rules + cert config diff, not just name/backend/tls_mode",
+         %{admin_subject: subject} do
+      app = ApplicationsFixtures.create_application_via_context()
+
+      {:ok, updated} =
+        Applications.update_application(
+          app,
+          %{
+            "name" => "Renamed",
+            "l7_rules" => [%{"action" => "allow", "path_prefix" => "/api"}]
+          },
+          subject
+        )
+
+      assert [log] = AuditLogs.list_logs(action: "application.update")
+
+      # Field-level diff: every field the changeset accepts must be in
+      # the audit so a forensic review can answer "what changed?".
+      assert get_in(log.metadata, ["before", "name"])     == app.name
+      assert get_in(log.metadata, ["after",  "name"])     == updated.name
+      assert get_in(log.metadata, ["before", "l7_rules"]) == app.l7_rules
+      assert get_in(log.metadata, ["after",  "l7_rules"])
+             |> List.first()
+             |> Map.fetch!("action") == "allow"
+      # New keys that weren't being captured before this PR:
+      assert Map.has_key?(get_in(log.metadata, ["after"]), "hostname")
+      assert Map.has_key?(get_in(log.metadata, ["after"]), "cert_source")
+      assert Map.has_key?(get_in(log.metadata, ["after"]), "tls_cert_id")
     end
   end
 
