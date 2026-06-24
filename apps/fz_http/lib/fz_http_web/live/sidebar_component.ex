@@ -31,7 +31,9 @@ defmodule FzHttpWeb.SidebarComponent do
           </li>
         </ul>
 
-        <%# Configuration = WHO and core network rules (L3/L4). %>
+        <%# Configuration = identity / endpoint inventory only. WHO
+        %# is allowed on the VPN. WHAT they can reach lives under
+        %# Access Control below. %>
         <p class="menu-label ng-sidebar-label">Configuration</p>
         <ul class="menu-list ng-sidebar-list">
           <li>
@@ -46,23 +48,28 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">Devices</span>
             <% end %>
           </li>
+        </ul>
+
+        <%# Access Control = every surface that decides "who can
+        %# reach what". Two network layers under one roof:
+        %#   * Rules         — L3/L4 firewall (CIDR + port + drop/accept)
+        %#   * Applications  — L7 identity-aware proxy targets
+        %#   * Access Groups — group → app M:N for L7 policy
+        %#   * TLS Certs     — shared cert library backing L7 apps
+        %#   * L7 Enforcement — master kill switch for the L7 stack
+        %#
+        %# Ordered top-down by network layer: L3/L4 first, L7 below,
+        %# enforcement switch last. Matches the admin's mental model
+        %# of "coarse policy → fine policy → flip it on".
+        %# %>
+        <p class="menu-label ng-sidebar-label">Access Control</p>
+        <ul class="menu-list ng-sidebar-list">
           <li>
             <%= live_redirect(to: ~p"/rules", class: nav_class(@path, "/rules")) do %>
               <span class="icon"><i class="mdi mdi-filter-outline"></i></span>
               <span class="menu-item-label">Rules</span>
             <% end %>
           </li>
-        </ul>
-
-        <%# L7 ZTNA = the identity-aware proxy stack. Grouping these
-        %# four together keeps the daily L7 configuration workflow
-        %# inside one section instead of jumping between Configuration
-        %# and Settings (where the kill switch + cert library used to
-        %# live). Order follows the typical workflow:
-        %#   1. Define apps  →  2. Group users  →  3. Provision certs  →  4. Flip enforcement
-        %# %>
-        <p class="menu-label ng-sidebar-label">L7 ZTNA</p>
-        <ul class="menu-list ng-sidebar-list">
           <li>
             <%= live_redirect(to: ~p"/applications", class: nav_class(@path, "/applications")) do %>
               <span class="icon"><i class="mdi mdi-application-cog-outline"></i></span>
