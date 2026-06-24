@@ -8,6 +8,7 @@ defmodule FzHttpWeb.ApplicationsLive.FormComponent do
   use FzHttpWeb, :live_component
 
   alias FzHttp.Applications
+  alias FzHttp.L7.{CertResolver, TlsCertificates}
 
   @impl Phoenix.LiveComponent
   def update(%{action: :new} = assigns, socket) do
@@ -15,15 +16,21 @@ defmodule FzHttpWeb.ApplicationsLive.FormComponent do
      socket
      |> assign(assigns)
      |> assign(:changeset, Applications.change_application())
-     |> assign(:cert_preview, nil)}
+     |> assign(:cert_preview, nil)
+     |> assign(:library, load_library(assigns.subject))
+     |> assign(:auto_match_preview, nil)}
   end
 
   def update(%{action: :edit, application: app} = assigns, socket) do
+    library = load_library(assigns.subject)
+
     {:ok,
      socket
      |> assign(assigns)
      |> assign(:changeset, Applications.change_application(app))
-     |> assign(:cert_preview, preview_cert(app.cert_pem))}
+     |> assign(:cert_preview, preview_cert(app.cert_pem))
+     |> assign(:library, library)
+     |> assign(:auto_match_preview, auto_match_preview(app.hostname, library))}
   end
 
   @impl Phoenix.LiveComponent
@@ -36,7 +43,9 @@ defmodule FzHttpWeb.ApplicationsLive.FormComponent do
     {:noreply,
      socket
      |> assign(:changeset, cs)
-     |> assign(:cert_preview, preview_cert(attrs["cert_pem"]))}
+     |> assign(:cert_preview, preview_cert(attrs["cert_pem"]))
+     |> assign(:auto_match_preview,
+          auto_match_preview(attrs["hostname"], socket.assigns.library))}
   end
 
   def handle_event("validate", %{"application" => attrs}, %{assigns: %{action: :edit}} = socket) do
@@ -48,7 +57,9 @@ defmodule FzHttpWeb.ApplicationsLive.FormComponent do
     {:noreply,
      socket
      |> assign(:changeset, cs)
-     |> assign(:cert_preview, preview_cert(attrs["cert_pem"]))}
+     |> assign(:cert_preview, preview_cert(attrs["cert_pem"]))
+     |> assign(:auto_match_preview,
+          auto_match_preview(attrs["hostname"], socket.assigns.library))}
   end
 
   @impl Phoenix.LiveComponent
@@ -155,4 +166,22 @@ defmodule FzHttpWeb.ApplicationsLive.FormComponent do
   end
 
   defp format_asn1_time(_), do: "—"
+
+  # ── Library (ADR-015) ───────────────────────────────────────────
+
+  defp load_library(subject) do
+    case TlsCertificates.list_certificates(subject) do
+      {:ok, certs} -> certs
+      _            -> []
+    end
+  end
+
+  # Pick the cert auto-match would choose for `hostname`, given the
+  # current library state. Returns nil when no cert covers the host
+  # (renders the "no matching cert" warning in the form).
+  defp auto_match_preview(hostname, library) when is_binary(hostname) and hostname != "" do
+    CertResolver.resolve(hostname, library)
+  end
+
+  defp auto_match_preview(_, _), do: nil
 end

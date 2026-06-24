@@ -3444,3 +3444,144 @@ pre {
   padding: 0.4rem 0.875rem;
   font-size: 0.8125rem;
 }
+
+/* ── TLS cert library (ADR-015) ─────────────────────────────── */
+
+/* Warning variant of the cert-preview card: shown when auto-match
+   can't resolve a hostname against any library cert. Same shape as
+   the success card so the layout doesn't jump as the admin types. */
+.ng-cert-preview--warn {
+  background: #fef3c7;
+  border-color: #fcd34d;
+
+  .ng-cert-preview-title { color: #92400e; }
+}
+
+/* Inline SAN chip group — renders the dnsName list compactly in
+   both the library table and the cert-preview card. */
+.ng-cert-sans {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.ng-cert-san {
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  padding: 0.05rem 0.4rem;
+  font-size: 0.75rem;
+  color: #1e293b;
+}
+
+/* Modal info callout — used inside the Replace modal to surface the
+   current cert's label + expiry before the admin pastes the new
+   material. Distinct from the preview card (lighter, with icon). */
+.ng-modal-callout {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  padding: 0.7rem 0.9rem;
+  margin: 0.5rem 0 1rem;
+  color: #1e3a8a;
+  font-size: 0.85rem;
+
+  i {
+    color: #2563eb;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+}
+
+/* Preview block inside the cert upload/replace modal — same idea as
+   .ng-cert-preview but scoped to the modal context. */
+.ng-modal-preview {
+  margin: 1rem 0 0.5rem;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 0.9rem 1.1rem;
+}
+
+.ng-modal-preview-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-weight: 600;
+  color: #166534;
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+
+.ng-modal-preview-dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.25rem 0.75rem;
+
+  dt {
+    color: #475569;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  dd {
+    margin: 0;
+    color: #0f172a;
+    font-size: 0.8125rem;
+    word-break: break-all;
+  }
+}
+
+/* Form field inside a modal — slightly tighter spacing than the
+   generic .ng-field used on full pages. */
+.ng-modal-field {
+  margin-bottom: 1rem;
+}
+
+.ng-modal-field .ng-label {
+  display: block;
+  margin-bottom: 0.4rem;
+}
+
+/* Field hint — shown below inputs to explain semantics. Distinct
+   from .ng-field-error which is for validation messages. */
+.ng-field-hint {
+  margin: 0.3rem 0 0;
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+/* Secondary label — used for sub-fields beneath a primary checkbox
+   (e.g. "Explicit certificate" under "Auto-match"). */
+.ng-label--secondary {
+  font-size: 0.78rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+/* Block-level checkbox row with a multi-line label beside it.
+   Different from .ng-checkbox-row which is for horizontal pill
+   groups. */
+.ng-checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: #0f172a;
+  line-height: 1.45;
+
+  input[type="checkbox"] {
+    margin-top: 0.2rem;
+    flex-shrink: 0;
+  }
+
+  span { flex: 1; }
+}

@@ -109,6 +109,12 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">L7 Enforcement</span>
             <% end %>
           </li>
+          <li>
+            <%= live_redirect(to: ~p"/settings/certificates", class: nav_class(@path, "/settings/certificates")) do %>
+              <span class="icon"><i class="mdi mdi-certificate-outline"></i></span>
+              <span class="menu-item-label">TLS Certificates</span>
+            <% end %>
+          </li>
         </ul>
 
         <p class="menu-label ng-sidebar-label">Diagnostics</p>

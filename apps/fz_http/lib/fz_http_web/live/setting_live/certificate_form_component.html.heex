@@ -1,0 +1,98 @@
+<.form
+  let={f}
+  for={@changeset}
+  id="certificate-form"
+  phx-target={@myself}
+  phx-change="validate"
+  phx-submit="save"
+>
+  <div class="ng-modal-field">
+    <%= label(f, :label, "Label", class: "ng-label") %>
+    <%= text_input(f, :label,
+          class: "ng-input #{input_error_class(f, :label)}",
+          placeholder: "e.g. Sevensystem wildcard") %>
+    <p class="ng-field-hint">
+      Human-friendly name. Shown in app forms when picking a cert
+      explicitly.
+    </p>
+    <p class="ng-field-error"><%= error_tag(f, :label) %></p>
+  </div>
+
+  <%= if @action == :replace do %>
+    <div class="ng-modal-callout">
+      <i class="mdi mdi-information-outline"></i>
+      <div>
+        Replacing <strong><%= @current.label %></strong> — current expiry
+        <%= FzHttpWeb.SettingLive.Certificates.format_datetime(@current.not_after) %>.
+        Paste the new cert + key below. The same database row keeps its id,
+        so every app currently pointing at it rolls over automatically on the
+        next bundle compile.
+      </div>
+    </div>
+  <% end %>
+
+  <div class="ng-modal-field">
+    <%= label(f, :pem, "Certificate (PEM)", class: "ng-label") %>
+    <%= textarea(f, :pem,
+          class: "ng-input ng-input--mono #{input_error_class(f, :pem)}",
+          rows: 8,
+          spellcheck: "false",
+          autocomplete: "off",
+          placeholder: "-----BEGIN CERTIFICATE-----\n...\n-----END CERTIFICATE-----") %>
+    <p class="ng-field-hint">
+      Full chain optional — only the leaf is read for SAN matching. The
+      proxy presents whatever you paste here verbatim.
+    </p>
+    <p class="ng-field-error"><%= error_tag(f, :pem) %></p>
+  </div>
+
+  <div class="ng-modal-field">
+    <%= label(f, :key, "Private key (PEM)", class: "ng-label") %>
+    <%= textarea(f, :key,
+          class: "ng-input ng-input--mono #{input_error_class(f, :key)}",
+          rows: 8,
+          spellcheck: "false",
+          autocomplete: "off",
+          placeholder: "-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----") %>
+    <p class="ng-field-hint">
+      Encrypted at rest (Cloak). Never echoed back to the UI after save.
+    </p>
+    <p class="ng-field-error"><%= error_tag(f, :key) %></p>
+  </div>
+
+  <%= if @cert_preview do %>
+    <div class="ng-modal-preview">
+      <p class="ng-modal-preview-title">
+        <i class="mdi mdi-check-circle-outline"></i> Parsed material
+      </p>
+      <dl class="ng-modal-preview-dl">
+        <dt>Coverage</dt>
+        <dd>
+          <%= for san <- @cert_preview.sans do %>
+            <code class="ng-cert-san"><%= san %></code>
+          <% end %>
+        </dd>
+
+        <dt>Issuer</dt>
+        <dd><%= @cert_preview.issuer || "—" %></dd>
+
+        <dt>Expires</dt>
+        <dd>
+          <%= FzHttpWeb.SettingLive.Certificates.format_datetime(@cert_preview.not_after) %>
+          <%
+            {_status, status_label} =
+              FzHttpWeb.SettingLive.Certificates.expiry_status(@cert_preview.not_after)
+          %>
+          <span class="ng-td-muted">· <%= status_label %></span>
+        </dd>
+      </dl>
+    </div>
+  <% end %>
+
+  <footer class="modal-card-foot">
+    <.link patch={@return_to} class="ng-secondary-btn">Cancel</.link>
+    <%= submit (if @action == :replace, do: "Replace certificate", else: "Upload certificate"),
+          class: "ng-primary-btn",
+          phx_disable_with: "Saving…" %>
+  </footer>
+</.form>

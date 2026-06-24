@@ -240,6 +240,9 @@ defmodule FzHttpWeb.Router do
       live "/settings/customization", SettingLive.Customization, :show
       live "/settings/audit_log", SettingLive.AuditLog, :show
       live "/settings/l7", SettingLive.L7, :show
+      live "/settings/certificates", SettingLive.Certificates, :show
+      live "/settings/certificates/new", SettingLive.Certificates, :new
+      live "/settings/certificates/:id/replace", SettingLive.Certificates, :replace
       live "/diagnostics/connectivity_checks", ConnectivityCheckLive.Index, :index
       live "/notifications", NotificationsLive.Index, :index
     end

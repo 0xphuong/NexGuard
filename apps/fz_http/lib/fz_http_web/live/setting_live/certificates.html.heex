@@ -1,0 +1,225 @@
+<%# ── Upload / Replace modal ───────────────────────────────────── %>
+<%= if @live_action in [:new, :replace] do %>
+  <%= live_modal(
+    FzHttpWeb.SettingLive.CertificateFormComponent,
+    return_to: ~p"/settings/certificates",
+    title:
+      if @live_action == :new do
+        "Upload new certificate"
+      else
+        "Replace certificate"
+      end,
+    id: "certificate-form-component",
+    certificate: @replace_target,
+    action: @live_action,
+    subject: @subject,
+    remote_ip: @remote_ip
+  ) %>
+<% end %>
+
+<%# ── Delete Confirmation Modal ─────────────────────────────────── %>
+<%= if @delete_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete Certificate
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @delete_confirm.cert.label %></div>
+
+        <%= if @delete_confirm.affected.pinned != [] do %>
+          <p class="ng-modal-cons">
+            ⚠ This certificate is <strong>explicitly pinned</strong> by
+            <%= length(@delete_confirm.affected.pinned) %> app(s). Delete is
+            blocked — reassign these first:
+          </p>
+          <ul class="ng-modal-list">
+            <%= for app <- @delete_confirm.affected.pinned do %>
+              <li><code><%= app.hostname %></code></li>
+            <% end %>
+          </ul>
+        <% else %>
+          <%= if @delete_confirm.affected.auto_matched != [] do %>
+            <p class="ng-modal-cons">
+              The following <%= length(@delete_confirm.affected.auto_matched) %>
+              app(s) currently auto-match to this cert. They'll attempt to
+              re-resolve against the remaining library on the next bundle
+              compile — if no other cert covers them, TLS will fail:
+            </p>
+            <ul class="ng-modal-list">
+              <%= for app <- @delete_confirm.affected.auto_matched do %>
+                <li><code><%= app.hostname %></code></li>
+              <% end %>
+            </ul>
+          <% end %>
+          <p class="ng-modal-warn">This action cannot be undone.</p>
+        <% end %>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">Cancel</button>
+        <%= if @delete_confirm.affected.pinned == [] do %>
+          <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete">
+            <i class="mdi mdi-delete"></i> Delete Certificate
+          </button>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Page header ───────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title"><%= @page_title %></h1>
+      <p class="ng-page-subtitle"><%= @page_subtitle %></p>
+    </div>
+    <.link replace={true} patch={~p"/settings/certificates/new"} class="ng-primary-btn">
+      <i class="mdi mdi-upload"></i> Upload certificate
+    </.link>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%= if @certificates == [] do %>
+    <div class="ng-empty-state">
+      <i class="mdi mdi-certificate-outline ng-empty-state-icon"></i>
+      <p class="ng-empty-state-title">No certificates uploaded yet</p>
+      <p class="ng-empty-state-hint">
+        Upload a wildcard or multi-SAN certificate once and every L7 application
+        whose hostname falls under its coverage can reference it. When the cert
+        renews, replace it here — apps roll over automatically without per-app
+        touches.
+      </p>
+      <.link replace={true} patch={~p"/settings/certificates/new"}
+             class="ng-primary-btn ng-empty-state-cta">
+        <i class="mdi mdi-upload"></i> Upload first certificate
+      </.link>
+    </div>
+  <% else %>
+    <div class="ng-stat-strip">
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= length(@certificates) %></div>
+        <div class="ng-stat-tile-label">Total certs</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%=
+            Enum.count(@certificates, fn c ->
+              {status, _} = FzHttpWeb.SettingLive.Certificates.expiry_status(c.not_after)
+              status in [:critical, :expired]
+            end)
+          %>
+        </div>
+        <div class="ng-stat-tile-label">Critical / expired</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%=
+            Enum.count(@certificates, fn c ->
+              {status, _} = FzHttpWeb.SettingLive.Certificates.expiry_status(c.not_after)
+              status == :warning
+            end)
+          %>
+        </div>
+        <div class="ng-stat-tile-label">Expiring soon</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.sum(Enum.map(@certificates, & &1.pinned_count + &1.auto_matched_count)) %>
+        </div>
+        <div class="ng-stat-tile-label">Apps covered</div>
+      </div>
+    </div>
+
+    <div class="ng-table-wrap">
+      <table class="ng-table">
+        <thead>
+          <tr>
+            <th>Label</th>
+            <th>Coverage</th>
+            <th>Issuer</th>
+            <th>Expires</th>
+            <th class="ng-th-center">Used by</th>
+            <th class="ng-th-center" style="width: 8rem;"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for cert <- @certificates do %>
+            <%
+              {status, status_label} =
+                FzHttpWeb.SettingLive.Certificates.expiry_status(cert.not_after)
+            %>
+            <tr id={"certificate-#{cert.id}"}>
+              <td>
+                <div class="ng-user-cell">
+                  <div class="ng-avatar ng-avatar--group">
+                    <i class="mdi mdi-certificate-outline"></i>
+                  </div>
+                  <div class="ng-user-info">
+                    <span class="ng-user-email"><%= cert.label %></span>
+                    <span class="ng-td-muted ng-td-meta">
+                      <code><%= cert.primary_san %></code>
+                    </span>
+                  </div>
+                </div>
+              </td>
+              <td class="ng-td-muted">
+                <div class="ng-cert-sans">
+                  <%= for san <- cert.sans do %>
+                    <code class="ng-cert-san"><%= san %></code>
+                  <% end %>
+                </div>
+              </td>
+              <td class="ng-td-muted">
+                <%= cert.issuer || "—" %>
+              </td>
+              <td>
+                <span class={"ng-source-badge ng-source-badge--#{FzHttpWeb.SettingLive.Certificates.status_badge_class(status)}"}>
+                  <i class={"mdi #{FzHttpWeb.SettingLive.Certificates.status_icon(status)}"}></i>
+                  <%= FzHttpWeb.SettingLive.Certificates.format_datetime(cert.not_after) %>
+                  · <%= status_label %>
+                </span>
+              </td>
+              <td class="ng-td-center">
+                <span class="ng-device-count" title={FzHttpWeb.SettingLive.Certificates.usage_tooltip(cert)}>
+                  <i class="mdi mdi-application-cog-outline"></i>
+                  <%= cert.pinned_count + cert.auto_matched_count %>
+                </span>
+              </td>
+              <td class="ng-td-center">
+                <.link
+                  replace={true}
+                  patch={~p"/settings/certificates/#{cert.id}/replace"}
+                  class="ng-dismiss-btn"
+                  title="Replace cert material (same id, new PEM/key)"
+                >
+                  <i class="mdi mdi-swap-horizontal"></i>
+                </.link>
+                <button
+                  class="ng-dismiss-btn"
+                  title="Delete certificate"
+                  phx-click="confirm_delete"
+                  phx-value-id={cert.id}
+                >
+                  <i class="mdi mdi-trash-can-outline"></i>
+                </button>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% end %>
+</section>
+

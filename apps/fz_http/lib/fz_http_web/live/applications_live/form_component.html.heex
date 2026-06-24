@@ -70,9 +70,26 @@
       <%= label(f, :cert_source, "Certificate source", class: "ng-label") %>
       <div class="ng-radio-group">
         <%
-          cert_source = Phoenix.HTML.Form.input_value(f, :cert_source) || :step_ca
+          cert_source = Phoenix.HTML.Form.input_value(f, :cert_source) || :library
           cert_source = if is_binary(cert_source), do: String.to_existing_atom(cert_source), else: cert_source
         %>
+
+        <label class={"ng-radio-card #{if cert_source == :library, do: "is-selected", else: ""}"}>
+          <%= radio_button(f, :cert_source, :library, checked: cert_source == :library) %>
+          <div class="ng-radio-card-body">
+            <div class="ng-radio-card-title">
+              <i class="mdi mdi-certificate-outline"></i> Shared library
+            </div>
+            <p class="ng-radio-card-desc">
+              Use a cert from the shared TLS library — upload each
+              wildcard or multi-SAN cert once at
+              <a href={~p"/settings/certificates"} target="_blank">
+                /settings/certificates</a> and let auto-match resolve
+              by hostname. <strong>Recommended</strong> for orgs with
+              wildcard certs (no per-app upload, single renewal).
+            </p>
+          </div>
+        </label>
 
         <label class={"ng-radio-card #{if cert_source == :step_ca, do: "is-selected", else: ""}"}>
           <%= radio_button(f, :cert_source, :step_ca, checked: cert_source == :step_ca) %>
@@ -84,8 +101,7 @@
               NexGuard's smallstep CA issues a 90-day leaf cert and
               auto-renews it. Best for <code>.internal</code> /
               <code>.lan</code> hostnames; requires NexGuard Connect
-              clients to trust the internal root CA (provisioned
-              automatically on enrollment).
+              clients to trust the internal root CA.
             </p>
           </div>
         </label>
@@ -94,19 +110,116 @@
           <%= radio_button(f, :cert_source, :upload, checked: cert_source == :upload) %>
           <div class="ng-radio-card-body">
             <div class="ng-radio-card-title">
-              <i class="mdi mdi-cloud-upload-outline"></i> Upload my own cert
+              <i class="mdi mdi-cloud-upload-outline"></i> Per-app upload (legacy)
             </div>
             <p class="ng-radio-card-desc">
-              Paste an existing certificate + private key — typically a
-              Let's Encrypt cert for a real public DNS name. No client-side
-              CA install required because the cert chain is already trusted
-              by every browser.
+              Paste a cert + key specific to this one app. Useful when
+              the cert can't be shared (different issuer, different
+              SAN). Consider the shared library above for wildcard
+              certs covering multiple apps.
             </p>
           </div>
         </label>
       </div>
       <p class="ng-field-error"><%= error_tag(f, :cert_source) %></p>
     </div>
+
+    <%= if cert_source == :library do %>
+      <div class="ng-field">
+        <%= label(f, :tls_auto_match, "Cert selection", class: "ng-label") %>
+
+        <%
+          auto_match_raw = Phoenix.HTML.Form.input_value(f, :tls_auto_match)
+          auto_match = case auto_match_raw do
+            "false" -> false
+            false   -> false
+            _       -> true   # default true
+          end
+        %>
+
+        <label class="ng-checkbox">
+          <%= checkbox(f, :tls_auto_match, value: auto_match) %>
+          <span>
+            <strong>Auto-match</strong> — let NexGuard pick the
+            best-covering cert from the library by SAN specificity
+            at bundle compile time. Recommended.
+          </span>
+        </label>
+
+        <%= if auto_match do %>
+          <%= if @auto_match_preview do %>
+            <div class="ng-cert-preview">
+              <div class="ng-cert-preview-title">
+                <i class="mdi mdi-check-circle-outline"></i> Auto-match resolved
+              </div>
+              <dl class="ng-cert-preview-body">
+                <div>
+                  <dt>Will use</dt>
+                  <dd><strong><%= @auto_match_preview.label %></strong></dd>
+                </div>
+                <div>
+                  <dt>Coverage</dt>
+                  <dd>
+                    <%= for san <- @auto_match_preview.sans do %>
+                      <code class="ng-cert-san"><%= san %></code>
+                    <% end %>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Expires</dt>
+                  <dd>
+                    <%= FzHttpWeb.SettingLive.Certificates.format_datetime(@auto_match_preview.not_after) %>
+                  </dd>
+                </div>
+              </dl>
+            </div>
+          <% else %>
+            <%= if @library == [] do %>
+              <div class="ng-cert-preview ng-cert-preview--warn">
+                <div class="ng-cert-preview-title">
+                  <i class="mdi mdi-alert-outline"></i> Library is empty
+                </div>
+                <p class="ng-field-hint">
+                  Upload a certificate at
+                  <a href={~p"/settings/certificates"} target="_blank">
+                    /settings/certificates</a> first, or switch to
+                  per-app upload below.
+                </p>
+              </div>
+            <% else %>
+              <div class="ng-cert-preview ng-cert-preview--warn">
+                <div class="ng-cert-preview-title">
+                  <i class="mdi mdi-alert-outline"></i> No matching certificate
+                </div>
+                <p class="ng-field-hint">
+                  None of the certificates in the library cover this
+                  hostname. Either upload a cert that does, or pick
+                  one explicitly below (and it will be flagged as
+                  not-covering on save).
+                </p>
+              </div>
+            <% end %>
+          <% end %>
+        <% end %>
+
+        <%# Explicit cert picker (shown either as fallback when auto-match disabled %>
+        <%# or as an override option even when auto-match is on). %>
+        <div class="ng-field" style="margin-top: 0.75rem;">
+          <%= label(f, :tls_cert_id, "Explicit certificate (optional)", class: "ng-label ng-label--secondary") %>
+          <%= select(f, :tls_cert_id,
+                [{"— Auto-match —", nil} | Enum.map(@library, fn c -> {"#{c.label} (#{c.primary_san})", c.id} end)],
+                class: "ng-input #{input_error_class(f, :tls_cert_id)}") %>
+          <p class="ng-field-hint">
+            Pin to a specific library cert. Overrides auto-match when
+            set — useful when multiple certs could match and you want
+            certainty.
+          </p>
+          <p class="ng-field-error"><%= error_tag(f, :tls_cert_id) %></p>
+        </div>
+
+        <p class="ng-field-error"><%= error_tag(f, :tls_auto_match) %></p>
+      </div>
+    <% end %>
 
     <%= if cert_source == :upload do %>
       <div class="ng-field">
