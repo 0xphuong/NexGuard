@@ -1,39 +1,54 @@
-/* NexGuard theme */
+/* NexGuard theme — calm, enterprise/security tone.
+ *
+ * Palette redesign (was bright orange + saturated purple → too consumer
+ * SaaS for a self-hosted security ops tool). New direction:
+ *
+ *   primary   — Tailwind blue-600 family. Calm, universal "ops UI"
+ *                signal; reads as trustworthy + technical.
+ *   accent    — Tailwind teal/cyan family. Cool secondary to pair
+ *                with primary without competing.
+ *   interface — Tailwind slate family. Neutral cool grays for the
+ *                sidebar / canvas / chrome. Replaces the warm brown
+ *                base which carried an unintentional retro feel.
+ *
+ * Ramp convention preserved: _000 = darkest, _900 = lightest,
+ * _main = the canonical brand value used for buttons + links.
+ */
 
 /* Common variables */
-$primary-main: #FF7300;
-$primary-000: #331700;
-$primary-100: #5c2900;
-$primary-200: #7f3900;
-$primary-300: #c25700;
-$primary-400: #ff7605;
-$primary-500: #ff9a47;
-$primary-600: #ffbc85;
-$primary-700: #ffddc2;
-$primary-800: #fff1e5;
-$primary-900: #fff9f5;
-$accent-main: #5E00D6;
-$accent-000: #160033;
-$accent-100: #28005c;
-$accent-200: #37007f;
-$accent-300: #3400c2;
-$accent-400: #4805ff;
-$accent-500: #7847ff;
-$accent-600: #a585ff;
-$accent-700: #d2c2ff;
-$accent-800: #ece5ff;
-$accent-900: #f8f5ff;
-$interface-main: #1B140E;
-$interface-000: #1b140e;
-$interface-100: #4c3e33;
-$interface-200: #766a60;
-$interface-300: #90867f;
-$interface-400: #a7a3a0;
-$interface-500: #c7c4c2;
-$interface-600: #dfdedd;
-$interface-700: #ebebea;
-$interface-800: #f8f7f7;
-$interface-900: #fcfcfc;
+$primary-main: #2563eb;    /* blue-600 — buttons, links, brand */
+$primary-000: #172554;     /* blue-950 */
+$primary-100: #1e3a8a;     /* blue-900 */
+$primary-200: #1e40af;     /* blue-800 */
+$primary-300: #1d4ed8;     /* blue-700 — hover / pressed */
+$primary-400: #3b82f6;     /* blue-500 — slightly lighter alt */
+$primary-500: #60a5fa;     /* blue-400 */
+$primary-600: #93c5fd;     /* blue-300 */
+$primary-700: #bfdbfe;     /* blue-200 — soft backgrounds */
+$primary-800: #dbeafe;     /* blue-100 */
+$primary-900: #eff6ff;     /* blue-50 — tinted surfaces */
+$accent-main: #0891b2;     /* cyan-600 — secondary accent */
+$accent-000: #083344;      /* cyan-950 */
+$accent-100: #164e63;      /* cyan-900 */
+$accent-200: #155e75;      /* cyan-800 */
+$accent-300: #0e7490;      /* cyan-700 */
+$accent-400: #06b6d4;      /* cyan-500 */
+$accent-500: #22d3ee;      /* cyan-400 */
+$accent-600: #67e8f9;      /* cyan-300 */
+$accent-700: #a5f3fc;      /* cyan-200 */
+$accent-800: #cffafe;      /* cyan-100 */
+$accent-900: #ecfeff;      /* cyan-50 */
+$interface-main: #0f172a;  /* slate-900 — sidebar bg, dark chrome */
+$interface-000: #0f172a;   /* slate-900 */
+$interface-100: #1e293b;   /* slate-800 — strong text */
+$interface-200: #334155;   /* slate-700 */
+$interface-300: #475569;   /* slate-600 */
+$interface-400: #64748b;   /* slate-500 — muted text */
+$interface-500: #94a3b8;   /* slate-400 */
+$interface-600: #cbd5e1;   /* slate-300 — strong border */
+$interface-700: #e2e8f0;   /* slate-200 — table borders */
+$interface-800: #f1f5f9;   /* slate-100 — body background */
+$interface-900: #f8fafc;   /* slate-50  — elevated surfaces */
 
 /* We'll need some initial vars to use here */
 @import "node_modules/bulma/sass/utilities/initial-variables";
@@ -58,13 +73,20 @@ $text-strong: $interface-000;
 $base-color: $interface-main;
 $base-color-light: rgba(24, 28, 33, .06);
 
-/* General overrides */
-/* See https://coolors.co/331700-990c00-ff0000 */
-$info: $accent-300;
-$primary: $accent-main;
-$success: #80B900;
-$warning: #FFB900;
-$danger: #990C00;
+/* General overrides — Bulma semantic colors.
+ *
+ * State colors updated to Tailwind-aligned values for consistent
+ * contrast across the UI:
+ *   success — emerald green (more saturated than the old yellow-green)
+ *   warning — amber (cleaner signal than the old orange-yellow)
+ *   danger  — red-600 (was a near-black oxblood that read as "broken"
+ *              even on transient failures)
+ */
+$info: $accent-300;        /* cyan-700 — info badges */
+$primary: $accent-main;    /* cyan-600 — Bulma is-primary buttons */
+$success: #16a34a;         /* emerald-600 */
+$warning: #d97706;         /* amber-600 */
+$danger:  #dc2626;         /* red-600 */
 $body-background-color: $interface-800;
 $link: $accent-300;
 $link-visited: $accent-600;
