@@ -412,3 +412,125 @@ to validate.
   switch to incremental compile (diff changed apps only).
 - We must document the signed bundle format so future proxy
   implementations (or third-party reimplementations) can interop.
+
+---
+
+## ADR-015 — TLS certificate library: shared, replace-in-place, SAN-matched
+
+**Date**: 2026-06-24
+**Status**: ✅ Accepted
+
+**Decision**: Introduce a **shared TLS certificate library** as a third
+`cert_source` value (alongside `:upload` and `:step_ca` from ADR-011).
+Admins upload each wildcard or multi-SAN cert **once** to
+`/settings/certificates`, and L7 apps reference it by FK
+(`tls_cert_id`) — or leave the FK NULL to let the resolver **auto-match
+by hostname** against the library on every bundle compile.
+
+Cert **renewal** is a single in-place replace on the library row: the
+same `id` keeps its `cert_pem` / `key_pem` / `not_after` updated, every
+app pointing at it transparently rolls over on the next bundle pivot.
+
+### Data model
+
+New table `tls_certificates`:
+
+| column | type | notes |
+|---|---|---|
+| `id` | uuid | binary_id, primary key |
+| `label` | string | admin-supplied, e.g. "Sevensystem wildcard" |
+| `pem` | bytea | encrypted via Cloak `Encrypted.Binary` |
+| `key` | bytea | encrypted via Cloak `Encrypted.Binary` |
+| `sans` | text[] | denormalised from cert at parse time, for fast match |
+| `primary_san` | string | for display/sort |
+| `issuer` | string | informational only (e.g. "GoGetSSL DV CA") |
+| `not_before` | utc_datetime | from cert |
+| `not_after` | utc_datetime | from cert; drives expiry alerts |
+| `inserted_at` / `updated_at` | utc_datetime_usec | standard |
+
+Applications schema changes:
+
+- `cert_source` enum gains `:library` (alongside existing `:upload` /
+  `:step_ca`).
+- New column `tls_cert_id` (uuid, nullable FK to
+  `tls_certificates.id`, `ON DELETE RESTRICT`).
+- Old per-app columns `cert_pem` / `key_pem` stay for `:upload`
+  callers — kept for backward compatibility; new deployments are
+  expected to migrate to `:library`.
+
+### Resolution algorithm (CertResolver)
+
+Same algorithm runs both in Phoenix (admin UI preview + bundle
+compile) and in the Go proxy (runtime SNI cert lookup). Given a
+hostname and a cert list, the winner is the one whose SAN matches
+with **highest specificity**:
+
+```
+exact host              → score = 1000 + len(san)
+"*.parent.tld"          → score = len(parent.tld)
+no match                → skip
+```
+
+Highest-score cert wins; ties broken by `not_after DESC` (newest
+cert preferred — handles dual-provisioning during renewal).
+
+When an app's `cert_source = :library` AND `tls_cert_id IS NULL`,
+the bundle compile runs the resolver against the app's hostname and
+materialises the FK into the bundle. The DB row stays NULL —
+auto-match recomputes every compile, so a freshly added cert
+"adopts" matching apps without manual reassignment.
+
+### Replace-in-place semantics
+
+The library page exposes a **Replace** action per row that overwrites
+`pem` / `key` / `sans` / `not_after` on the existing record (same
+`id`). Any app with `tls_cert_id` pointing at that row sees the new
+cert on the next bundle pivot — zero per-app touches.
+
+Validation guard before replace: if the NEW cert's SAN set fails to
+cover one or more hostnames currently using this cert (either via
+explicit FK or via auto-match), the UI surfaces the affected app
+list and requires an explicit "Force replace" confirmation.
+
+### Rationale
+
+- **Pain killed**: a 10-app deployment under one wildcard cert was
+  10 cert uploads + 10 renewals × 2-year cycle = 20 manual
+  operations per cycle. Library + replace = 1 upload + 1 renewal,
+  full stop.
+- **No new secret material to manage**: same Cloak-encrypted at
+  rest, same JSON bundle delivery to proxy, same SNI cert
+  presentation logic.
+- **Compatible with future ACME / step-ca**: the library is just
+  another rows-of-pem store — when ADR-011's `:step_ca` path lands,
+  step-ca-issued certs can also live in the library (label =
+  app-id, replace = renewal) with no schema changes.
+
+### Alternatives rejected
+
+- **Org-level single default cert**: simpler, but doesn't cover
+  multi-domain orgs (`*.sevensystem.vn` + `*.7-eleven.vn` is a real
+  case for the first user). Library generalises.
+- **Per-app upload with "copy from existing"**: still N database
+  rows holding the same PEM, still N rows to update on renewal.
+  Doesn't solve the renewal problem.
+- **Auto-issuance only (force step-ca for everything)**: requires
+  client-side root-CA install on every device for non-public
+  hostnames — operationally heavier than uploading a real cert from
+  a public CA.
+
+### Consequences
+
+- One more table to back up / encrypt-at-rest, but the secret-bearing
+  surface (PEM + private key) is unchanged in kind — already encrypted
+  via Cloak in the applications table.
+- The auto-match path makes the cert chosen for a given hostname a
+  function of the WHOLE library at bundle compile time. A new cert
+  upload can change which cert is presented for an existing app — by
+  design (so newer-issued, more-specific certs adopt their apps
+  automatically). The library UI must surface "which apps will be
+  affected" on upload + replace to make this visible.
+- Bundle compile cost grows linearly with library size × app count
+  (auto-match O(N×M)). At realistic scales (<100 certs, <1000 apps)
+  the cost is negligible; if it ever matters, index the library by
+  SAN suffix.
