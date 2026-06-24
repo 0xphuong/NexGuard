@@ -1,6 +1,8 @@
 defmodule FzHttp.Applications.Application.Changeset do
   use FzHttp, :changeset
   alias FzHttp.Applications.Application
+  alias FzHttp.L7.{CertResolver, TlsCertificate}
+  alias FzHttp.Repo
 
   # RFC 1035: labels 1-63 chars, alphanumeric+hyphen, no leading/trailing
   # hyphen, dot-separated. Total length ≤ 253. Lower-cased on input.
@@ -13,6 +15,7 @@ defmodule FzHttp.Applications.Application.Changeset do
     name description
     hostname virtual_ip backend
     cert_source cert_pem key_pem
+    tls_cert_id tls_auto_match
     tls_mode l7_rules enabled
   ]a
 
@@ -109,11 +112,19 @@ defmodule FzHttp.Applications.Application.Changeset do
     end
   end
 
-  # When `cert_source = :upload`, both cert_pem and key_pem are
-  # required AND the cert SAN must include `hostname`. When
-  # `cert_source = :step_ca`, the proxy/step-ca pipeline issues a
-  # cert at runtime — the admin must NOT paste one here, otherwise
-  # we'd ambiguously have two cert sources.
+  # Cert-source-specific validation:
+  #
+  #   :upload  — both `cert_pem` and `key_pem` required + SAN must
+  #              cover hostname (per-app PEM, legacy path).
+  #
+  #   :step_ca — proxy/step-ca pipeline issues cert at runtime;
+  #              admin must NOT paste one, otherwise we'd ambiguously
+  #              hold two cert sources.
+  #
+  #   :library — `tls_cert_id` must be set OR `tls_auto_match = true`
+  #              AND the library has at least one cert covering
+  #              `hostname`. Per-app `cert_pem`/`key_pem` must be
+  #              blank (the cert lives on `tls_certificates`).
   defp validate_cert_consistency(changeset) do
     case get_field(changeset, :cert_source) do
       :upload ->
@@ -126,7 +137,65 @@ defmodule FzHttp.Applications.Application.Changeset do
         |> validate_cert_field_empty(:cert_pem)
         |> validate_cert_field_empty(:key_pem)
 
+      :library ->
+        changeset
+        |> validate_cert_field_empty(:cert_pem)
+        |> validate_cert_field_empty(:key_pem)
+        |> validate_library_reference()
+
       _ -> changeset
+    end
+  end
+
+  # `:library` path: either an explicit FK is set (admin picked a cert
+  # from the library), OR auto-match is on AND some library cert
+  # actually covers the hostname. Anything else is a save-time error.
+  defp validate_library_reference(changeset) do
+    tls_cert_id    = get_field(changeset, :tls_cert_id)
+    auto_match     = get_field(changeset, :tls_auto_match)
+    hostname       = get_field(changeset, :hostname)
+
+    cond do
+      not is_nil(tls_cert_id) ->
+        validate_pinned_cert_covers_hostname(changeset, tls_cert_id, hostname)
+
+      auto_match == true and is_binary(hostname) ->
+        validate_auto_match_has_candidate(changeset, hostname)
+
+      true ->
+        add_error(changeset, :tls_cert_id,
+          "pick a certificate from the library or enable auto-match")
+    end
+  end
+
+  defp validate_pinned_cert_covers_hostname(changeset, tls_cert_id, hostname)
+       when is_binary(hostname) do
+    case Repo.get(TlsCertificate, tls_cert_id) do
+      nil ->
+        add_error(changeset, :tls_cert_id, "selected certificate no longer exists")
+
+      %TlsCertificate{} = cert ->
+        if CertResolver.covers?(hostname, cert) do
+          changeset
+        else
+          add_error(changeset, :tls_cert_id,
+            "selected certificate (#{cert.primary_san}) does not cover #{hostname}")
+        end
+    end
+  end
+
+  defp validate_pinned_cert_covers_hostname(changeset, _id, _no_host), do: changeset
+
+  defp validate_auto_match_has_candidate(changeset, hostname) do
+    certs = Repo.all(TlsCertificate)
+
+    case CertResolver.resolve(hostname, certs) do
+      nil ->
+        add_error(changeset, :tls_auto_match,
+          "no certificate in the library covers #{hostname} — upload one or pick explicitly")
+
+      _cert ->
+        changeset
     end
   end
 
@@ -249,6 +318,9 @@ defmodule FzHttp.Applications.Application.Changeset do
     rules       = get_field(changeset, :l7_rules) || []
     cert_source = get_field(changeset, :cert_source)
     cert_pem    = get_field(changeset, :cert_pem)
+    tls_cert_id = get_field(changeset, :tls_cert_id)
+    auto_match  = get_field(changeset, :tls_auto_match)
+    hostname    = get_field(changeset, :hostname)
 
     cond do
       rules == [] ->
@@ -257,9 +329,20 @@ defmodule FzHttp.Applications.Application.Changeset do
       cert_source == :upload and is_nil(cert_pem) ->
         add_error(changeset, :enabled, "cannot enable without an uploaded certificate")
 
+      cert_source == :library and is_nil(tls_cert_id) and
+          not (auto_match == true and library_can_serve?(hostname)) ->
+        add_error(changeset, :enabled,
+          "cannot enable without a library cert covering #{hostname}")
+
       true ->
         changeset
     end
+  end
+
+  defp library_can_serve?(nil), do: false
+
+  defp library_can_serve?(hostname) when is_binary(hostname) do
+    not is_nil(CertResolver.resolve(hostname, Repo.all(TlsCertificate)))
   end
 
   defp ip_in_network?(%Postgrex.INET{address: {a, b, _, _}}, %Postgrex.INET{

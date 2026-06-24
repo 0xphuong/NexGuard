@@ -27,6 +27,9 @@ defmodule FzHttp.AuditLogsTest do
       application.revoke_group
       org_settings.l7_enabled.change
       user.access_scope.change
+      tls_cert.create
+      tls_cert.replace
+      tls_cert.delete
     )
 
     for action <- @must_be_whitelisted do

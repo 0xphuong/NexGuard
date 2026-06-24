@@ -54,6 +54,9 @@ defmodule FzHttp.AuditLogs.AuditLog do
     application.allow_group
     application.revoke_group
     org_settings.l7_enabled.change
+    tls_cert.create
+    tls_cert.replace
+    tls_cert.delete
   )
 
   @valid_results ~w(success failure)

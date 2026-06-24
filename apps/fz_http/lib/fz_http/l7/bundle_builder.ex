@@ -42,10 +42,10 @@ defmodule FzHttp.L7.BundleBuilder do
 
   alias FzHttp.{Applications, OrgSettings, Repo}
   alias FzHttp.AccessGroups.Group
-  alias FzHttp.L7.JwtSigner
+  alias FzHttp.L7.{CertResolver, JwtSigner, TlsCertificates}
   alias Phoenix.PubSub
 
-  @subscribe_topics ~w(nexguard:l7:apps nexguard:l7:settings nexguard:l7:groups)
+  @subscribe_topics ~w(nexguard:l7:apps nexguard:l7:settings nexguard:l7:groups nexguard:l7:certs)
   @publish_topic "nexguard:l7:bundle"
   @default_table :l7_bundle
   @history_size 3
@@ -123,6 +123,9 @@ defmodule FzHttp.L7.BundleBuilder do
   def handle_info({:l7_enabled_changed, _}, state), do: {:noreply, schedule(state)}
   def handle_info({:groups_changed, _}, state), do: {:noreply, schedule(state)}
   def handle_info(:groups_changed, state), do: {:noreply, schedule(state)}
+  # ADR-015: cert library upload / replace / delete recompiles so the
+  # proxy sees the new material on the same debounce window.
+  def handle_info(:certs_changed, state), do: {:noreply, schedule(state)}
 
   # Debounce timer fired — drop the ref, then compile.
   def handle_info(:compile, state) do
@@ -202,8 +205,16 @@ defmodule FzHttp.L7.BundleBuilder do
   end
 
   defp list_apps do
+    # Pull the library ONCE per compile and pass it to every app
+    # projection — avoids N+1 Repo hits for `:library` apps with
+    # auto-match. Library is bounded (typically <10 entries) so
+    # this fits comfortably in compile memory.
+    library = TlsCertificates.list_all_for_bundle()
+
     Applications.list_enabled_for_bundle()
     |> Enum.map(fn app ->
+      {cert_pem, key_pem} = resolve_cert(app, library)
+
       %{
         "id" => app.id,
         "hostname" => app.hostname,
@@ -211,13 +222,16 @@ defmodule FzHttp.L7.BundleBuilder do
         "backend" => app.backend,
         "tls_mode" => app.tls_mode,
         "cert_source" => app.cert_source,
-        "cert_pem" => app.cert_pem,
+        # cert_pem / key_pem stay populated regardless of cert_source —
+        # the proxy contract (ADR-010) hasn't changed. For
+        # `cert_source = :library` the values are resolved here at
+        # compile time so the proxy stays oblivious to the indirection.
         # key_pem is Cloak-encrypted at rest; Ecto decrypts on load
-        # so app.key_pem is plaintext in this process. The proxy
-        # (L7-D) needs it to terminate TLS for the app's SNI cert.
-        # Same threat model as signing_key — the whole bundle is a
-        # secret-bearing artifact gated by :api_internal.
-        "key_pem" => app.key_pem,
+        # so the value in this process is plaintext. Same threat
+        # model as signing_key — the whole bundle is a secret-bearing
+        # artifact gated by :api_internal.
+        "cert_pem" => cert_pem,
+        "key_pem" => key_pem,
         "l7_rules" => app.l7_rules,
         "allowed_group_ids" => Enum.map(app.allowed_groups, & &1.id),
         # Schema doesn't carry these fields yet — emit empty so the
@@ -228,6 +242,34 @@ defmodule FzHttp.L7.BundleBuilder do
       }
     end)
   end
+
+  # Cert resolution per app at bundle compile time (ADR-015).
+  #
+  # :upload   — use the per-app PEM as-is (legacy / pre-library path).
+  # :library  — explicit `tls_cert_id` pin wins; else auto-match via
+  #             CertResolver if the app opted in. No match → nil PEM,
+  #             which the proxy will refuse to serve (handshake fails,
+  #             admin sees the app as unconfigured).
+  # :step_ca  — pipeline not built yet; nil for now.
+  defp resolve_cert(%{cert_source: :upload} = app, _library),
+    do: {app.cert_pem, app.key_pem}
+
+  defp resolve_cert(%{cert_source: :library, tls_cert_id: cert_id} = _app, library)
+       when not is_nil(cert_id) do
+    case Enum.find(library, &(&1.id == cert_id)) do
+      nil  -> {nil, nil}
+      cert -> {cert.pem, cert.key}
+    end
+  end
+
+  defp resolve_cert(%{cert_source: :library, tls_auto_match: true, hostname: host}, library) do
+    case CertResolver.resolve(host, library) do
+      nil  -> {nil, nil}
+      cert -> {cert.pem, cert.key}
+    end
+  end
+
+  defp resolve_cert(_, _), do: {nil, nil}
 
   defp list_groups do
     from(g in Group, preload: :users)
