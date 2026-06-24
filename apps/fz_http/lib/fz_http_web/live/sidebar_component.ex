@@ -31,6 +31,7 @@ defmodule FzHttpWeb.SidebarComponent do
           </li>
         </ul>
 
+        <%# Configuration = WHO and core network rules (L3/L4). %>
         <p class="menu-label ng-sidebar-label">Configuration</p>
         <ul class="menu-list ng-sidebar-list">
           <li>
@@ -51,20 +52,49 @@ defmodule FzHttpWeb.SidebarComponent do
               <span class="menu-item-label">Rules</span>
             <% end %>
           </li>
-          <li>
-            <%= live_redirect(to: ~p"/access-groups", class: nav_class(@path, "/access-groups")) do %>
-              <span class="icon"><i class="mdi mdi-account-group-outline"></i></span>
-              <span class="menu-item-label">Access Groups</span>
-            <% end %>
-          </li>
+        </ul>
+
+        <%# L7 ZTNA = the identity-aware proxy stack. Grouping these
+        %# four together keeps the daily L7 configuration workflow
+        %# inside one section instead of jumping between Configuration
+        %# and Settings (where the kill switch + cert library used to
+        %# live). Order follows the typical workflow:
+        %#   1. Define apps  →  2. Group users  →  3. Provision certs  →  4. Flip enforcement
+        %# %>
+        <p class="menu-label ng-sidebar-label">L7 ZTNA</p>
+        <ul class="menu-list ng-sidebar-list">
           <li>
             <%= live_redirect(to: ~p"/applications", class: nav_class(@path, "/applications")) do %>
               <span class="icon"><i class="mdi mdi-application-cog-outline"></i></span>
               <span class="menu-item-label">Applications</span>
             <% end %>
           </li>
+          <li>
+            <%= live_redirect(to: ~p"/access-groups", class: nav_class(@path, "/access-groups")) do %>
+              <%# Distinct from Users' account-group-outline so the two
+              %# don't collide at a glance in the sidebar. %>
+              <span class="icon"><i class="mdi mdi-account-multiple-check-outline"></i></span>
+              <span class="menu-item-label">Access Groups</span>
+            <% end %>
+          </li>
+          <li>
+            <%= live_redirect(to: ~p"/settings/certificates", class: nav_class(@path, "/settings/certificates")) do %>
+              <span class="icon"><i class="mdi mdi-certificate-outline"></i></span>
+              <span class="menu-item-label">TLS Certificates</span>
+            <% end %>
+          </li>
+          <li>
+            <%= live_redirect(to: ~p"/settings/l7", class: nav_class(@path, "/settings/l7")) do %>
+              <%# shield-key communicates "identity-aware gate" better
+              %# than the previous power-button icon. %>
+              <span class="icon"><i class="mdi mdi-shield-key-outline"></i></span>
+              <span class="menu-item-label">L7 Enforcement</span>
+            <% end %>
+          </li>
         </ul>
 
+        <%# Settings = everything that isn't a daily L7 op: server
+        %# defaults, auth providers, customization, account, audit. %>
         <p class="menu-label ng-sidebar-label">Settings</p>
         <ul class="menu-list ng-sidebar-list">
           <li>
@@ -81,7 +111,11 @@ defmodule FzHttpWeb.SidebarComponent do
           </li>
           <li>
             <%= live_redirect(to: ~p"/settings/security", class: nav_class(@path, "/settings/security")) do %>
-              <span class="icon"><i class="mdi mdi-shield-key-outline"></i></span>
+              <%# Settings → Security covers OIDC / SAML / VPN session
+              %# policy — distinct from L7 → L7 Enforcement which uses
+              %# shield-key for the same icon family but a different
+              %# concept (proxy gate vs auth provider config). %>
+              <span class="icon"><i class="mdi mdi-lock-outline"></i></span>
               <span class="menu-item-label">Security</span>
             <% end %>
           </li>
@@ -101,18 +135,6 @@ defmodule FzHttpWeb.SidebarComponent do
             <%= live_redirect(to: ~p"/settings/audit_log", class: nav_class(@path, "/settings/audit_log")) do %>
               <span class="icon"><i class="mdi mdi-clipboard-text-clock-outline"></i></span>
               <span class="menu-item-label">Audit Log</span>
-            <% end %>
-          </li>
-          <li>
-            <%= live_redirect(to: ~p"/settings/l7", class: nav_class(@path, "/settings/l7")) do %>
-              <span class="icon"><i class="mdi mdi-power"></i></span>
-              <span class="menu-item-label">L7 Enforcement</span>
-            <% end %>
-          </li>
-          <li>
-            <%= live_redirect(to: ~p"/settings/certificates", class: nav_class(@path, "/settings/certificates")) do %>
-              <span class="icon"><i class="mdi mdi-certificate-outline"></i></span>
-              <span class="menu-item-label">TLS Certificates</span>
             <% end %>
           </li>
         </ul>
