@@ -91,11 +91,5 @@
     </div>
   <% end %>
 
-  <footer class="modal-card-foot">
-    <.link patch={@return_to} class="ng-secondary-btn">Cancel</.link>
-    <%= submit (if @action == :replace, do: "Replace certificate", else: "Upload certificate"),
-          class: "ng-primary-btn",
-          phx_disable_with: "Saving…" %>
-  </footer>
 </.form>
 </div>

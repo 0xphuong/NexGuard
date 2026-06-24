@@ -1,4 +1,10 @@
 <%# ── Upload / Replace modal ───────────────────────────────────── %>
+<%# The modal helper renders its own footer with a submit button     %>
+<%# bound to `form=<form id>` via the `form:` opt. We pass the form  %>
+<%# id our inner component uses ("certificate-form") and let the     %>
+<%# modal render the submit — the inner template must NOT include    %>
+<%# its own submit button, or both would render and only the first   %>
+<%# would receive clicks.                                            %>
 <%= if @live_action in [:new, :replace] do %>
   <%= live_modal(
     FzHttpWeb.SettingLive.CertificateFormComponent,
@@ -13,7 +19,14 @@
     certificate: @replace_target,
     action: @live_action,
     subject: @subject,
-    remote_ip: @remote_ip
+    remote_ip: @remote_ip,
+    form: "certificate-form",
+    button_text:
+      if @live_action == :replace do
+        "Replace certificate"
+      else
+        "Upload certificate"
+      end
   ) %>
 <% end %>
 
