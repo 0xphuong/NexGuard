@@ -57,6 +57,7 @@ defmodule FzHttp.AuditLogs.AuditLog do
     tls_cert.create
     tls_cert.replace
     tls_cert.delete
+    tls_cert.expiry_warning
   )
 
   @valid_results ~w(success failure)

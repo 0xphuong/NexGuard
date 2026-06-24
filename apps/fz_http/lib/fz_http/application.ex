@@ -49,6 +49,10 @@ defmodule FzHttp.Application do
       # Subscribes to nexguard:l7:apps; rewrites the file on every
       # Applications mutation. Independent of BundleBuilder.
       {FzHttp.L7.CoreDnsHosts, name: FzHttp.L7.CoreDnsHosts},
+      # L7: daily scan of the cert library for upcoming expiries
+      # (ADR-015). Logs + audit-logs at 30d / 7d / expired thresholds.
+      # Independent of the other L7 services.
+      FzHttp.L7.TlsCertExpiryScanner,
       FzHttpWeb.Endpoint,
 
       # Observability

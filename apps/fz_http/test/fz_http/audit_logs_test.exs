@@ -30,6 +30,7 @@ defmodule FzHttp.AuditLogsTest do
       tls_cert.create
       tls_cert.replace
       tls_cert.delete
+      tls_cert.expiry_warning
     )
 
     for action <- @must_be_whitelisted do
