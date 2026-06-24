@@ -50,7 +50,18 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
   end
 
   @impl Phoenix.LiveView
-  def handle_params(_params, _url, socket), do: {:noreply, socket}
+  def handle_params(_params, _url, socket) do
+    {:noreply, assign(socket, :tab, tab_for_action(socket.assigns.live_action))}
+  end
+
+  # Map the URL-driven live_action onto a single :tab atom. The :edit
+  # action opens a modal overlay — the tab underneath defaults to
+  # :overview because that's what `/applications/:id/edit` patches
+  # from. Bookmarkable URLs land on the right tab directly.
+  defp tab_for_action(:policy), do: :policy
+  defp tab_for_action(:groups), do: :groups
+  defp tab_for_action(:danger), do: :danger
+  defp tab_for_action(_),       do: :overview
 
   @impl Phoenix.LiveView
   def handle_event("confirm_delete", _, socket),

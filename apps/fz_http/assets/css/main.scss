@@ -3445,6 +3445,89 @@ pre {
   font-size: 0.8125rem;
 }
 
+/* ── Page tab navigation (UI-5: Applications.Show split) ────── */
+
+/* Sits flush against the page header — visually anchors content
+   below to the active tab. Uses a single-row flex with horizontal
+   scroll on narrow viewports so labels don't wrap. */
+.ng-tab-nav {
+  display: flex;
+  gap: 0.125rem;
+  padding: 0 1.5rem;
+  margin: 0;
+  background: transparent;
+  border-bottom: 1px solid #e2e8f0;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+
+  /* Hide native scrollbar — the tabs are content navigation, not
+     a scroll region. Trackpad swipe still works. */
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+}
+
+.ng-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.7rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 120ms ease, border-color 120ms ease,
+              background 120ms ease;
+
+  i { font-size: 1.05rem; }
+
+  &:hover {
+    color: #1e293b;
+    background: #f8fafc;
+  }
+
+  &:focus-visible {
+    outline: 2px solid #93c5fd;
+    outline-offset: -2px;
+  }
+
+  &.is-active {
+    color: #2563eb;
+    border-bottom-color: #2563eb;
+  }
+}
+
+.ng-tab-count {
+  display: inline-block;
+  min-width: 1.3rem;
+  text-align: center;
+  background: #f1f5f9;
+  color: #64748b;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.15rem;
+  line-height: 1.5;
+}
+
+.ng-tab.is-active .ng-tab-count {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+/* The danger tab gets a red accent on active so the destructive
+   surface is signalled even before the admin reads the content. */
+.ng-tab--danger {
+  &:hover { color: #b91c1c; background: #fef2f2; }
+
+  &.is-active {
+    color: #dc2626;
+    border-bottom-color: #dc2626;
+  }
+}
+
 /* ── Audit log inline metadata diff (UI-3) ───────────────────── */
 
 /* Chevron column — tight, just enough for the icon. The chevron

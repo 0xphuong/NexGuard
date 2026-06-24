@@ -119,9 +119,45 @@
   </div>
 </div>
 
+<%# ── Tab navigation ─────────────────────────────────────────── %>
+<%# Four tabs split what used to be a 500-line scroll into focused
+%# views: Overview (read-only summary), Policy (L7 rules editor),
+%# Groups (allowed-groups picker), Danger (enable/disable + delete).
+%# Each tab is URL-addressable + bookmarkable; the live_action atom
+%# carries which tab is active. %>
+<nav class="ng-tab-nav">
+  <.link patch={~p"/applications/#{@application}"}
+         replace={true}
+         class={["ng-tab", @tab == :overview && "is-active"]}>
+    <i class="mdi mdi-information-outline"></i>
+    <span>Overview</span>
+  </.link>
+  <.link patch={~p"/applications/#{@application}/policy"}
+         replace={true}
+         class={["ng-tab", @tab == :policy && "is-active"]}>
+    <i class="mdi mdi-filter-variant"></i>
+    <span>Policy</span>
+    <span class="ng-tab-count"><%= length(@application.l7_rules) %></span>
+  </.link>
+  <.link patch={~p"/applications/#{@application}/groups"}
+         replace={true}
+         class={["ng-tab", @tab == :groups && "is-active"]}>
+    <i class="mdi mdi-account-multiple-check-outline"></i>
+    <span>Groups</span>
+    <span class="ng-tab-count"><%= length(@allowed_groups) %></span>
+  </.link>
+  <.link patch={~p"/applications/#{@application}/danger"}
+         replace={true}
+         class={["ng-tab ng-tab--danger", @tab == :danger && "is-active"]}>
+    <i class="mdi mdi-alert-octagon-outline"></i>
+    <span>Danger zone</span>
+  </.link>
+</nav>
+
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+<%= if @tab == :overview do %>
   <%# ── Routing card ─────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -152,7 +188,9 @@
       </div>
     </dl>
   </div>
+<% end %>
 
+<%= if @tab == :policy do %>
   <%# ── L7 Rules editor ─────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -347,7 +385,9 @@
       </div>
     <% end %>
   </div>
+<% end %>
 
+<%= if @tab == :groups do %>
   <%# ── Allowed Groups ───────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -446,7 +486,9 @@
       </div>
     <% end %>
   </div>
+<% end %>
 
+<%= if @tab == :danger do %>
   <%# ── Danger zone ─────────────────────────────────────────────── %>
   <div class="ng-danger-zone">
     <div class="ng-danger-zone-header">
@@ -492,4 +534,5 @@
       </div>
     </div>
   </div>
+<% end %>
 </section>
