@@ -29,6 +29,18 @@ defmodule FzHttp.L7.CertParserTest do
       assert DateTime.diff(parsed.not_after, DateTime.utc_now(), :day) > 80
     end
 
+    test "DateTimes carry microsecond precision (schema is :utc_datetime_usec)" do
+      # X.509 validity timestamps are second-precision in the cert
+      # body. Without explicit precision upgrade Ecto's dumper rejects
+      # the insert with `expects microsecond precision`. The parser
+      # MUST normalise to {_, 6} so callers don't have to.
+      {pem, key} = F.rsa_cert("usec.example.com")
+
+      assert {:ok, parsed} = CertParser.parse(pem, key)
+      assert {_, 6} = parsed.not_after.microsecond
+      assert {_, 6} = parsed.not_before.microsecond
+    end
+
     test "accepts ECDSA P-256 key" do
       {pem, key} = F.ec_cert("ecdsa.example.com", curve: :secp256r1)
 

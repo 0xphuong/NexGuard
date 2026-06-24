@@ -171,7 +171,14 @@ defmodule FzHttp.L7.CertParser do
     end
   end
 
-  defp ok_only_datetime({:ok, dt, _offset}), do: {:ok, dt}
+  # X.509 validity timestamps are second-precision (`...Z`), but the
+  # `l7_tls_certificates.not_after` column is `:utc_datetime_usec`
+  # (microsecond precision is the project convention to match other
+  # timestamp columns). Force precision 6 with value 0 so Ecto's
+  # dumper doesn't refuse with "expects microsecond precision".
+  defp ok_only_datetime({:ok, dt, _offset}),
+    do: {:ok, %{dt | microsecond: {0, 6}}}
+
   defp ok_only_datetime(other), do: other
 
   # ── SAN extraction ─────────────────────────────────────────────
