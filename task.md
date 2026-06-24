@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-06-21 · Server at **v2.2.0** · Pairs with NexGuard Connect **v0.0.9**
+Last updated: 2026-06-24 · Server at **v3.0.2** (on prod, untagged) · Pairs with NexGuard Connect **v0.0.9**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).
@@ -14,6 +14,8 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v3.0.2** (2026-06-24, on prod, untagged) | ADR-015 **shared TLS certificate library**. Admins upload each wildcard / multi-SAN cert ONCE at `/settings/certificates`; L7 apps pick by `tls_cert_id` (explicit pin) or hostname → SAN auto-match via `FzHttp.L7.CertResolver`. Renewals are one-click in-place replace — every app pointing at the row rolls over on the next bundle pivot. New `l7_tls_certificates` table + `cert_source = :library`, daily `TlsCertExpiryScanner` (30d / 7d / expired thresholds with audit dedupe), `CertParser` enforcing RSA ≥2048 / ECDSA P-256+ / cert↔key match. **Applications hardening PR**: close enable-bypass via `update_application(%{"enabled" => true})`, capture full per-field diff in `application.update` audit metadata (l7_rules + cert config visible), explicit `@permitted_update` list replaces brittle `--` subtraction. ~3000 LoC + 30 test cases |
+| **v3.0.1** (2026-06-24, on prod, untagged) | Security hardening + DNS / runbook fixes. **Proxy**: strip client-sent `X-Forwarded-*` before forward + canonical add-back, path normalization (`..` and double-slash rejected before policy eval), JWT signature redaction in logs, PEM zeroed in memory after parse, `WriteHeader` guard. **JWT**: `iss=nexguard-proxy` + `aud=<app uuid>` + `jti` + `nbf` claims — backends MUST validate `iss` and `aud` (see `docs/migrations/v3.0.1.md`). **Audit**: whitelist 12 missing L7 / app / group / scope actions + regression test pin. **CoreDNS**: `fallthrough .` fix for sister names under declared zones, optional `COREDNS_FORWARD_TO_FALLBACK` for bind9 HA pair, cache hardening (`serve_stale 1h immediate` + `prefetch 10 1m 10%` + 16K success cap + 4K denial 5min), template plugin NXDOMAINs `.local/.lan/.home/.internal/.corp` locally |
 | **v3.0.0** (2026-06-21) | L7-D — L7 transparent proxy daemon GA. Custom Go binary (`proxy/`, ~5 KLOC, distroless ~20 MB image): IP_TRANSPARENT TLS listener, bundle/identity HTTP clients with TTL cache, RS256 JWT signer, first-match-wins policy evaluator, reverse proxy with backend-scheme allow-list + outbound TLS 1.2 pin + reserved-header response scrub, Prometheus metrics + structured access log + /healthz + /readyz. Server-side: bundle now carries `signing_key.private_pem` + per-app `key_pem`; `/internal/*` HARD-404'd at public :443; new Caddy :13443 mTLS site enforces `require_and_verify` against operator-provisioned `scripts/l7-rotate-proxy-cert.sh` CA. Independent security review: 2 critical + 4 high fixed inline. Perf: 1143 rps / p99 21 ms |
 | **v2.4.0** (2026-06-21) | L7-C network plumbing: `FzWall.CLI.Helpers.Tproxy` installs `l7_prerouting` nftables chain on `:l7_enabled_changed` (TPROXY to `127.0.0.1:8443`), fwmark + loopback routing primitives installed at every fz_wall boot, `FzHttp.L7.CoreDnsHosts` GenServer writes `/etc/nexguard/internal-hosts` atomically on every Applications mutation, opt-in `docker-compose.coredns.yml` overlay with CoreDNS 1.11 sidecar + Corefile. Dormant by default — keep `l7_enabled = false` until L7-D's proxy daemon ships |
 | **v2.3.0** (2026-06-21) | L7-B Phases 1–5: JWT signing infrastructure (`l7_signing_keys` + bootstrap), `GET /.well-known/jwks.json`, `GET /internal/sessions/by_vpn_ip/:ip` (identity payload + ETag + 30 s cache), `FzHttp.L7.BundleBuilder` (debounced signed bundle compile + ETS LKG ring), `GET /internal/bundle.json` (ETag + `?since` long-poll), `nexguard:l7:{groups,identity,bundle}` PubSub wiring. Phase 6 (mTLS) deferred to L7-D so cert provisioning ships with the proxy daemon that consumes it. Endpoints exist but no consumer yet |
@@ -56,7 +58,7 @@ ADR-014 and [`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguar
 | **L7-B** | Identity API + bundle | `/internal/sessions/by_vpn_ip/{ip}` + `/internal/bundle.json` (signed); Phoenix.PubSub broadcasts | 3-5 days | server `v2.3.0` | ✅ **shipped 2026-06-21** (Phase 6 mTLS deferred to L7-D) |
 | **L7-C** | Network plumbing | nftables TPROXY chain extending `fz_wall` (toggles on `l7_enabled`); CoreDNS deploy with hosts plugin + reload | 3-4 days | server `v2.4.0` | ✅ **shipped 2026-06-21** |
 | **L7-D** | L7 Proxy core | Custom Go binary: `IP_TRANSPARENT` listener, `SO_ORIGINAL_DST`, identity cache, group + rule eval, JWT header inject, reverse proxy | 7-10 days | server `v3.0.0` | ✅ **shipped 2026-06-21** |
-| **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1` | ⏳ |
+| **L7-E** | Operations | Hot-reload bundle (atomic swap + LKG), audit log integration, branded deny pages, JWT signing key rotation, kill-switch handling | 2-3 days | server `v3.0.1`+ | 🚧 **partial** — atomic swap ✅, base deny redesign ✅, kill switch (l7_enabled) ✅; audit-DB for proxy events / per-org branded customization / rotation UI button still pending |
 | **L7-F** | Internal CA (conditional) | smallstep `step-ca` sidecar, ACME automation, root + intermediate, leaf per app — **only if any app sets `cert_source: step_ca`** | 3-4 days | server `v3.1.0` | ⏳ |
 | **L7-G** | Client integration (conditional) | NexGuard Connect auto-installs internal CA root via `Security.framework`; MDM `.mobileconfig` documented | 1-2 days | client `v0.1.0` | ⏳ |
 
@@ -210,14 +212,43 @@ threat model coverage with simpler operations:
 
 ---
 
-#### L7-E summary checklist — Operations (server `v3.0.1`, ~2-3 days)
+#### L7-E summary checklist — Operations (server `v3.0.1`+, ~2-3 days)
 
-- [ ] **E-1**: Bundle atomic swap (Go: `atomic.Value` pointer) + LKG fallback if new bundle fails validation
-- [ ] **E-2**: Audit log integration — proxy POSTs each `allow` / `deny` to Phoenix audit endpoint (batched + sampled)
-- [ ] **E-3**: Branded deny page — Bulma + NexGuard logo + reason code + reference ID for admin lookup
-- [ ] **E-4**: JWT signing key rotation flow — admin triggers from `/settings/l7`; proxy picks up new JWKS within 30 s
-- [ ] **E-5**: Kill switch graceful shutdown — on `{:l7_enabled_changed, false}` proxy drains connections + stops listening
-- [ ] **E-6**: Tests + docs
+- [x] **E-1**: Bundle atomic swap (`atomic.Pointer[Bundle]` in `proxy/internal/bundle/`) + LKG ring (last 3 versions kept in the Phoenix ETS table `:l7_bundle`) — shipped in L7-D (v3.0.0)
+- [ ] **E-2**: Audit log integration — proxy POSTs each `allow` / `deny` to a Phoenix audit endpoint (batched + sampled). **Highest remaining ops value** — current proxy logs decisions to stderr only; no per-request entry survives in the audit DB
+- [x] **E-3 (partial)**: Deny page redesigned (commit `4ac7539`) — modern, dark-mode, per-status messaging, request ID display, CSP-tight. Per-org branding (logo / accent / custom copy from `/settings/customization`) still pending
+- [ ] **E-4**: JWT signing key rotation UI button at `/settings/security` — currently `JwtSigner.rotate/3` exists but only callable via `iex` or mix task. Add LiveView affordance + audit (`l7.signing_key.rotate` action already whitelisted)
+- [x] **E-5 (partial)**: Kill switch via `:l7_enabled_changed` PubSub flips the nftables TPROXY chain + the proxy refuses connections. Graceful drain of in-flight connections on shutdown still on the wishlist
+- [ ] **E-6**: Tests + docs — base coverage shipped per-phase; integration test for full kill-switch round-trip (Phoenix flip → fz_wall chain remove → proxy drain) still pending
+
+---
+
+#### Polish backlog — Applications module review (2026-06-24)
+
+Findings from the post-v3.0.2 module review. PR #1 ($1+#7+#2 — enable-bypass + permitted-list refactor + audit diff) shipped commit `c9d60e0`. Remaining items grouped by theme:
+
+##### R — Applications correctness / UX (~2-3h total)
+
+- [ ] **R3**: L7 rules editor races on concurrent admin edits — `show_live.ex:131-165` reads `socket.assigns.application.l7_rules` then writes the new list back via `update_application`. Two admins on the same app overwrite each other's rules. Fix: move add/delete/reorder into `Applications.L7Rules` (or just `Applications`), each wrapping a `Repo.transaction` that re-reads `l7_rules` inside the txn before append/reorder. ~1-2h
+- [ ] **R4**: X509 parser duplicated in `applications_live/form_component.ex:94-157` (`preview_cert/1`) — same job as `FzHttp.L7.CertParser` shipped in Phase A of ADR-015. Expose `CertParser.parse_cert_only/1` (skip key match) and replace the inline parser. ~30min
+- [ ] **R5**: Index page stats strip still has a `step_ca` tile (`index.html.heex:107-111`) which is meaningless after most apps move to `cert_source: :library`. Either split into 3 tiles (library / upload / step_ca) or replace with "Apps with auto-match cert". ~15min
+- [ ] **R6**: `applications_live/{index,show}` LiveViews don't `Applications.subscribe()` — multi-admin scenarios show stale state until refresh. Add `if connected?(socket), do: Applications.subscribe()` + `handle_info(:apps_changed, ...)` reload. Same pattern in the new `setting_live/certificates_live.ex` for cert-library mutations. ~30min
+
+##### V — Versioning + release housekeeping (~30min)
+
+- [ ] **V1**: Bump `Dockerfile.prod ARG VERSION` 3.0.0 → 3.0.2, write `docs/migrations/v3.0.2.md` (cert library deploy steps + cert_source migration helper), update CHANGELOG, tag `v3.0.2` + push
+- [ ] **V2**: Migrate existing apps with `cert_source: :upload` → `:library` — for orgs that already have a wildcard cert covering the hostnames, set `tls_auto_match: true` and clear the per-app PEM. Helper mix task or one-shot SQL
+
+##### X — External (out-of-repo, DNS team coordination)
+
+- [ ] **X1**: bind9 RRL — add `10.0.235.3` (NexGuard gateway IP) to `exempt-clients`. NexGuard side already self-shapes via `max_concurrent 100` + serve_stale + prefetch; RRL on bind9 was the amplifier in the 2k-req/s peak we hit during prod smoke. 5min DNS-team task
+- [ ] **X2**: bind9 capacity — raise `recursive-clients 1000 → 4000`, enable `prefetch 2 9;` + `stale-answer-enable yes;`, bump `max-cache-size 256m → 512m`. Recommended once VPN client count grows past ~10
+
+##### O — Observability nice-to-have (~1-2h each)
+
+- [ ] **O1**: Add `prometheus :9153` to `coredns/Corefile` + scrape config. Gives cache hit rate, forward latency, SERVFAIL count — confirms the 85-90% cache-hit assumption from the design
+- [ ] **O2**: Grafana dashboard template for CoreDNS + L7 proxy metrics — drop-in JSON in `docs/dashboards/`
+- [ ] **O3**: Post-mortem doc — `docs/post-mortem/v3.0.0-launch.md` captures the DNS forward bug, `fallthrough .` syntax, env-line discipline, audit whitelist gap, microsecond-precision pitfall, modal stateful-root requirement. Learnings durable across the team
 
 ---
 
