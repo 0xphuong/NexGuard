@@ -1,6 +1,8 @@
+<div>
 <.form
-  let={f}
+  :let={f}
   for={@changeset}
+  as={:tls_certificate}
   id="certificate-form"
   phx-target={@myself}
   phx-change="validate"
@@ -96,3 +98,4 @@
           phx_disable_with: "Saving…" %>
   </footer>
 </.form>
+</div>
