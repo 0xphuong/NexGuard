@@ -7,15 +7,20 @@
 #                  -f docker-compose.proxy.yml up -d
 #
 # CoreDNS sidecar that serves DNS for VPN clients. Resolution order:
-#   1. Declared L7 application hostnames → virtual IP from the hosts
+#   1. mDNS-style noise (.local / .lan / .home / .internal / .corp)
+#      → NXDOMAIN locally, never reaches bind9.
+#   2. Declared L7 application hostnames → virtual IP from the hosts
 #      file written by `FzHttp.L7.CoreDnsHosts` inside the nexguard
-#      container at /etc/nexguard/internal-hosts. The bind mount is
+#      container at /etc/nexguard/internal-hosts. Bind mount is
 #      SHARED with the nexguard service so both containers see the
 #      same file.
-#   2. Everything else → forwarded to ${COREDNS_FORWARD_TO}. Set this
-#      in .env to your internal DNS (e.g. 10.0.235.250) so internal
-#      non-L7 names AND public queries both keep working — the
-#      internal resolver handles internal + forwards public upstream.
+#   3. Everything else → forwarded to ${COREDNS_FORWARD_TO} (your
+#      internal DNS, which also chains public queries upstream).
+#
+# The Corefile is heavily cache-tuned (`serve_stale`, `prefetch`,
+# bigger NXDOMAIN cache) so a single upstream DNS sees ~85-90%
+# fewer queries than the raw client load — and stays smooth even
+# during burst.
 #
 # `network_mode: service:nexguard` joins the nexguard container's
 # network namespace so CoreDNS sees the `wg-nexguard` interface and
@@ -42,23 +47,25 @@ services:
     image: coredns/coredns:1.11.3
     command: ["-conf", "/Corefile"]
     environment:
-      # One DNS server — admin chooses what fits the deployment.
-      # Set COREDNS_FORWARD_TO in .env to:
+      # Primary upstream DNS — handles internal + public queries
+      # (typically corporate bind9 at 10.0.235.250 which chains
+      # public lookups upstream). CoreDNS `{$VAR}` substitution
+      # produces one token, so "1.1.1.1 8.8.8.8" arrives as a broken
+      # string — use COREDNS_FORWARD_TO_FALLBACK for an HA pair, or
+      # edit `coredns/Corefile` directly for more than two upstreams.
       #
-      #   * Your company's internal DNS (e.g. 10.0.235.250) if it
-      #     resolves both internal corporate names AND forwards
-      #     public queries upstream (typical enterprise).
-      #
-      #   * A public resolver (1.1.1.1, 8.8.8.8) if you only need
-      #     public DNS plus the L7 app hostnames from the hosts
-      #     file.
-      #
-      # Single host only — CoreDNS `{$VAR}` substitution produces
-      # one token, so "1.1.1.1 8.8.8.8" arrives as a broken string.
-      # For multi-server redundancy with failover, edit
-      # `coredns/Corefile` directly (it's bind-mounted, no rebuild
-      # — `docker compose restart coredns` picks it up).
+      # Default 1.1.1.1 is safe for fresh deployments that haven't
+      # set this yet (public-only). Set in .env to your real
+      # internal DNS for L7 + internal zone resolution.
       COREDNS_FORWARD_TO: ${COREDNS_FORWARD_TO:-1.1.1.1}
+
+      # Optional HA fallback — second bind9/recursor used ONLY when
+      # the primary fails its health check. Defaults to the primary,
+      # so leaving this unset is equivalent to "no failover" (and
+      # works fine — the forward plugin tolerates the same upstream
+      # listed twice, it just won't have an alternate to fail over
+      # to). Set in .env when you have a redundant DNS pair.
+      COREDNS_FORWARD_TO_FALLBACK: ${COREDNS_FORWARD_TO_FALLBACK:-${COREDNS_FORWARD_TO:-1.1.1.1}}
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro

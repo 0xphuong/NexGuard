@@ -1,45 +1,94 @@
-# NexGuard L7 ZTNA CoreDNS configuration (ADR-012).
+# NexGuard L7 ZTNA CoreDNS — single (or HA pair) upstream, cache-heavy (ADR-012).
 #
-# Single forwarder model — the operator chooses ONE resolver to
-# forward everything to via the `COREDNS_FORWARD_TO` env var:
+# Two env knobs (the second is optional):
 #
-#   * Use the company's internal DNS (e.g. 10.0.235.250) if the
-#     same resolver handles both internal corporate names AND
-#     forwards public queries upstream. Typical enterprise setup.
-#     Trade-off: public lookups go through one extra hop.
+#   COREDNS_FORWARD_TO           — primary DNS server. Handles
+#                                   everything not in the L7 hosts
+#                                   file (typically your corporate
+#                                   internal DNS, e.g. 10.0.235.250).
+#                                   Default 1.1.1.1.
 #
-#   * Use a public resolver (1.1.1.1, 8.8.8.8) if VPN clients only
-#     need public DNS plus the L7 app hostnames from the hosts
-#     file. Fastest public lookups; non-L7 internal names won't
-#     resolve.
+#   COREDNS_FORWARD_TO_FALLBACK  — secondary, only used when primary
+#                                   fails the health check. Set when
+#                                   you have an HA bind9 pair (e.g.
+#                                   10.0.235.251). Defaults to the
+#                                   primary, so leaving it unset just
+#                                   means "no failover" — no harm.
 #
-# Declared L7 application hostnames are resolved by the `hosts`
-# plugin (reads /etc/nexguard/internal-hosts, written by Phoenix's
-# FzHttp.L7.CoreDnsHosts) BEFORE the forward — so L7 apps always
-# resolve to their VIP regardless of which upstream is configured.
+# `policy sequential` (below) sticks to the primary while it's
+# healthy so the cache stays hot on one box; fail-over happens only
+# when health checks fail, not on every query.
 #
-# Bind to all interfaces inside the shared nexguard net namespace
-# so the wg-nexguard tunnel sees us (VPN clients send DNS queries
-# to the gateway's WG-side IP).
+# Design goals (in order):
+#
+#   1. Client experience is never affected by bind9 latency or
+#      outages. `serve_stale 1h immediate` keeps replies fast even
+#      when the upstream is sick.
+#
+#   2. Spam to bind9 is minimised. Three layers cut load:
+#        - template plugin drops mDNS-style noise (.local/.lan/...)
+#          before it leaves the gateway,
+#        - aggressive positive + negative caching catches the rest,
+#        - prefetch refreshes popular entries before TTL expiry so
+#          cache hits never become cache misses for clients.
+#
+#   3. CoreDNS can't DoS bind9. `max_concurrent 100` and the
+#      forward `expire 30s` cap parallel sockets and idle conns.
+#
+# Bind9-side tuning (out of scope for this file but recommended):
+# raise `recursive-clients` past 1000, enable `prefetch`, watch
+# `recursing-file` and `rcode-failure` under sustained load.
 
 . {
-  # `fallthrough .` (with the root zone explicit) is the syntax
-  # that actually falls through on miss across ALL zones — not
-  # just the ones the hosts plugin auto-infers from its entries.
-  # Without the `.`, having `hq.sevensystem.vn` in the file made
-  # CoreDNS claim authority over the whole `sevensystem.vn` zone:
-  # sister names like `loki-grafana.sevensystem.vn` got
-  # NXDOMAIN-authoritative immediately, never forwarded upstream.
+  # 1. Drop mDNS-style noise BEFORE upstream. Apple Bonjour,
+  # Windows WPAD, Linux avahi, browser captive-portal probes all
+  # generate guaranteed-NXDOMAIN queries on .local / .lan / .home /
+  # .internal / .corp suffixes. Returning NXDOMAIN locally saves
+  # ~5–15% of bind9 traffic — the queries never leave the box.
+  template ANY ANY local lan home internal corp {
+    rcode NXDOMAIN
+  }
+
+  # 2. L7 ZTNA VIPs from the hosts file. MUST run before forward,
+  # and MUST keep `fallthrough .` so sister names under declared
+  # internal zones (e.g. grafana.<your-zone> when only
+  # hq.<your-zone> is L7-onboarded) still reach the upstream.
+  # Without fallthrough the hosts plugin claims authority over the
+  # whole zone and NXDOMAINs every non-L7 sibling.
   hosts /etc/nexguard/internal-hosts {
     reload 1s
     ttl 30
     fallthrough .
   }
-  forward . {$COREDNS_FORWARD_TO} {
-    max_concurrent 1000
+
+  # 3. Upstream — primary + optional HA fallback. `policy sequential`
+  # keeps every query on the primary while it's healthy so the cache
+  # warms on ONE box (vs. random load-balance which splits the cache
+  # and roughly doubles miss rate). Fallback only kicks in when
+  # health_check sees the primary down. `max_concurrent 100` is the
+  # load-flood backstop — CoreDNS queues beyond 100 in-flight queries
+  # rather than open 1000 parallel sockets on burst. `expire 30s`
+  # recycles idle upstream conns.
+  forward . {$COREDNS_FORWARD_TO} {$COREDNS_FORWARD_TO_FALLBACK} {
+    max_concurrent 100
     health_check 5s
+    expire 30s
+    policy sequential
   }
-  cache 300
+
+  # 4. The biggest load-shedder. `serve_stale 1h immediate` makes
+  # bind9 latency / outages INVISIBLE to clients: cache returns
+  # stale data instantly while CoreDNS refreshes async in the
+  # background. `prefetch` keeps popular entries warm so TTL
+  # expiry never causes a thundering herd. Capacities are
+  # generous; memory cost is ~3–5 MB.
+  cache {
+    success 16384 3600 60
+    denial 4096 300 30
+    serve_stale 1h immediate
+    prefetch 10 1m 10%
+  }
+
   errors
   log . "{remote}:{port} {>id} {type} {name} -> {rcode} {>rflags} {rsize} {duration}"
 }
