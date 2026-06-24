@@ -8,13 +8,18 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   @page_size AuditLogs.page_size()
 
   @categories [
-    {"All Events", ""},
+    {"All Events",     ""},
     {"Authentication", "auth"},
-    {"Users", "user"},
-    {"Config", "config"},
-    {"Devices", "device"},
-    {"Rules", "rule"},
-    {"VPN", "vpn"}
+    {"Users",          "user"},
+    {"Devices",        "device"},
+    {"VPN",            "vpn"},
+    {"Rules (L3/L4)",  "rule"},
+    {"Applications",   "application"},
+    {"Access Groups",  "access_group"},
+    {"L7 (signing)",   "l7"},
+    {"TLS Library",    "tls_cert"},
+    {"Org Settings",   "org_settings"},
+    {"Config",         "config"}
   ]
 
   @results [
@@ -35,9 +40,26 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
       |> assign(:categories, @categories)
       |> assign(:results, @results)
       |> assign(:retention_days, Config.fetch_config!(:audit_log_retention_days))
+      |> assign(:expanded, MapSet.new())
       |> load_logs()
 
     {:ok, socket}
+  end
+
+  # Expand/collapse a row to reveal its metadata diff. Per-session
+  # state lives in a MapSet on the socket — refresh clears it, which
+  # is the right call (filter/page change shouldn't preserve which
+  # rows were open under a different result set).
+  @impl Phoenix.LiveView
+  def handle_event("toggle_row", %{"id" => id}, socket) do
+    expanded =
+      if MapSet.member?(socket.assigns.expanded, id) do
+        MapSet.delete(socket.assigns.expanded, id)
+      else
+        MapSet.put(socket.assigns.expanded, id)
+      end
+
+    {:noreply, assign(socket, :expanded, expanded)}
   end
 
   @impl Phoenix.LiveView
@@ -64,6 +86,7 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
       |> assign(:category, category)
       |> assign(:result_filter, result)
       |> assign(:page, 1)
+      |> assign(:expanded, MapSet.new())
       |> load_logs()
 
     {:noreply, socket}
@@ -71,12 +94,12 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
 
   def handle_event("prev_page", _, socket) do
     page = max(1, socket.assigns.page - 1)
-    {:noreply, socket |> assign(:page, page) |> load_logs()}
+    {:noreply, socket |> assign(:page, page) |> assign(:expanded, MapSet.new()) |> load_logs()}
   end
 
   def handle_event("next_page", _, socket) do
     page = socket.assigns.page + 1
-    {:noreply, socket |> assign(:page, page) |> load_logs()}
+    {:noreply, socket |> assign(:page, page) |> assign(:expanded, MapSet.new()) |> load_logs()}
   end
 
   # ── Helpers ─────────────────────────────────────────────────────
@@ -93,6 +116,75 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   def target_parts(nil, _, _), do: nil
   def target_parts(type, _id, label) when is_binary(type), do: {type, label}
   def target_parts(_, _, _), do: nil
+
+  # ── Metadata viewer helpers ─────────────────────────────────────
+
+  @doc "True when a row has any metadata worth expanding to display."
+  def has_metadata?(nil), do: false
+  def has_metadata?(m) when is_map(m), do: map_size(m) > 0
+  def has_metadata?(_), do: false
+
+  @doc "Open/closed state for a given row id."
+  def expanded?(set, id), do: MapSet.member?(set, id)
+
+  @doc """
+  Classify metadata shape so the template knows which view to render.
+
+    * `:diff`  — has both `before` + `after` keys (the
+                 `application.update` shape we land in the audit since
+                 the v3.0.2 hardening PR).
+    * `:flat`  — any other map; render as plain pretty JSON.
+    * `:none`  — empty / nil.
+  """
+  def metadata_shape(%{"before" => _, "after" => _}), do: :diff
+  def metadata_shape(m) when is_map(m) and map_size(m) > 0, do: :flat
+  def metadata_shape(_), do: :none
+
+  @doc """
+  Side-by-side diff rows for the `:diff` case. Each entry is
+  `{key, before_value, after_value, changed?}` where `changed?` is
+  the strict-equality test on the two values (lists of maps compare
+  by structure, which is what we want for `l7_rules`).
+  """
+  def metadata_diff_rows(%{"before" => b, "after" => a}) do
+    keys =
+      MapSet.union(
+        MapSet.new(Map.keys(b || %{})),
+        MapSet.new(Map.keys(a || %{}))
+      )
+      |> MapSet.to_list()
+      |> Enum.sort()
+
+    Enum.map(keys, fn key ->
+      bv = Map.get(b || %{}, key)
+      av = Map.get(a || %{}, key)
+      {key, bv, av, bv != av}
+    end)
+  end
+
+  def metadata_diff_rows(_), do: []
+
+  @doc """
+  Pretty-print one cell value. Scalars render inline; lists / maps
+  pretty-JSON over multiple lines. The empty / nil case shows `—`
+  so a missing key reads as "not set" instead of literal "null".
+  """
+  def pretty_value(nil),     do: "—"
+  def pretty_value(""),      do: "—"
+  def pretty_value(v) when is_binary(v),  do: v
+  def pretty_value(v) when is_number(v),  do: to_string(v)
+  def pretty_value(true),    do: "true"
+  def pretty_value(false),   do: "false"
+
+  def pretty_value(v) when is_list(v) or is_map(v) do
+    Jason.encode!(v, pretty: true)
+  end
+
+  def pretty_value(v), do: inspect(v)
+
+  @doc "Full pretty JSON for the `:flat` metadata case."
+  def pretty_json(map) when is_map(map), do: Jason.encode!(map, pretty: true)
+  def pretty_json(_), do: ""
 
   # ── Private ──────────────────────────────────────────────────────
 

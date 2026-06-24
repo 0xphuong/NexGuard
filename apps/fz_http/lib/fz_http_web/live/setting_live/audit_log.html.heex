@@ -56,6 +56,7 @@
     <table class="ng-table ng-audit-table">
       <thead>
         <tr>
+          <th class="ng-audit-th-toggle"></th>
           <th>Time</th>
           <th>Actor</th>
           <th>Action</th>
@@ -67,14 +68,37 @@
       <tbody>
         <%= if Enum.empty?(@logs) do %>
           <tr>
-            <td colspan="6" class="ng-audit-empty">
+            <td colspan="7" class="ng-audit-empty">
               <i class="mdi mdi-clipboard-text-clock-outline"></i>
               No events match the current filters.
             </td>
           </tr>
         <% else %>
           <%= for log <- @logs do %>
-            <tr>
+            <%
+              has_meta = has_metadata?(log.metadata)
+              open     = expanded?(@expanded, log.id)
+            %>
+            <tr class={["ng-audit-row", open && "is-expanded"]}>
+              <%# Chevron / expand toggle. Disabled (no click) when
+              %# the row has no metadata so it doesn't tease an empty
+              %# expand. %>
+              <td class="ng-audit-td-toggle">
+                <%= if has_meta do %>
+                  <button
+                    type="button"
+                    class={["ng-audit-toggle-btn", open && "is-open"]}
+                    phx-click="toggle_row"
+                    phx-value-id={log.id}
+                    aria-label={if open, do: "Collapse details", else: "Expand details"}
+                  >
+                    <i class={["mdi", if(open, do: "mdi-chevron-down", else: "mdi-chevron-right")]}></i>
+                  </button>
+                <% else %>
+                  <span class="ng-audit-toggle-spacer"></span>
+                <% end %>
+              </td>
+
               <%# Time %>
               <td class="ng-td-muted ng-audit-ts">
                 <span
@@ -128,6 +152,50 @@
                 <%= log.ip_address || "—" %>
               </td>
             </tr>
+
+            <%# ── Detail row (rendered only when expanded) ──────── %>
+            <%= if open and has_meta do %>
+              <tr class="ng-audit-detail-row">
+                <td colspan="7" class="ng-audit-detail-cell">
+                  <%= case metadata_shape(log.metadata) do %>
+                    <% :diff -> %>
+                      <div class="ng-audit-diff">
+                        <div class="ng-audit-diff-head">
+                          <div class="ng-audit-diff-head-key">Field</div>
+                          <div class="ng-audit-diff-head-before">Before</div>
+                          <div class="ng-audit-diff-head-after">After</div>
+                        </div>
+                        <%= for {key, b, a, changed} <- metadata_diff_rows(log.metadata) do %>
+                          <div class={["ng-audit-diff-row", changed && "is-changed"]}>
+                            <div class="ng-audit-diff-key">
+                              <%= if changed do %>
+                                <i class="mdi mdi-arrow-right-bold ng-audit-diff-marker"></i>
+                              <% end %>
+                              <%= key %>
+                            </div>
+                            <pre class="ng-audit-diff-cell ng-audit-diff-cell--before"><%= pretty_value(b) %></pre>
+                            <pre class="ng-audit-diff-cell ng-audit-diff-cell--after"><%= pretty_value(a) %></pre>
+                          </div>
+                        <% end %>
+                      </div>
+
+                    <% :flat -> %>
+                      <pre class="ng-audit-meta-flat"><%= pretty_json(log.metadata) %></pre>
+
+                    <% _ -> %>
+                      <span class="ng-td-muted">No metadata captured for this event.</span>
+                  <% end %>
+
+                  <%# Forensic footer — exact identifiers an operator
+                  %# needs to grep DB / cross-reference other logs. %>
+                  <div class="ng-audit-detail-foot">
+                    <span><span class="ng-audit-detail-key">Log ID</span> <code><%= log.id %></code></span>
+                    <span><span class="ng-audit-detail-key">Target ID</span> <code><%= log.target_id || "—" %></code></span>
+                    <span><span class="ng-audit-detail-key">Exact time</span> <code><%= DateTime.to_iso8601(log.inserted_at) %></code></span>
+                  </div>
+                </td>
+              </tr>
+            <% end %>
           <% end %>
         <% end %>
       </tbody>

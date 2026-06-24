@@ -3445,6 +3445,203 @@ pre {
   font-size: 0.8125rem;
 }
 
+/* ── Audit log inline metadata diff (UI-3) ───────────────────── */
+
+/* Chevron column — tight, just enough for the icon. The chevron
+   itself is the only interactive element in the row; the rest of
+   the row stays read-only so admins can select target IDs / actor
+   emails for copy without accidentally toggling. */
+.ng-audit-th-toggle    { width: 2rem; }
+.ng-audit-td-toggle    { width: 2rem; padding: 0 0.25rem; text-align: center; }
+.ng-audit-toggle-spacer { display: inline-block; width: 1rem; }
+
+.ng-audit-toggle-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 4px;
+  color: #64748b;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 120ms ease, color 120ms ease, transform 120ms ease;
+
+  &:hover  { background: #f1f5f9; color: #1e293b; }
+  &:focus  { outline: 2px solid #93c5fd; outline-offset: 1px; }
+  &.is-open { color: #2563eb; }
+}
+
+.ng-audit-row.is-expanded {
+  background: #f8fafc;
+}
+
+/* The expanded detail row. No top border so it visually adheres
+   to the row above it. Inner padding keeps content from hugging
+   the table edge. */
+.ng-audit-detail-row {
+  background: #f8fafc;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.ng-audit-detail-cell {
+  padding: 1rem 1.5rem 1.25rem !important;
+}
+
+/* Diff grid: 3 columns (Field | Before | After). On narrow viewports
+   collapse to a single column with stacked labels — pre tags wrap
+   inside the cell. */
+.ng-audit-diff {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 0.75rem;
+  background: #ffffff;
+}
+
+.ng-audit-diff-head {
+  display: grid;
+  grid-template-columns: 12rem 1fr 1fr;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #475569;
+
+  > div { padding: 0.5rem 0.75rem; }
+  .ng-audit-diff-head-before { border-left: 1px solid #e2e8f0; }
+  .ng-audit-diff-head-after  { border-left: 1px solid #e2e8f0; }
+}
+
+.ng-audit-diff-row {
+  display: grid;
+  grid-template-columns: 12rem 1fr 1fr;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.8125rem;
+
+  &:last-child { border-bottom: none; }
+
+  /* Unchanged rows render at reduced opacity so the eye lands on
+     what actually moved. */
+  &:not(.is-changed) {
+    .ng-audit-diff-key,
+    .ng-audit-diff-cell { opacity: 0.55; }
+  }
+
+  /* Changed rows get a soft amber background — neutral signal of
+     "this is the delta", not "this is bad". */
+  &.is-changed {
+    background: #fffbeb;
+  }
+}
+
+.ng-audit-diff-key {
+  padding: 0.5rem 0.75rem;
+  font-weight: 600;
+  font-family: "Fira Mono", monospace;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-right: 1px solid #f1f5f9;
+}
+
+.ng-audit-diff-marker {
+  color: #d97706;
+  font-size: 0.9rem;
+}
+
+.ng-audit-diff-cell {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-family: "Fira Mono", monospace;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #334155;
+  border-right: 1px solid #f1f5f9;
+  background: transparent;
+
+  &:last-child { border-right: none; }
+}
+
+.ng-audit-diff-cell--before { color: #991b1b; }
+.ng-audit-diff-cell--after  { color: #166534; }
+
+/* Flat-metadata fallback for rows that aren't before/after diffs
+   (e.g. application.create, tls_cert.create). Plain JSON dump. */
+.ng-audit-meta-flat {
+  margin: 0 0 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-family: "Fira Mono", monospace;
+  font-size: 0.78rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #334155;
+}
+
+/* Forensic identifiers below the diff — exact strings an operator
+   needs to grep / cross-reference. Mono font, low contrast. */
+.ng-audit-detail-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  font-size: 0.72rem;
+  color: #64748b;
+
+  code {
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    color: #334155;
+  }
+
+  .ng-audit-detail-key {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #94a3b8;
+    margin-right: 0.3rem;
+  }
+}
+
+/* Mobile collapse: stack diff columns so cells stay readable. */
+@media (max-width: 768px) {
+  .ng-audit-diff-head,
+  .ng-audit-diff-row {
+    grid-template-columns: 1fr;
+  }
+
+  .ng-audit-diff-head > div,
+  .ng-audit-diff-key {
+    border-right: none;
+    border-bottom: 1px solid #f1f5f9;
+  }
+
+  .ng-audit-diff-cell {
+    border-right: none;
+    border-bottom: 1px dashed #f1f5f9;
+
+    &::before {
+      content: attr(data-label);
+      display: block;
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #94a3b8;
+      margin-bottom: 0.2rem;
+    }
+  }
+}
+
 /* ── TLS cert library (ADR-015) ─────────────────────────────── */
 
 /* Warning variant of the cert-preview card: shown when auto-match
