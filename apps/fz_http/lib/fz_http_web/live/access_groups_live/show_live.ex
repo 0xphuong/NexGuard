@@ -155,7 +155,14 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
   # ── Helpers ────────────────────────────────────────────────────
 
   defp load_group_assigns(socket, group) do
-    group = Repo.preload(group, [memberships: [:user, :added_by]])
+    # `force: true` is REQUIRED. Without it, Repo.preload is a no-op
+    # whenever the association is already populated on the struct —
+    # which is exactly the case on re-render (mount sets memberships,
+    # then add_member calls back through here expecting fresh data).
+    # The bug surface was: after Add member, the dropdown still showed
+    # the just-added user; clicking Add again raised a unique
+    # constraint error.
+    group = Repo.preload(group, [memberships: [:user, :added_by]], force: true)
     member_ids = group.memberships |> Enum.map(& &1.user_id) |> MapSet.new()
 
     available_users =
