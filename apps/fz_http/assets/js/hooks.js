@@ -99,50 +99,36 @@ Hooks.GenerateKeyPair = {
   mounted: generateKeyPair
 }
 
-// ⌘K / Ctrl-K — global search shortcut. The hook lives on a hidden
-// button in admin.html.heex; pressing the shortcut anywhere on the
-// page pushes a "toggle" event to the SearchLive that owns the modal.
+// ⌘K / Ctrl-K — global search shortcut. The hook lives on the
+// trigger button in admin.html.heex; pressing the shortcut OR
+// clicking the button pushes a "toggle" event to the SearchLive
+// that owns the modal (rendered at #search-root via live_render).
+//
+// `pushEventTo("#search-root", "toggle")` is the supported public
+// API for sending events from a hook to a *different* LiveView in
+// the same page. `liveSocket.getViewByEl().pushEvent()` looks like
+// it'd work but isn't a documented API surface.
 Hooks.CmdKShortcut = {
   mounted() {
-    this.handler = (e) => {
+    this.keydownHandler = (e) => {
       const isToggle = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"
-      if (isToggle) {
-        e.preventDefault()
-        // Push directly to the SearchLive (separate LiveView from the
-        // page). Querying the hidden root is cheaper than wiring a
-        // pubsub channel for this one event.
-        const root = document.getElementById("search-root")
-        if (root) {
-          const view = window.liveSocket && window.liveSocket.getViewByEl(root)
-          if (view) {
-            view.pushEvent("toggle")
-            return
-          }
-        }
-        // Fallback: click the button (this.el), which fires the
-        // CmdKShortcut hook's own "click" → goes to the search live
-        // via phx-click="toggle" set on the trigger element.
-        this.el.click()
-      }
+      if (!isToggle) return
+      e.preventDefault()
+      this.pushEventTo("#search-root", "toggle", {})
     }
-    window.addEventListener("keydown", this.handler)
+    window.addEventListener("keydown", this.keydownHandler)
 
-    // Also wire a click on the visible trigger button to push the
-    // same event — this way mouse/trackpad users get the same
-    // behaviour as keyboard.
+    // Visible trigger button: same event, same target — works for
+    // mouse / trackpad / touch.
     this.clickHandler = (e) => {
       e.preventDefault()
-      const root = document.getElementById("search-root")
-      if (root) {
-        const view = window.liveSocket && window.liveSocket.getViewByEl(root)
-        if (view) view.pushEvent("toggle")
-      }
+      this.pushEventTo("#search-root", "toggle", {})
     }
     this.el.addEventListener("click", this.clickHandler)
   },
 
   destroyed() {
-    if (this.handler) window.removeEventListener("keydown", this.handler)
+    if (this.keydownHandler) window.removeEventListener("keydown", this.keydownHandler)
     if (this.clickHandler) this.el.removeEventListener("click", this.clickHandler)
   }
 }
