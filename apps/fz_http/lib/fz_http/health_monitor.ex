@@ -36,7 +36,11 @@ defmodule FzHttp.HealthMonitor do
   alias FzHttp.Repo
   alias Phoenix.PubSub
 
-  @interval_ms 10_000
+  # 60s auto-poll cadence. Admins can click any dot in the topnav
+  # to force a manual probe in between auto-ticks (~1.5s round-trip),
+  # so the 60s interval doesn't gate "I want a fresh read right now"
+  # — it just sets the cost-free background refresh rate.
+  @interval_ms 60_000
   @probe_timeout_ms 1_500
   @slow_threshold_ms 500
   @topic "nexguard:health"
