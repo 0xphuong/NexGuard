@@ -1,4 +1,7 @@
-<div id="topbar-health" class="ng-topbar-health-group">
+<%# Inner wrapper class is what we style; the OUTER id="topbar-health"
+%# is the Phoenix live_render container (different element). Two separate
+%# IDs would clash, hence using a different id here. %>
+<div id="topbar-health-inner" class="ng-topbar-health-group">
   <%= for {service, label, is_last} <- [
         {:db,      "DB",     false},
         {:coredns, "DNS",    false},

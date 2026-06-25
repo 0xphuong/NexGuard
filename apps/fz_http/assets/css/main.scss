@@ -3449,18 +3449,25 @@ pre {
 
 /* Group wrapper — keeps the 3 service pills flush; only the LAST
    pill carries `has-divider` so the vertical separator appears once
-   between the health group and the icons that follow it. */
+   between the health group and the icons that follow it.
+   `height: 100%` propagates the navbar row height (52px) down to
+   each pill so they align 1:1 with sibling icons that use the same
+   trick (notifications anchor sets `style="height: 100%"` inline). */
 .ng-topbar-health-group {
   display: inline-flex;
   align-items: stretch;
+  height: 100%;
 }
 
-/* Each service pill is just `<a class="navbar-item ...">` so it
-   inherits Bulma's `.navbar-item` padding (0.5rem 0.75rem) + the
-   flex centering that gives it the same height as the sibling
-   WS / docs / notifications icons. The class adds the gap between
-   the dot and the label, plus the state-driven colours. */
+/* Each service pill. CRITICAL: `height: 100%` to match the existing
+   notifications-badge anchor (which sets it inline). Bulma's
+   `.navbar-item` has padding-derived height (~37px) which is shorter
+   than the navbar's 52px row — without explicit 100% height the pill
+   sits inside the row at content height while sibling items with
+   `style="height: 100%"` (notifications, etc.) stretch to fill it.
+   Visual result of the mismatch: pills float higher than the icons. */
 .ng-topnav-health {
+  height: 100%;
   gap: 0.4rem;
   cursor: pointer;
   font-size: 0.78rem;
@@ -3468,6 +3475,16 @@ pre {
   transition: opacity 120ms ease;
 
   &.is-probing { opacity: 0.55; cursor: progress; }
+}
+
+/* The Phoenix `live_render` wrapper for TopbarHealthLive needs to
+   participate in the navbar-end flex row at full height too, or its
+   children fall back to natural height. `align-items: stretch` on
+   the wrapper passes the navbar height down to the pills inside. */
+[id="topbar-health"][data-phx-session] {
+  display: inline-flex;
+  align-items: stretch;
+  height: 100%;
 }
 
 /* The dot — `inline-block` so it sits next to the label as a normal
