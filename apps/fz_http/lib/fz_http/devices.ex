@@ -397,6 +397,69 @@ defmodule FzHttp.Devices do
   kernel interface immediately. No-op (returns `{:ok, device}`) if already
   approved.
   """
+  @doc """
+  Bulk variants — apply `approve_device/3` / `revoke_approval/3` /
+  `delete_device/3` over a list of ids. Each row goes through the
+  same per-row guard + audit + PubSub broadcast as the single-row
+  function, so the audit trail remains row-level (no opaque "bulk"
+  rows) and a partial failure doesn't lose info.
+
+  Returns a tally map: `%{ok: count, skip: count, error: count}`.
+  `skip` covers no-op cases (approving an already-approved device,
+  revoking an already-pending device); not an error.
+  """
+  def bulk_approve(ids, %Auth.Subject{} = subject, ip_address \\ nil) when is_list(ids) do
+    Enum.reduce(ids, %{ok: 0, skip: 0, error: 0}, fn id, acc ->
+      case Repo.get(Device, id) do
+        nil ->
+          %{acc | error: acc.error + 1}
+
+        %Device{status: "approved"} ->
+          %{acc | skip: acc.skip + 1}
+
+        %Device{} = device ->
+          case approve_device(device, subject, ip_address) do
+            {:ok, _}    -> %{acc | ok: acc.ok + 1}
+            _           -> %{acc | error: acc.error + 1}
+          end
+      end
+    end)
+  end
+
+  def bulk_revoke_approval(ids, %Auth.Subject{} = subject, ip_address \\ nil)
+      when is_list(ids) do
+    Enum.reduce(ids, %{ok: 0, skip: 0, error: 0}, fn id, acc ->
+      case Repo.get(Device, id) do
+        nil ->
+          %{acc | error: acc.error + 1}
+
+        %Device{status: "pending"} ->
+          %{acc | skip: acc.skip + 1}
+
+        %Device{} = device ->
+          case revoke_approval(device, subject, ip_address) do
+            {:ok, _}    -> %{acc | ok: acc.ok + 1}
+            _           -> %{acc | error: acc.error + 1}
+          end
+      end
+    end)
+  end
+
+  def bulk_delete(ids, %Auth.Subject{} = subject, ip_address \\ nil) when is_list(ids) do
+    Enum.reduce(ids, %{ok: 0, skip: 0, error: 0}, fn id, acc ->
+      case Repo.get(Device, id) do
+        nil ->
+          %{acc | error: acc.error + 1}
+
+        %Device{} = device ->
+          case delete_device(device, subject, ip_address) do
+            {:ok, _}    -> %{acc | ok: acc.ok + 1}
+            _           -> %{acc | error: acc.error + 1}
+          end
+      end
+    end)
+  end
+
   def approve_device(%Device{} = device, %Auth.Subject{} = subject, ip_address \\ nil) do
     with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_devices_permission()) do
       if device.status == "approved" do

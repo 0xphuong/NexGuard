@@ -1,6 +1,24 @@
+<%# `@bulk_enabled` is opt-in — when set, the table grows a checkbox
+%# column with select-all in the header. Other callers (user show
+%# page, unprivileged device list) leave it unset and render the
+%# original table shape. %>
+<% bulk = assigns[:bulk_enabled] || false %>
+<% selected = assigns[:selected] || MapSet.new() %>
+<% all_selected = assigns[:all_selected] || false %>
 <table class="ng-table">
   <thead>
     <tr>
+      <%= if bulk do %>
+        <th class="ng-bulk-checkbox-th">
+          <input
+            type="checkbox"
+            class="ng-bulk-checkbox"
+            phx-click="toggle_select_all"
+            checked={all_selected}
+            aria-label="Select all visible devices"
+          />
+        </th>
+      <% end %>
       <th>Device</th>
       <%= if @show_user do %>
         <th>User</th>
@@ -16,7 +34,19 @@
   </thead>
   <tbody>
     <%= for device <- @devices do %>
-      <tr>
+      <tr class={[bulk and MapSet.member?(selected, device.id) and "is-row-selected"]}>
+        <%= if bulk do %>
+          <td class="ng-bulk-checkbox-td">
+            <input
+              type="checkbox"
+              class="ng-bulk-checkbox"
+              checked={MapSet.member?(selected, device.id)}
+              phx-click="toggle_select"
+              phx-value-id={device.id}
+              aria-label={"Select #{device.name}"}
+            />
+          </td>
+        <% end %>
         <td>
           <.link navigate={~p"/devices/#{device}"} class="ng-user-email">
             <i class="mdi mdi-laptop ng-device-icon"></i>

@@ -10,6 +10,42 @@
   </div>
 </div>
 
+<%# ── Bulk delete confirmation modal ──────────────────────────── %>
+<%= if @bulk_confirm == :delete do %>
+  <div class="modal is-active" phx-window-keydown="cancel_bulk_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_bulk_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete <%= FzHttpWeb.DeviceLive.Admin.Index.selection_count(@selected) %> device(s)
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_bulk_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <ul class="ng-modal-list">
+          <%= for device <- @devices, MapSet.member?(@selected, device.id) do %>
+            <li><strong><%= device.name %></strong> · <%= device.user.email %></li>
+          <% end %>
+        </ul>
+        <p class="ng-modal-warn">
+          Each device's WireGuard peer entry is removed and the connection
+          will drop. This action cannot be undone.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_bulk_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="bulk_delete">
+          <i class="mdi mdi-delete"></i> Delete <%= FzHttpWeb.DeviceLive.Admin.Index.selection_count(@selected) %> device(s)
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
@@ -23,11 +59,40 @@
       </p>
     </div>
   <% else %>
+    <%# ── Bulk toolbar — appears only when there's a selection ── %>
+    <%= if FzHttpWeb.DeviceLive.Admin.Index.selection_count(@selected) > 0 do %>
+      <div class="ng-bulk-toolbar">
+        <div class="ng-bulk-toolbar-count">
+          <i class="mdi mdi-checkbox-multiple-marked"></i>
+          <strong><%= FzHttpWeb.DeviceLive.Admin.Index.selection_count(@selected) %></strong>
+          selected
+        </div>
+        <div class="ng-bulk-toolbar-actions">
+          <button class="ng-secondary-btn" phx-click="bulk_approve" title="Approve all selected pending devices">
+            <i class="mdi mdi-check-circle-outline"></i> Approve
+          </button>
+          <button class="ng-secondary-btn" phx-click="bulk_revoke" title="Revoke approval — sets selected back to pending">
+            <i class="mdi mdi-cancel"></i> Revoke
+          </button>
+          <button class="ng-danger-btn" phx-click="confirm_bulk_delete">
+            <i class="mdi mdi-trash-can-outline"></i> Delete
+          </button>
+          <button class="ng-bulk-toolbar-clear" phx-click="clear_selection" title="Clear selection">
+            <i class="mdi mdi-close"></i>
+          </button>
+        </div>
+      </div>
+    <% end %>
+
     <div class="ng-table-wrap">
+      <% all_selected? = @devices != [] and Enum.all?(@devices, &MapSet.member?(@selected, &1.id)) %>
       <%= render(FzHttpWeb.SharedView, "devices_table.html",
         devices: @devices,
         show_user: true,
-        socket: @socket
+        socket: @socket,
+        selected: @selected,
+        bulk_enabled: true,
+        all_selected: all_selected?
       ) %>
     </div>
   <% end %>
