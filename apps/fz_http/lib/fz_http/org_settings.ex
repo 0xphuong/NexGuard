@@ -62,6 +62,91 @@ defmodule FzHttp.OrgSettings do
     end
   end
 
+  @doc """
+  Update CoreDNS forward upstreams (primary + optional fallback).
+  Broadcasts `{:dns_forward_changed, %{primary, fallback}}` on the
+  same `nexguard:l7:settings` topic — `FzHttp.L7.CoreDnsCorefile`
+  subscribes and regenerates the Corefile within ~1s. CoreDNS
+  `reload 1s` plugin picks it up automatically; no container
+  restart.
+  """
+  def set_dns_forward(primary, fallback, %Auth.Subject{} = subject, ip_address \\ nil)
+      when is_list(primary) and is_list(fallback) do
+    with :ok <-
+           Auth.ensure_has_permissions(subject, Authorizer.manage_l7_settings_permission()) do
+      current = get()
+
+      attrs = %{
+        coredns_forward_to: primary,
+        coredns_forward_to_fallback: fallback
+      }
+
+      changeset = Settings.Changeset.update_changeset(current, attrs)
+
+      cond do
+        changeset.changes == %{} ->
+          {:ok, current}
+
+        not changeset.valid? ->
+          {:error, changeset}
+
+        true ->
+          case Repo.update(changeset) do
+            {:ok, updated} ->
+              broadcast({:dns_forward_changed, %{
+                primary: updated.coredns_forward_to,
+                fallback: updated.coredns_forward_to_fallback
+              }})
+
+              audit_dns(subject, ip_address, %{
+                before: %{
+                  primary:  current.coredns_forward_to,
+                  fallback: current.coredns_forward_to_fallback
+                },
+                after: %{
+                  primary:  updated.coredns_forward_to,
+                  fallback: updated.coredns_forward_to_fallback
+                }
+              })
+
+              {:ok, updated}
+
+            other ->
+              other
+          end
+      end
+    end
+  end
+
+  @doc """
+  System-level seed of the DNS forward config from environment vars.
+  Called once during application boot — see
+  `FzHttp.Application.bootstrap_dns/0`. Won't overwrite a DB value
+  that's already populated.
+  """
+  def seed_dns_from_env(primary, fallback) when is_list(primary) and is_list(fallback) do
+    current = get()
+
+    if current.coredns_forward_to == [] do
+      current
+      |> Settings.Changeset.update_changeset(%{
+        coredns_forward_to: primary,
+        coredns_forward_to_fallback: fallback
+      })
+      |> Repo.update()
+      |> case do
+        {:ok, _} = ok ->
+          broadcast({:dns_forward_changed, %{primary: primary, fallback: fallback}})
+          ok
+
+        other ->
+          other
+      end
+    else
+      {:ok, current}
+    end
+  end
+
   # ── PubSub helpers ──────────────────────────────────────────────
 
   def subscribe, do: PubSub.subscribe(FzHttp.PubSub, @topic)
@@ -84,4 +169,18 @@ defmodule FzHttp.OrgSettings do
   end
 
   defp audit(_subject, _ip, _metadata), do: :ok
+
+  defp audit_dns(%Auth.Subject{actor: {:user, actor}}, ip_address, metadata) do
+    AuditLogs.log("org_settings.dns_forward.change",
+      actor_id: actor.id,
+      actor_email: actor.email,
+      ip_address: ip_address,
+      target_type: "org_settings",
+      target_id: "1",
+      target_label: "CoreDNS forward upstreams",
+      metadata: metadata
+    )
+  end
+
+  defp audit_dns(_subject, _ip, _metadata), do: :ok
 end

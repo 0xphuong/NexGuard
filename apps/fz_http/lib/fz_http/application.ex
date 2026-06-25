@@ -49,6 +49,11 @@ defmodule FzHttp.Application do
       # Subscribes to nexguard:l7:apps; rewrites the file on every
       # Applications mutation. Independent of BundleBuilder.
       {FzHttp.L7.CoreDnsHosts, name: FzHttp.L7.CoreDnsHosts},
+      # L7: writes /etc/nexguard/Corefile.generated from DB-backed
+      # org settings. Subscribes to nexguard:l7:settings; rewrites
+      # on every `set_dns_forward/4`. CoreDNS' `reload 1s` plugin
+      # picks up the changed file without container restart.
+      {FzHttp.L7.CoreDnsCorefile, name: FzHttp.L7.CoreDnsCorefile},
       # L7: daily scan of the cert library for upcoming expiries
       # (ADR-015). Logs + audit-logs at 30d / 7d / expired thresholds.
       # Independent of the other L7 services.
@@ -95,10 +100,40 @@ defmodule FzHttp.Application do
   if Mix.env() == :prod do
     defp after_start do
       FzHttp.Config.validate_runtime_config!()
+      bootstrap_dns()
     end
   else
     defp after_start do
-      :ok
+      bootstrap_dns()
     end
+  end
+
+  # Seed DNS forward upstreams from the legacy `.env` vars on first
+  # boot. Once an admin saves via /settings/l7, the DB value takes
+  # over and these env vars are ignored (kept as the bootstrap
+  # contract — see .env.example).
+  defp bootstrap_dns do
+    primary  = split_csv(System.get_env("COREDNS_FORWARD_TO", ""))
+    fallback = split_csv(System.get_env("COREDNS_FORWARD_TO_FALLBACK", ""))
+
+    if primary != [] do
+      _ = FzHttp.OrgSettings.seed_dns_from_env(primary, fallback)
+    end
+
+    :ok
+  rescue
+    # OrgSettings.get/0 raises if the row doesn't exist yet (fresh
+    # DB, migration pending). Don't crash boot — the supervisor will
+    # restart after Repo + migrations finish, at which point this
+    # runs again and seeds successfully.
+    _ -> :ok
+  end
+
+  defp split_csv(""), do: []
+  defp split_csv(str) when is_binary(str) do
+    str
+    |> String.split([",", " ", "\n"], trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
   end
 end

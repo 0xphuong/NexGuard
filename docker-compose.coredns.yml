@@ -11,16 +11,15 @@
 #      → NXDOMAIN locally, never reaches bind9.
 #   2. Declared L7 application hostnames → virtual IP from the hosts
 #      file written by `FzHttp.L7.CoreDnsHosts` inside the nexguard
-#      container at /etc/nexguard/internal-hosts. Bind mount is
-#      SHARED with the nexguard service so both containers see the
-#      same file.
-#   3. Everything else → forwarded to ${COREDNS_FORWARD_TO} (your
-#      internal DNS, which also chains public queries upstream).
+#      container at /etc/nexguard/internal-hosts.
+#   3. Everything else → forwarded to the upstream list configured
+#      in `/settings/l7` (DNS forward upstreams card). Phoenix writes
+#      `/etc/nexguard/Corefile.generated` from the DB; CoreDNS picks
+#      it up via the `reload 1s` plugin — no container restart.
 #
 # The Corefile is heavily cache-tuned (`serve_stale`, `prefetch`,
 # bigger NXDOMAIN cache) so a single upstream DNS sees ~85-90%
-# fewer queries than the raw client load — and stays smooth even
-# during burst.
+# fewer queries than the raw client load.
 #
 # `network_mode: service:nexguard` joins the nexguard container's
 # network namespace so CoreDNS sees the `wg-nexguard` interface and
@@ -38,36 +37,20 @@ version: '3.7'
 services:
   nexguard:
     volumes:
-      # Shared bind mount: nexguard writes /etc/nexguard/internal-hosts,
-      # CoreDNS reads it read-only via /etc/nexguard. The host
-      # directory is auto-created on first `up`.
+      # Shared bind mount, writable from nexguard:
+      #   * /etc/nexguard/internal-hosts      ← CoreDnsHosts writes
+      #   * /etc/nexguard/Corefile.generated  ← CoreDnsCorefile writes
+      # CoreDNS reads both read-only via the same path.
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard
 
   coredns:
     image: coredns/coredns:1.11.3
-    command: ["-conf", "/Corefile"]
-    environment:
-      # Primary upstream DNS — handles internal + public queries
-      # (typically corporate bind9 at 10.0.235.250 which chains
-      # public lookups upstream). CoreDNS `{$VAR}` substitution
-      # produces one token, so "1.1.1.1 8.8.8.8" arrives as a broken
-      # string — use COREDNS_FORWARD_TO_FALLBACK for an HA pair, or
-      # edit `coredns/Corefile` directly for more than two upstreams.
-      #
-      # Default 1.1.1.1 is safe for fresh deployments that haven't
-      # set this yet (public-only). Set in .env to your real
-      # internal DNS for L7 + internal zone resolution.
-      COREDNS_FORWARD_TO: ${COREDNS_FORWARD_TO:-1.1.1.1}
-
-      # Optional HA fallback — second bind9/recursor used ONLY when
-      # the primary fails its health check. Defaults to the primary,
-      # so leaving this unset is equivalent to "no failover" (and
-      # works fine — the forward plugin tolerates the same upstream
-      # listed twice, it just won't have an alternate to fail over
-      # to). Set in .env when you have a redundant DNS pair.
-      COREDNS_FORWARD_TO_FALLBACK: ${COREDNS_FORWARD_TO_FALLBACK:-${COREDNS_FORWARD_TO:-1.1.1.1}}
+    # Phoenix writes the Corefile from DB-backed org_settings; CoreDNS
+    # `reload 1s` plugin picks up edits without container restart.
+    # No env-var Corefile substitution — admins edit upstreams via
+    # /settings/l7 in the portal instead of editing .env + recreating.
+    command: ["-conf", "/etc/nexguard/Corefile.generated"]
     volumes:
-      - ${FZ_INSTALL_DIR:-.}/coredns/Corefile:/Corefile:ro
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
     network_mode: "service:nexguard"
     cap_add:

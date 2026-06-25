@@ -12,7 +12,28 @@ defmodule FzHttpWeb.SettingLive.L7 do
   alias FzHttp.{OrgSettings, Applications}
 
   @page_title "L7 Enforcement"
-  @page_subtitle "Org-wide kill switch for the L7 ZTNA proxy."
+  @page_subtitle "Org-wide kill switch + CoreDNS forward configuration."
+
+  # Helper visible to the template: render a server list as a comma
+  # +space string for the textbox default value.
+  def to_csv_str(nil),                  do: ""
+  def to_csv_str([]),                   do: ""
+  def to_csv_str(l) when is_list(l),    do: Enum.join(l, ", ")
+  def to_csv_str(_),                    do: ""
+
+  # Format the "last edited" timestamp for the status hint.
+  def updated_at_str(%DateTime{} = dt) do
+    diff = DateTime.diff(DateTime.utc_now(), dt, :second)
+
+    cond do
+      diff < 60    -> "<1m ago"
+      diff < 3600  -> "#{div(diff, 60)}m ago"
+      diff < 86400 -> "#{div(diff, 3600)}h ago"
+      true         -> "#{div(diff, 86400)}d ago"
+    end
+  end
+
+  def updated_at_str(_), do: "—"
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -83,4 +104,40 @@ defmodule FzHttpWeb.SettingLive.L7 do
          |> put_flash(:error, "Could not disable L7.")}
     end
   end
+
+  # ── DNS forward upstreams ──────────────────────────────────────
+
+  def handle_event("save_dns", %{"dns" => params}, socket) do
+    primary  = split_csv(params["primary"]  || "")
+    fallback = split_csv(params["fallback"] || "")
+
+    case OrgSettings.set_dns_forward(primary, fallback, socket.assigns.subject,
+                                     socket.assigns[:remote_ip]) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> reload_assigns()
+         |> put_flash(:info, "DNS upstreams updated — CoreDNS picks up within 1s.")}
+
+      {:error, %Ecto.Changeset{} = cs} ->
+        msg =
+          cs.errors
+          |> Enum.map(fn {field, {m, _}} -> "#{field}: #{m}" end)
+          |> Enum.join("; ")
+
+        {:noreply, put_flash(socket, :error, "Invalid: #{msg}")}
+
+      _ ->
+        {:noreply, put_flash(socket, :error, "Could not update DNS forwarders.")}
+    end
+  end
+
+  defp split_csv(str) when is_binary(str) do
+    str
+    |> String.split([",", " ", "\n"], trim: true)
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
+
+  defp split_csv(_), do: []
 end

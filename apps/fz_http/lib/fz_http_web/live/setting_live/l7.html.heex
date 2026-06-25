@@ -155,6 +155,69 @@
     </div>
   </div>
 
+  <%# ── DNS forward upstreams ───────────────────────────────────── %>
+  <%# CoreDNS forwards everything not in the L7 hosts file to these
+  %# upstreams. Phoenix writes /etc/nexguard/Corefile.generated from
+  %# this DB row on save; CoreDNS's `reload 1s` plugin picks the new
+  %# file up — no container restart. %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-dns-outline"></i> DNS forward upstreams
+      </span>
+      <span class="ng-td-muted" style="font-size:0.78rem">
+        last edited <%= FzHttpWeb.SettingLive.L7.updated_at_str(@settings.updated_at) %>
+      </span>
+    </div>
+    <form phx-submit="save_dns" autocomplete="off" style="padding: 1.25rem 1.5rem;">
+      <div class="ng-field" style="margin-bottom: 1rem;">
+        <label class="ng-label" for="dns_primary">Primary upstream(s)</label>
+        <input
+          type="text"
+          id="dns_primary"
+          name="dns[primary]"
+          class="ng-input ng-input--mono"
+          value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to)}
+          placeholder="10.0.235.250, 10.0.235.252"
+          autocomplete="off"
+          required
+        />
+        <p class="ng-field-hint">
+          Comma-separated IPs or hostnames. CoreDNS uses
+          <code>policy sequential</code> — sticks to the first healthy
+          upstream, fails over only on health-check failure.
+        </p>
+      </div>
+
+      <div class="ng-field" style="margin-bottom: 1rem;">
+        <label class="ng-label" for="dns_fallback">Fallback upstream(s) — optional</label>
+        <input
+          type="text"
+          id="dns_fallback"
+          name="dns[fallback]"
+          class="ng-input ng-input--mono"
+          value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to_fallback)}
+          placeholder="10.0.250.250"
+          autocomplete="off"
+        />
+        <p class="ng-field-hint">
+          Tried only after the entire primary list fails health checks.
+          Leave empty if you have no secondary DNS.
+        </p>
+      </div>
+
+      <div style="display:flex; justify-content: space-between; align-items: center;">
+        <p class="ng-td-muted" style="font-size:0.78rem; margin:0;">
+          <i class="mdi mdi-information-outline"></i>
+          CoreDNS picks up the new Corefile within ~1s. No container restart.
+        </p>
+        <button type="submit" class="ng-primary-btn">
+          <i class="mdi mdi-content-save-outline"></i> Save DNS upstreams
+        </button>
+      </div>
+    </form>
+  </div>
+
   <%# ── How it works (always-visible hint) ────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">

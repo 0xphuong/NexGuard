@@ -54,6 +54,7 @@ defmodule FzHttp.AuditLogs.AuditLog do
     application.allow_group
     application.revoke_group
     org_settings.l7_enabled.change
+    org_settings.dns_forward.change
     tls_cert.create
     tls_cert.replace
     tls_cert.delete
