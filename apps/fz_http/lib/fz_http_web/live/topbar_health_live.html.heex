@@ -1,0 +1,17 @@
+<div id="topbar-health" class="ng-topbar-health-group">
+  <%= for {service, label} <- [{:db, "DB"}, {:coredns, "DNS"}, {:proxy, "Proxy"}] do %>
+    <% state = Map.get(@snapshot, service, :unknown) %>
+    <button
+      type="button"
+      class={["ng-topnav-health", "navbar-item", "ng-topnav-icon-btn",
+              "ng-topnav-health--#{state}",
+              @probing && "is-probing"]}
+      title={health_tooltip(service, state, @snapshot)}
+      phx-click="probe_now"
+      phx-disable-with="…"
+    >
+      <span class="ng-status-dot"></span>
+      <span class="ng-topnav-status-label"><%= label %></span>
+    </button>
+  <% end %>
+</div>

@@ -32,29 +32,14 @@
         <div class="navbar-menu fadeIn animated faster" id="navbar-menu">
           <div class="navbar-end">
 
-            <%# ── Ops signals (UI-6): live service health dots + ⌘K search ── %>
-            <%# Three service dots polled by HealthMonitor every 10s.
-            %# Click any → diagnostics page. Each dot is green when OK,
-            %# amber when degraded, red on outage. Tooltip carries the
-            %# last-known latency for forensic context. %>
-            <% health = service_health() %>
-
-            <%= for {service, label, link} <- [
-                  {:db,      "DB",      ~p"/diagnostics/connectivity_checks"},
-                  {:coredns, "DNS",     ~p"/diagnostics/connectivity_checks"},
-                  {:proxy,   "Proxy",   ~p"/diagnostics/connectivity_checks"}
-                ] do %>
-              <% state = Map.get(health, service, :unknown) %>
-              <a
-                href={link}
-                class={["ng-topnav-health", "navbar-item", "ng-topnav-icon-btn",
-                        "ng-topnav-health--#{state}"]}
-                title={health_tooltip(service, state, health)}
-              >
-                <span class="ng-status-dot"></span>
-                <span class="ng-topnav-status-label"><%= label %></span>
-              </a>
-            <% end %>
+            <%# ── Service health dots (UI-6) ── %>
+            <%# Embedded LiveView subscribes to nexguard:health PubSub
+            %# so dots flip live every 10s OR when admin clicks any
+            %# dot to force a manual probe. %>
+            <%= Phoenix.Component.live_render(@conn, FzHttpWeb.TopbarHealthLive,
+              router: FzHttpWeb.Router,
+              id: "topbar-health"
+            ) %>
 
             <%# ⌘K search trigger — keyboard shortcut handled by the
             %# CmdKShortcut hook; the visible chip doubles as a click

@@ -3447,22 +3447,38 @@ pre {
 
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
+/* Group wrapper for the three dots so they sit flush together. */
+.ng-topbar-health-group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
 /* Three service health pills (DB / DNS / Proxy). Mirror the
    .ng-topnav-icon-btn dimensions so they sit cleanly inline with
-   the WS status / docs / notifications icons. */
+   the WS status / docs / notifications icons. Now a <button>
+   because click triggers a manual probe (no navigation). */
 .ng-topnav-health {
   display: inline-flex !important;
   align-items: center;
   gap: 0.4rem;
   padding: 0 0.6rem !important;
+  background: transparent;
+  border: none;
   text-decoration: none;
+  cursor: pointer;
   color: #475569;
   font-size: 0.75rem;
   font-weight: 500;
   border-radius: 4px;
-  transition: background 120ms ease, color 120ms ease;
+  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
 
   &:hover { background: #f1f5f9; color: #0f172a; }
+
+  &.is-probing,
+  &[disabled] {
+    opacity: 0.55;
+    cursor: progress;
+  }
 }
 
 .ng-topnav-status-label {

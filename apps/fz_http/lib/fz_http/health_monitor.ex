@@ -34,10 +34,12 @@ defmodule FzHttp.HealthMonitor do
   require Logger
 
   alias FzHttp.Repo
+  alias Phoenix.PubSub
 
   @interval_ms 10_000
   @probe_timeout_ms 1_500
   @slow_threshold_ms 500
+  @topic "nexguard:health"
 
   defstruct snapshot: %{
               db: :unknown,
@@ -60,10 +62,13 @@ defmodule FzHttp.HealthMonitor do
     GenServer.call(__MODULE__, :snapshot, 1_000)
   end
 
-  @doc "Force a probe NOW — for tests + diagnostics page."
+  @doc "Force a probe NOW — for tests, manual click in topbar, diagnostics page."
   def probe_now do
     GenServer.call(__MODULE__, :probe_now, 10_000)
   end
+
+  @doc "Subscribe to `{:health_updated, snapshot}` broadcasts."
+  def subscribe, do: PubSub.subscribe(FzHttp.PubSub, @topic)
 
   # ── Server ─────────────────────────────────────────────────────
 
@@ -82,6 +87,7 @@ defmodule FzHttp.HealthMonitor do
 
   def handle_call(:probe_now, _from, state) do
     new_snapshot = run_probes()
+    broadcast(new_snapshot)
     {:reply, new_snapshot, %{state | snapshot: new_snapshot}}
   end
 
@@ -89,10 +95,15 @@ defmodule FzHttp.HealthMonitor do
   def handle_info(:tick, state) do
     Process.send_after(self(), :tick, @interval_ms)
     new_snapshot = run_probes()
+    broadcast(new_snapshot)
     {:noreply, %{state | snapshot: new_snapshot}}
   end
 
   def handle_info(_other, state), do: {:noreply, state}
+
+  defp broadcast(snapshot) do
+    PubSub.broadcast(FzHttp.PubSub, @topic, {:health_updated, snapshot})
+  end
 
   # ── Probes ─────────────────────────────────────────────────────
 
