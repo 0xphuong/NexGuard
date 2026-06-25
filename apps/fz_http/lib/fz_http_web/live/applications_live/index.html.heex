@@ -85,7 +85,13 @@
       </.link>
     </div>
   <% else %>
-    <%# Stats strip — org-wide pulse for declared apps. %>
+    <%# Stats strip — org-wide pulse for declared apps. State tiles
+    %# (Total / Enabled / Draft) always render; cert-source tiles
+    %# only render when count > 0 so the strip doesn't carry a dead
+    %# "step-ca: 0" tile after ADR-015 made :library the default. %>
+    <% library_count = Enum.count(@applications, &(&1.cert_source == :library)) %>
+    <% upload_count  = Enum.count(@applications, &(&1.cert_source == :upload))  %>
+    <% step_ca_count = Enum.count(@applications, &(&1.cert_source == :step_ca)) %>
     <div class="ng-stat-strip">
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value"><%= length(@applications) %></div>
@@ -103,12 +109,30 @@
         </div>
         <div class="ng-stat-tile-label">Draft</div>
       </div>
-      <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value">
-          <%= Enum.count(@applications, & &1.cert_source == :step_ca) %>
+      <%= if library_count > 0 do %>
+        <div class="ng-stat-tile" title="Apps using the shared TLS certificate library (ADR-015)">
+          <div class="ng-stat-tile-value"><%= library_count %></div>
+          <div class="ng-stat-tile-label">
+            <i class="mdi mdi-certificate-outline"></i> Library
+          </div>
         </div>
-        <div class="ng-stat-tile-label">step-ca</div>
-      </div>
+      <% end %>
+      <%= if upload_count > 0 do %>
+        <div class="ng-stat-tile" title="Apps still using per-app cert upload — consider migrating to the cert library">
+          <div class="ng-stat-tile-value"><%= upload_count %></div>
+          <div class="ng-stat-tile-label">
+            <i class="mdi mdi-cloud-upload-outline"></i> Upload
+          </div>
+        </div>
+      <% end %>
+      <%= if step_ca_count > 0 do %>
+        <div class="ng-stat-tile" title="Apps using the internal smallstep CA (ADR-011, pipeline pending)">
+          <div class="ng-stat-tile-value"><%= step_ca_count %></div>
+          <div class="ng-stat-tile-label">
+            <i class="mdi mdi-shield-key-outline"></i> step-ca
+          </div>
+        </div>
+      <% end %>
     </div>
 
     <div class="ng-table-wrap">

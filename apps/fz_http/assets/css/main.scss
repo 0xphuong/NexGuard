@@ -953,6 +953,15 @@ pre {
   letter-spacing: 0.04em;
   color: #64748b;
   margin-top: 0.25rem;
+
+  /* Inline icon for source-breakdown tiles (UI-R5). Sits flush with
+     the label text without messing up the cap-height baseline. */
+  i.mdi {
+    font-size: 0.9rem;
+    vertical-align: -2px;
+    margin-right: 0.15rem;
+    color: #94a3b8;
+  }
 }
 
 /* Inline form layout for "Add member" inside Members card. */
