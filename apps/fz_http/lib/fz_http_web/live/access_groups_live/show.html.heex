@@ -145,21 +145,36 @@
     </div>
 
     <div style="padding: 1.25rem 1.5rem;">
-      <form id="add-member-form" phx-submit="add_member" class="ng-form-inline" autocomplete="off">
-        <div class="ng-field" style="flex: 1; margin: 0;">
-          <%= label(:add_member, :email, "Add member", class: "ng-label") %>
-          <input
-            type="email"
-            name="email"
-            class="ng-input"
-            placeholder="user@example.com"
-            required
-          />
-        </div>
-        <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
-          <i class="mdi mdi-account-plus"></i> Add
-        </button>
-      </form>
+      <%= if @available_users == [] do %>
+        <p class="ng-td-muted" style="margin: 0;">
+          <i class="mdi mdi-information-outline"></i>
+          <%= if @members == [] do %>
+            No users in the system yet. <.link navigate={~p"/users"}>Create a user</.link> first to add as a member.
+          <% else %>
+            Every existing user is already a member of this group.
+          <% end %>
+        </p>
+      <% else %>
+        <form id="add-member-form" phx-submit="add_member" class="ng-form-inline" autocomplete="off">
+          <div class="ng-field" style="flex: 1; margin: 0;">
+            <label class="ng-label">Add member</label>
+            <select name="user_id" class="ng-input" required>
+              <option value="">Select a user…</option>
+              <%= for user <- @available_users do %>
+                <option value={user.id}>
+                  <%= user.email %><%= if user.role && user.role != :unprivileged, do: " · #{user.role}" %>
+                </option>
+              <% end %>
+            </select>
+          </div>
+          <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
+            <i class="mdi mdi-account-plus"></i> Add
+          </button>
+        </form>
+        <p class="ng-field-hint" style="margin-top: 0.4rem;">
+          <%= length(@available_users) %> user<%= if length(@available_users) != 1, do: "s" %> available (not yet a member).
+        </p>
+      <% end %>
     </div>
 
     <%= if @members == [] do %>

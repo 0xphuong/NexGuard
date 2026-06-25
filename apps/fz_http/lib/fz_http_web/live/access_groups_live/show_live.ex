@@ -63,31 +63,44 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
 
   # ── Add / remove members ──────────────────────────────────────
 
+  # `add_member` now accepts the user_id from a `<select>` of
+  # candidate users (kept the email path as a fallback for any
+  # external POST that still sends email — picks the right branch
+  # via param shape).
+  def handle_event("add_member", %{"user_id" => user_id}, socket)
+      when is_binary(user_id) and user_id != "" do
+    case Repo.get(Users.User, user_id) do
+      nil  -> {:noreply, put_flash(socket, :error, "User not found.")}
+      user -> add_user_to_group(socket, user)
+    end
+  end
+
   def handle_event("add_member", %{"email" => email}, socket) do
     email = String.trim(email)
 
     case Repo.get_by(Users.User, email: email) do
-      nil ->
-        {:noreply, put_flash(socket, :error, "No user with email #{email}.")}
+      nil  -> {:noreply, put_flash(socket, :error, "No user with email #{email}.")}
+      user -> add_user_to_group(socket, user)
+    end
+  end
 
-      user ->
-        case AccessGroups.add_member(socket.assigns.group, user, socket.assigns.subject,
-                                      socket.assigns[:remote_ip]) do
-          {:ok, _membership} ->
-            {:noreply,
-             socket
-             |> load_group_assigns(socket.assigns.group)
-             |> put_flash(:info, "#{email} added to #{socket.assigns.group.name}.")}
+  defp add_user_to_group(socket, user) do
+    case AccessGroups.add_member(socket.assigns.group, user, socket.assigns.subject,
+                                  socket.assigns[:remote_ip]) do
+      {:ok, _membership} ->
+        {:noreply,
+         socket
+         |> load_group_assigns(socket.assigns.group)
+         |> put_flash(:info, "#{user.email} added to #{socket.assigns.group.name}.")}
 
-          {:error, cs} ->
-            msg =
-              cs
-              |> errors_on_changeset()
-              |> Enum.map(fn {f, msgs} -> "#{f}: #{Enum.join(msgs, ", ")}" end)
-              |> Enum.join("; ")
+      {:error, cs} ->
+        msg =
+          cs
+          |> errors_on_changeset()
+          |> Enum.map(fn {f, msgs} -> "#{f}: #{Enum.join(msgs, ", ")}" end)
+          |> Enum.join("; ")
 
-            {:noreply, put_flash(socket, :error, "Could not add: #{msg}")}
-        end
+        {:noreply, put_flash(socket, :error, "Could not add: #{msg}")}
     end
   end
 
@@ -143,10 +156,23 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
 
   defp load_group_assigns(socket, group) do
     group = Repo.preload(group, [memberships: [:user, :added_by]])
+    member_ids = group.memberships |> Enum.map(& &1.user_id) |> MapSet.new()
+
+    available_users =
+      case Users.list_users(socket.assigns.subject) do
+        {:ok, all_users} ->
+          all_users
+          |> Enum.reject(&MapSet.member?(member_ids, &1.id))
+          |> Enum.sort_by(& &1.email)
+
+        _ ->
+          []
+      end
 
     socket
     |> assign(:group, group)
     |> assign(:members, group.memberships)
+    |> assign(:available_users, available_users)
     |> assign(:changeset, AccessGroups.change_group(group, %{}))
     |> assign(:page_title, "Group: #{group.name}")
   end
