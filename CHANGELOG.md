@@ -9,6 +9,104 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.4] - 2026-06-24
+
+**Ops productivity polish.** Bulk actions on the devices list,
+user-dropdown member picker on access groups, and a smarter
+applications stats strip that no longer wastes a tile on the
+unused `step-ca` source. No schema changes; no migration; no
+operator action.
+
+### Added
+
+#### Bulk approve / revoke / delete on `/devices` ([UI-8](apps/fz_http/lib/fz_http_web/live/device_live/admin/index_live.ex))
+
+Admins approving 20 pending devices used to click 20 times.
+Checkbox column + sticky bulk toolbar replaces it:
+
+- Per-row checkbox + select-all in the header (toggles all visible).
+- Toolbar appears above the table when selection > 0, sticky to the
+  navbar bottom so it stays in view during long-table scroll.
+  Shows "N selected" + Approve / Revoke / Delete + Clear.
+- Selected rows tint pale blue so admins can scan the affected set
+  against the toolbar count.
+- Delete goes through a confirmation modal listing the device names
+  + user emails; Approve and Revoke execute immediately
+  (reversible).
+
+`FzHttp.Devices` gains `bulk_approve/3`, `bulk_revoke_approval/3`,
+`bulk_delete/3`. Each iterates the id list, delegates to the
+existing single-row function (preserving per-row audit log + PubSub
+broadcast — no opaque "bulk" audit rows), and returns a
+`%{ok, skip, error}` tally. `skip` covers no-op cases (already
+approved / already pending) so partial sets read cleanly:
+
+```
+"Approved 12 device(s)."
+"Approved 8 · skipped 2 (already in target state)."
+"Approve: 8 ok · 2 skipped · 1 failed."
+```
+
+Shared `devices_table.html.heex` partial accepts opt-in
+`bulk_enabled: true` + `selected: MapSet`. Other callers (user
+show page, unprivileged list) leave it unset and render the
+original table — no per-caller migration.
+
+### Changed
+
+#### Access-group member picker — dropdown instead of free-text email
+
+`access-groups/<id>` Add-member field was a `<input type="email">`
+that required typing the exact email. Typos returned a generic
+"no user with email X" flash and there was no way to discover who
+was even in the system.
+
+Switch to a `<select>` populated with users NOT already in the
+group, sorted by email, with role suffixed after a separator
+("alice@x.com · admin"). Empty `@available_users` shows
+context-aware copy: "No users in the system yet" with a link to
+`/users`, or "Every existing user is already a member of this
+group". Hint line under the form ("N users available") reads the
+remaining headroom.
+
+`add_member` handler now picks the branch by param shape — the
+old `%{"email" => ...}` path stays as a fallback so any existing
+external POST keeps working.
+
+#### Applications stats strip — drop the dead `step-ca` tile (R5)
+
+The four fixed tiles on `/applications` (Total / Enabled / Draft /
+step-ca) made sense when the only cert sources were `:upload` and
+`:step_ca`. ADR-015 added `:library` as the recommended default
+and the step-ca tile reads 0 in almost every deployment.
+
+Refresh to a conditional cert-source breakdown:
+
+  * State tiles (Total / Enabled / Draft) always render.
+  * Library / Upload / step-ca each render ONLY when their count
+    is > 0. Mixed deployments show all three; freshly-migrated
+    orgs see just Library; pre-migration legacy sees just Upload.
+  * Each cert-source tile carries the matching MDI icon
+    (`certificate-outline`, `cloud-upload-outline`,
+    `shield-key-outline`) — matches the cert-source radio in the
+    app form. Hover tooltip explains intent ("consider migrating
+    to the cert library" on Upload).
+
+### Fixed
+
+#### Access-group member dropdown stale after add (Ecto preload no-op)
+
+After successfully adding a member, the dropdown still showed that
+user as available and a second Add click triggered the unique
+constraint with a vague "Could not add" flash. Root cause:
+`Repo.preload(group, [memberships: ...])` is a no-op when the
+association is already populated on the struct (mount populates it,
+then add_member re-uses the cached value). `force: true` makes
+preload always re-query so the diff for `@available_users` sees the
+just-inserted membership.
+
+---
+
 ## [3.0.3] - 2026-06-24
 
 **UI overhaul — calmer palette, ops-grade topbar, restructured nav,
