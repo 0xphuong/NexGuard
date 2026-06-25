@@ -39,12 +39,6 @@ defmodule FzHttp.HealthMonitor do
   @probe_timeout_ms 1_500
   @slow_threshold_ms 500
 
-  # CoreDNS probe target — a small public name we expect upstream to
-  # know. Avoids depending on internal hosts file state. If CoreDNS
-  # itself is up, this resolves; if the forwarder is wedged but
-  # CoreDNS still binds, the latency surfaces as :degraded.
-  @coredns_probe ~c"a.root-servers.net"
-
   defstruct snapshot: %{
               db: :unknown,
               coredns: :unknown,
@@ -155,19 +149,30 @@ defmodule FzHttp.HealthMonitor do
     end
   end
 
-  # DNS resolve against the local CoreDNS at 127.0.0.1:53. Using
-  # `:inet_res.resolve/3` with an explicit nameserver lets us bypass
-  # the system resolver (which may itself be CoreDNS — would loop).
+  # TCP connect to CoreDNS port 53 (CoreDNS binds both UDP and TCP
+  # by default). We deliberately don't issue a real DNS query:
+  #
+  #   * `:inet_res.resolve/4` with explicit `nameservers` had option-
+  #     parsing quirks on Erlang 25 (`make_options/2` rejected the
+  #     standard `[{{127,0,0,1}, 53}]` shape).
+  #
+  #   * A real DNS lookup also depends on whether the queried name
+  #     is in the hosts plugin / cache / requires forwarding — false
+  #     negatives surface when the forwarder is slow but CoreDNS
+  #     itself is fine.
+  #
+  # TCP accept is a clean proxy for "process is up + bound". A
+  # CoreDNS that crashed loses the port; one that's degraded but
+  # alive still accepts. Tradeoff: a forwarder-stuck CoreDNS would
+  # show :ok here. Worth it for low false-negative rate.
   defp probe_coredns do
-    opts = [
-      nameservers: [{{127, 0, 0, 1}, 53}],
-      timeout: @probe_timeout_ms,
-      retry: 0
-    ]
+    case :gen_tcp.connect(~c"127.0.0.1", 53, [:binary, active: false], @probe_timeout_ms) do
+      {:ok, socket} ->
+        :gen_tcp.close(socket)
+        :ok
 
-    case :inet_res.resolve(@coredns_probe, :in, :a, opts) do
-      {:ok, _msg}      -> :ok
-      {:error, reason} -> {:error, reason}
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 
