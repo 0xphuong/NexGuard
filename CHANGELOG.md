@@ -9,6 +9,325 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.3] - 2026-06-24
+
+**UI overhaul — calmer palette, ops-grade topbar, restructured nav,
+audit log finally readable.** All themes deploy via SCSS rebuild;
+no schema changes, no migration. Live on prod, untagged.
+
+### Added
+
+#### Audit log inline metadata viewer ([UI-3](docs/decisions.md))
+
+The v3.0.2 hardening PR captured per-field diffs on
+`application.update` events but the audit log page only showed
+action/actor/target. Operators had to drop to `psql jsonb_pretty()`
+to read the diff. UI-3 closes that loop:
+
+- Chevron toggle per row reveals a detail panel below. Three render
+  modes auto-detected from metadata shape:
+  - `:diff` (before + after present) → side-by-side grid with
+    unchanged rows dimmed and changed rows amber-highlighted
+  - `:flat` → pretty-JSON dump
+  - `:none` → "No metadata captured" hint
+- Detail footer surfaces Log ID + Target ID + ISO timestamp as
+  copyable codes for cross-referencing.
+- Category filter dropdown gains Applications, Access Groups,
+  L7 (signing), TLS Library, Org Settings.
+- Mobile collapse: diff grid stacks to a single column ≤768px.
+
+#### Topbar live service health ([UI-6 subset](apps/fz_http/lib/fz_http/health_monitor.ex))
+
+New `FzHttp.HealthMonitor` GenServer polls Postgres, CoreDNS, and
+the L7 proxy every 60s and broadcasts on `nexguard:health`. The
+admin topnav renders three coloured pills via an embedded
+`FzHttpWeb.TopbarHealthLive`; click any pill to force an immediate
+manual probe (full sweep). State colours: green pulse (OK), amber
+(degraded ≥500ms), red pulse (down), gray (unknown).
+
+Probes:
+- DB → `Ecto.Adapters.SQL.query` `SELECT 1`
+- DNS → TCP connect `127.0.0.1:53` (CoreDNS binds TCP by default)
+- Proxy → TCP connect `127.0.0.1:8443` (accept = listener alive)
+
+All three are local syscalls / single round-trip — cost ~0 even
+at the original 10s cadence; 60s leaves headroom for bigger
+deployments.
+
+#### Applications.Show URL-addressable tabs ([UI-5](apps/fz_http/lib/fz_http_web/live/applications_live/show.html.heex))
+
+The single 500-line scroll on the app detail page split into four
+URL-addressable tabs sharing one LiveView module:
+
+```
+/applications/:id            → Overview  (routing summary)
+/applications/:id/policy     → Policy    (L7 rules editor)
+/applications/:id/groups     → Groups    (allowed-groups picker)
+/applications/:id/danger     → Danger    (enable/disable + delete)
+/applications/:id/edit       → Edit modal (unchanged overlay)
+```
+
+Tab swap is a soft `<.link patch>` — no remount. Policy + Groups
+tabs carry count badges (rule count, group count) in the nav so
+admins know what's inside without clicking.
+
+### Changed
+
+#### Sidebar information architecture ([UI-2](apps/fz_http/lib/fz_http_web/live/sidebar_component.ex))
+
+The L7 ZTNA stack used to span Configuration (Applications, Access
+Groups) and Settings (TLS Certificates, L7 Enforcement). The daily
+L7 workflow ("declare app → group users → provision cert → flip
+enforcement") bounced between two sections.
+
+Reshuffle into five clean sections matching admin mental model:
+
+```
+Main           → Dashboard
+Configuration  → Users · Devices                      (identity inventory)
+Access Control → Rules · Applications · Access Groups ·
+                 TLS Certificates · L7 Enforcement     (policy, L3/L4 → L7)
+Settings       → Client Defaults · Network · Security ·
+                 Customization · Account · Audit Log
+Diagnostics    → WAN Connectivity
+```
+
+L7 Enforcement icon swapped to `mdi-shield-key-outline` (was generic
+`mdi-power`); Access Groups uses `mdi-account-multiple-check-outline`
+(distinct from Users' `mdi-account-group-outline`).
+
+#### Brand palette ([Issue 1](apps/fz_http/assets/local_modules/admin-one-bulma-dashboard/src/scss/_theme-nexguard.scss))
+
+The previous orange (#FF7300) + saturated-purple (#5E00D6) accent
+read more like consumer SaaS than security ops. Swap to a
+Tailwind-aligned cool palette:
+
+| | Was | Now |
+|---|---|---|
+| primary  | #FF7300 (orange) | #2563eb (blue-600) |
+| accent   | #5E00D6 (purple) | #0891b2 (cyan-600)  |
+| interface base | #1B140E (warm brown) | #0f172a (slate-900) |
+| success  | #80B900 (yellow-green) | #16a34a (emerald-600) |
+| warning  | #FFB900 (orange-yellow) | #d97706 (amber-600) |
+| danger   | #990C00 (oxblood) | #dc2626 (red-600) |
+
+Single file edit (`_theme-nexguard.scss`); every downstream `$primary-NNN`
+/ `$accent-NNN` / `$interface-NNN` reference picks up the new hex on
+rebuild — no template changes.
+
+---
+
+## [3.0.2] - 2026-06-24
+
+**ADR-015 — shared TLS certificate library.** Plus Applications
+hardening landed in the same release window (close `enable` bypass
+in update path + capture full per-field diff in audit metadata).
+Live on prod, untagged.
+
+### Added
+
+#### TLS Certificate Library ([ADR-015](docs/decisions.md))
+
+Admins upload each wildcard / multi-SAN cert ONCE at
+`/settings/certificates`; L7 apps either pin via `tls_cert_id` (explicit)
+or auto-match by hostname → SAN specificity at bundle compile.
+Renewal = one-click in-place Replace; every app pointing at the row
+rolls over on the next bundle pivot. Zero per-app touches.
+
+Migration `20260624000001_create_l7_tls_certificates` introduces the
+table; `20260624000002_add_tls_cert_ref_to_applications` adds the FK
++ `tls_auto_match` boolean.
+
+New modules:
+- `FzHttp.L7.TlsCertificate` — schema (pem + key Cloak-encrypted)
+- `FzHttp.L7.CertParser` — PEM → SAN/expiry/issuer, enforces RSA
+  ≥ 2048, ECDSA P-256+, cert ↔ key match, ≥24h remaining validity
+- `FzHttp.L7.CertResolver` — pure SAN-specificity matcher; exact >
+  wildcard, tie-break by `not_after DESC`
+- `FzHttp.L7.TlsCertificates` — context with `affected_apps/1`
+  preview for replace/delete confirmation
+- `FzHttp.L7.TlsCertExpiryScanner` — daily sweep, audit-log alerts
+  at 30d / 7d / expired thresholds (23h dedupe)
+- `FzHttpWeb.SettingLive.Certificates` — list / upload / replace /
+  delete LiveView at `/settings/certificates`
+
+Application `cert_source` enum gains `:library` alongside `:upload`
+and `:step_ca`. App form gets a recommended-default radio for
+library + live "Will use: <cert label>" preview as admin types
+hostname.
+
+### Changed
+
+#### Applications hardening
+
+- **Closed enable-bypass via update path**. `update_changeset` used
+  `@permitted_create -- [:virtual_ip]` which let `:enabled` through
+  the cast — a posted `update_application(app, %{"enabled" => true})`
+  would flip an under-configured app live without
+  `validate_required_for_enable/1`. Explicit `@permitted_update`
+  list replaces the brittle subtraction; both `:enabled` and
+  `:virtual_ip` are excluded.
+- **`application.update` audit metadata** captures the full per-field
+  diff (name, hostname, backend, cert_source, tls_cert_id,
+  tls_auto_match, tls_mode, **l7_rules verbatim**) — was previously
+  just `{name, backend, tls_mode}`, leaving the actual ZTNA policy
+  surface invisible to compliance review.
+
+#### CoreDNS
+
+`fallthrough .` (with the root zone explicit) replaces bare
+`fallthrough` — sister names under declared internal zones
+(e.g. `loki-grafana.sevensystem.vn` when only `hq.sevensystem.vn`
+is L7-onboarded) now resolve via the forward plugin instead of
+NXDOMAIN-authoritative from the hosts plugin.
+
+Optional `COREDNS_FORWARD_TO_FALLBACK` env knob — second resolver
+used by `policy sequential` when the primary fails health check.
+Default echoes the primary, so leaving it unset is "no failover"
+(safe).
+
+### Fixed
+
+- **`CertParser` microsecond precision** — X.509 validity timestamps
+  are second-precision (`YYMMDDhhmmssZ`). `DateTime.from_iso8601`
+  returns `{_, 0}` microsecond precision; Ecto's `:utc_datetime_usec`
+  dumper rejects with `expects microsecond precision`. Force
+  `{0, 6}` at the parser boundary.
+- **Cert library upload modal** — stateful LiveComponent requires a
+  single static HTML tag at the root; `<.form>` is a function
+  component which the diff engine rejected. Wrap in `<div>`.
+- **Cert library modal submit silently failing** — `live_modal`
+  renders its own submit button in the modal footer with HTML
+  `form=<id>` attribute association; the cert page didn't pass
+  `form:` + `button_text:` opts so the button had no form
+  association → clicking did nothing.
+
+### Test coverage
+
+~30 test cases across:
+- `cert_parser_test.exs` — SAN extraction, key-mismatch reject,
+  weak RSA reject, expired reject, microsecond precision
+- `cert_resolver_test.exs` — specificity rules, tie-break by
+  not_after, case-insensitive match
+- `tls_certificates_test.exs` — CRUD, replace-keeps-id,
+  delete-blocked-when-pinned, audit log entries
+- `certificates_live_test.exs` — mount, upload flow, delete
+  confirm modal
+- `tls_cert_expiry_scanner_test.exs` — severity classification,
+  audit dedupe
+
+Audit log whitelist gains `tls_cert.create`, `tls_cert.replace`,
+`tls_cert.delete`, `tls_cert.expiry_warning`.
+
+---
+
+## [3.0.1] - 2026-06-24
+
+**Security hardening from the L7-D security review backlog plus
+DNS / runbook fixes hit during prod smoke testing.** Live on prod,
+untagged. Breaking-ish: backends behind the proxy MUST start
+validating `iss` and `aud` (see [docs/migrations/v3.0.1.md]).
+
+### Changed
+
+#### JWT claims (BREAKING for backends)
+
+The L7 proxy now stamps four extra claims on every
+`X-NexGuard-Identity-Jwt`:
+
+```json
+{ "iss": "nexguard-proxy",
+  "aud": "<the L7 app's UUID>",
+  "jti": "<16-hex random per call>",
+  "nbf": <same as iat> }
+```
+
+Without `aud`, a token minted for app A is structurally identical
+to one for app B — same user, same groups, same signature key. A
+compromised app A could replay tokens at app B. Backends MUST now
+assert `iss == "nexguard-proxy"` AND `aud == <their app uuid>`.
+
+Roll-out order matters: ship backend `iss`/`aud` checks in lenient
+mode FIRST (allow missing claims during bake window), THEN deploy
+proxy v3.0.1, THEN flip backends to strict. See
+[`docs/migrations/v3.0.1.md`](docs/migrations/v3.0.1.md) for Go +
+Elixir validation examples.
+
+#### Proxy hardening
+
+- **X-Forwarded-* strip before forward** — proxy no longer trusts
+  client-sent XFF headers (spoofable). Re-adds a canonical
+  `X-Forwarded-For` with the real WG-side client IP.
+- **Path normalization** — `..`, double-slash, percent-encoded
+  traversal rejected in policy eval before rule match. Closes a
+  path-traversal-via-prefix-rule class of bug.
+- **JWT signature redacted in logs** — log lines show `aud=...`,
+  never the signature bytes.
+- **PEM zeroed in memory after parse** — proxy no longer holds the
+  signing key as a Go string (immutable + GC-tracked) once the
+  signer is built; raw bytes wiped.
+- **`WriteHeader` guard** — defensive `sync.Once`-like guard around
+  response writes; prevents a panic from a buggy double-write path.
+
+#### CoreDNS cache-heavy + multi-resolver
+
+`coredns/Corefile` tuned to absorb the per-client query storm
+(Apple/iOS chatter, browser prefetch, HTTPS-RR):
+
+```
+cache {
+  success 16384 3600 60
+  denial 4096 300 30
+  serve_stale 1h immediate
+  prefetch 10 1m 10%
+}
+template ANY ANY local lan home internal corp { rcode NXDOMAIN }
+forward . {$COREDNS_FORWARD_TO} {
+  max_concurrent 100
+  health_check 5s
+  expire 30s
+  policy sequential
+}
+```
+
+Net effect: a single upstream sees ~85-90% fewer queries than raw
+client load; `serve_stale 1h` keeps clients fast through upstream
+outages.
+
+#### Audit whitelist (12 missing actions)
+
+`AuditLog.@valid_actions` extended with 12 L7 / app / group / scope
+actions that the codebase emits but were silently dropped before:
+`l7.signing_key.bootstrap`, `l7.signing_key.rotate`,
+`access_group.{create,update,delete,add_member,remove_member}`,
+`application.{create,update,delete,enabled.change,allow_group,revoke_group}`,
+`org_settings.l7_enabled.change`, `user.access_scope.change`. Plus
+a regression test that pins the whitelist catalogue.
+
+### Fixed
+
+- **CoreDNS sister-name NXDOMAIN** — bare `fallthrough` was scoped
+  wrong; sister names under a declared internal zone
+  (e.g. `loki-grafana.sevensystem.vn` when `hq.sevensystem.vn` is
+  in the L7 hosts file) returned NXDOMAIN-authoritative from the
+  hosts plugin instead of falling through to forward. Explicit
+  `fallthrough .` with the root zone fixes it.
+
+- **Auto-append L7 VIP /16 to client `AllowedIPs`** — pre-v3.0.0
+  client `.conf` files didn't include `10.99.0.0/16` so packets
+  for L7 VIPs went out the local interface instead of through the
+  WG tunnel. New `FzHttp.L7.vip_cidr/0` + WG config view appends
+  it automatically; existing clients need to re-download their
+  `.conf` and reconnect.
+
+- **L7 deploy gotchas** captured in `docs/migrations/v3.0.0.md`:
+  rebuild orphans namespace dependents (need force-recreate),
+  `.env` line discipline (`tee -a` without trailing newline
+  concatenates onto previous line), `nft tproxy` family attr
+  ordering (`tproxy ip to ...` not `tproxy to ...`).
+
+---
+
 ## [3.0.0] - 2026-06-21
 
 **L7-D — L7 transparent proxy daemon GA**. The custom Go binary
