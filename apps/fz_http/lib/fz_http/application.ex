@@ -53,6 +53,10 @@ defmodule FzHttp.Application do
       # (ADR-015). Logs + audit-logs at 30d / 7d / expired thresholds.
       # Independent of the other L7 services.
       FzHttp.L7.TlsCertExpiryScanner,
+      # Ops health monitor — polls DB / CoreDNS / proxy every 10s and
+      # caches the snapshot for the admin topnav. Layout view reads
+      # via `HealthMonitor.snapshot/0` on each page render.
+      FzHttp.HealthMonitor,
       FzHttpWeb.Endpoint,
 
       # Observability

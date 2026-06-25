@@ -99,4 +99,52 @@ Hooks.GenerateKeyPair = {
   mounted: generateKeyPair
 }
 
+// ⌘K / Ctrl-K — global search shortcut. The hook lives on a hidden
+// button in admin.html.heex; pressing the shortcut anywhere on the
+// page pushes a "toggle" event to the SearchLive that owns the modal.
+Hooks.CmdKShortcut = {
+  mounted() {
+    this.handler = (e) => {
+      const isToggle = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"
+      if (isToggle) {
+        e.preventDefault()
+        // Push directly to the SearchLive (separate LiveView from the
+        // page). Querying the hidden root is cheaper than wiring a
+        // pubsub channel for this one event.
+        const root = document.getElementById("search-root")
+        if (root) {
+          const view = window.liveSocket && window.liveSocket.getViewByEl(root)
+          if (view) {
+            view.pushEvent("toggle")
+            return
+          }
+        }
+        // Fallback: click the button (this.el), which fires the
+        // CmdKShortcut hook's own "click" → goes to the search live
+        // via phx-click="toggle" set on the trigger element.
+        this.el.click()
+      }
+    }
+    window.addEventListener("keydown", this.handler)
+
+    // Also wire a click on the visible trigger button to push the
+    // same event — this way mouse/trackpad users get the same
+    // behaviour as keyboard.
+    this.clickHandler = (e) => {
+      e.preventDefault()
+      const root = document.getElementById("search-root")
+      if (root) {
+        const view = window.liveSocket && window.liveSocket.getViewByEl(root)
+        if (view) view.pushEvent("toggle")
+      }
+    }
+    this.el.addEventListener("click", this.clickHandler)
+  },
+
+  destroyed() {
+    if (this.handler) window.removeEventListener("keydown", this.handler)
+    if (this.clickHandler) this.el.removeEventListener("click", this.clickHandler)
+  }
+}
+
 export default Hooks

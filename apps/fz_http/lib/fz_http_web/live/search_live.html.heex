@@ -1,0 +1,79 @@
+<%# Always render a (possibly hidden) root so the LiveView mounts %>
+<%# and stays subscribed for ⌘K events from the JS hook. %>
+<div id="search-root">
+  <%= if @open do %>
+    <div
+      class="ng-search-overlay"
+      phx-click="close"
+      phx-window-keydown="close"
+      phx-key="escape"
+    >
+      <div class="ng-search-modal" phx-click-away="close">
+        <div class="ng-search-input-row">
+          <i class="mdi mdi-magnify ng-search-input-icon"></i>
+          <form phx-change="search" autocomplete="off" class="ng-search-form">
+            <input
+              type="text"
+              name="q"
+              value={@query}
+              placeholder="Search apps, users, groups…"
+              class="ng-search-input"
+              phx-debounce="120"
+              autofocus
+            />
+          </form>
+          <kbd class="ng-search-esc">esc</kbd>
+        </div>
+
+        <div class="ng-search-results">
+          <%= cond do %>
+            <% byte_size(@query) < 2 -> %>
+              <div class="ng-search-hint">
+                <p>Type at least 2 characters to start.</p>
+                <p class="ng-search-hint-dim">
+                  Currently searches Applications, Users, and Access
+                  Groups. Devices + Audit log coming next.
+                </p>
+              </div>
+
+            <% @results == [] -> %>
+              <div class="ng-search-empty">
+                <i class="mdi mdi-magnify-close"></i>
+                <span>No matches for <code><%= @query %></code></span>
+              </div>
+
+            <% true -> %>
+              <%= for {kind, items} <- @results do %>
+                <div class="ng-search-group">
+                  <div class="ng-search-group-label"><%= kind %></div>
+                  <ul class="ng-search-result-list">
+                    <%= for item <- items do %>
+                      <li>
+                        <button
+                          type="button"
+                          class="ng-search-result"
+                          phx-click="navigate"
+                          phx-value-to={item.href}
+                        >
+                          <i class={["mdi", item.icon, "ng-search-result-icon"]}></i>
+                          <span class="ng-search-result-label">
+                            <%= item.label %>
+                          </span>
+                          <%= if item.hint != "" do %>
+                            <span class="ng-search-result-hint">
+                              <%= item.hint %>
+                            </span>
+                          <% end %>
+                          <i class="mdi mdi-arrow-top-right ng-search-result-arrow"></i>
+                        </button>
+                      </li>
+                    <% end %>
+                  </ul>
+                </div>
+              <% end %>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</div>

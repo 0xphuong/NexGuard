@@ -3447,38 +3447,14 @@ pre {
 
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
-/* Env badge — small, high-contrast chip identifying the deployment
-   environment. Reads loudest on PROD (the place you don't want to
-   accidentally configure), softer on STAGING / DEV. */
-.ng-env-badge {
-  display: inline-flex;
-  align-items: center;
-  height: 1.4rem;
-  padding: 0 0.55rem;
-  margin: 0 0.5rem 0 0.25rem;
-  border-radius: 4px;
-  font-size: 0.65rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  border: 1px solid transparent;
-  white-space: nowrap;
-}
-
-.ng-env-badge--prod    { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
-.ng-env-badge--staging { background: #fef3c7; color: #92400e; border-color: #fde68a; }
-.ng-env-badge--dev     { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
-.ng-env-badge--local   { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
-.ng-env-badge--other   { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
-
-/* Status pill (L7 + bundle pulse) — mirrors the existing
+/* Three service health pills (DB / DNS / Proxy). Mirror the
    .ng-topnav-icon-btn dimensions so they sit cleanly inline with
    the WS status / docs / notifications icons. */
-.ng-topnav-status {
+.ng-topnav-health {
   display: inline-flex !important;
   align-items: center;
   gap: 0.4rem;
-  padding: 0 0.65rem !important;
+  padding: 0 0.6rem !important;
   text-decoration: none;
   color: #475569;
   font-size: 0.75rem;
@@ -3487,17 +3463,13 @@ pre {
   transition: background 120ms ease, color 120ms ease;
 
   &:hover { background: #f1f5f9; color: #0f172a; }
-
-  i { font-size: 1rem; }
 }
 
 .ng-topnav-status-label {
   font-variant-numeric: tabular-nums;
 }
 
-/* Coloured dot inside the L7 status pill. Green when on, amber
-   when off (NOT red — "off" is a deliberate state, not an error).
-   Gray on unknown. */
+/* Coloured dot — semantic state. */
 .ng-status-dot {
   display: inline-block;
   width: 0.5rem;
@@ -3507,29 +3479,234 @@ pre {
   background: #94a3b8;
 }
 
-.ng-topnav-status--on .ng-status-dot {
+.ng-topnav-health--ok .ng-status-dot {
   background: #16a34a;
   box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+  animation: ng-dot-pulse 2.4s ease-in-out infinite;
 }
 
-.ng-topnav-status--off .ng-status-dot {
+.ng-topnav-health--degraded .ng-status-dot {
   background: #d97706;
-  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
 }
 
-.ng-topnav-status--unknown .ng-status-dot {
+.ng-topnav-health--down .ng-status-dot {
+  background: #dc2626;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+  animation: ng-dot-pulse 1s ease-in-out infinite;
+}
+
+.ng-topnav-health--unknown .ng-status-dot {
   background: #94a3b8;
 }
 
-.ng-topnav-status--off {
-  color: #92400e;
-  i { color: #d97706; }
+.ng-topnav-health--down    { color: #991b1b; }
+.ng-topnav-health--degraded{ color: #92400e; }
+
+@keyframes ng-dot-pulse {
+  0%, 100% { opacity: 1;   }
+  50%      { opacity: 0.55; }
 }
 
-/* Hide the text labels on narrow viewports — keep just the dot /
-   icon so the topnav doesn't wrap. */
+/* ⌘K trigger button in topnav. Reads as a search affordance but
+   takes very little space — icon + small key hint. */
+.ng-topnav-search-trigger {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0 0.7rem !important;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  margin: 0 0.35rem;
+  color: #64748b;
+  font-size: 0.75rem;
+  cursor: pointer;
+  height: 1.85rem;
+  transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #1e293b;
+  }
+
+  i { font-size: 1rem; }
+}
+
+.ng-topnav-search-shortcut {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.05rem 0.4rem;
+  font-family: "Fira Mono", monospace;
+  font-size: 0.65rem;
+  color: #475569;
+  line-height: 1.3;
+}
+
+/* Hide labels on tablets, keep dots + icons. */
 @media (max-width: 1024px) {
-  .ng-topnav-status-label { display: none; }
+  .ng-topnav-status-label,
+  .ng-topnav-search-shortcut { display: none; }
+}
+
+/* ── Global ⌘K search modal ─────────────────────────────────── */
+
+.ng-search-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 12vh;
+  backdrop-filter: blur(4px);
+}
+
+.ng-search-modal {
+  width: min(560px, 92vw);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.45);
+  overflow: hidden;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.ng-search-input-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ng-search-input-icon {
+  color: #94a3b8;
+  font-size: 1.2rem;
+}
+
+.ng-search-form { flex: 1; margin: 0; }
+
+.ng-search-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: #0f172a;
+
+  &::placeholder { color: #94a3b8; }
+}
+
+.ng-search-esc {
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.1rem 0.45rem;
+  font-family: "Fira Mono", monospace;
+  font-size: 0.7rem;
+  color: #64748b;
+}
+
+.ng-search-results {
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.ng-search-hint {
+  padding: 1.5rem 1rem;
+  color: #475569;
+  font-size: 0.85rem;
+
+  p { margin: 0 0 0.4rem; }
+  .ng-search-hint-dim { color: #94a3b8; font-size: 0.78rem; }
+}
+
+.ng-search-empty {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem 1rem;
+  color: #94a3b8;
+  font-size: 0.85rem;
+
+  i { font-size: 1.1rem; }
+  code {
+    background: #f1f5f9;
+    color: #334155;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+  }
+}
+
+.ng-search-group {
+  padding: 0.4rem 0;
+
+  & + .ng-search-group { border-top: 1px solid #f1f5f9; }
+}
+
+.ng-search-group-label {
+  padding: 0.3rem 1rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+.ng-search-result-list { list-style: none; margin: 0; padding: 0; }
+
+.ng-search-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  background: transparent;
+  border: none;
+  text-align: left;
+  padding: 0.55rem 1rem;
+  font-size: 0.85rem;
+  color: #0f172a;
+  cursor: pointer;
+  transition: background 100ms ease;
+
+  &:hover, &:focus-visible {
+    background: #eff6ff;
+    outline: none;
+  }
+}
+
+.ng-search-result-icon {
+  color: #2563eb;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
+.ng-search-result-label {
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.ng-search-result-hint {
+  color: #94a3b8;
+  font-size: 0.78rem;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ng-search-result-arrow {
+  color: #cbd5e1;
+  font-size: 0.95rem;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 /* ── Page tab navigation (UI-5: Applications.Show split) ────── */

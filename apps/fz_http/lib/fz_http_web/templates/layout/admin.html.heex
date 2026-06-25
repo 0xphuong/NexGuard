@@ -32,53 +32,44 @@
         <div class="navbar-menu fadeIn animated faster" id="navbar-menu">
           <div class="navbar-end">
 
-            <%# ── Ops signals (UI-6): env badge, L7 status, bundle pulse ── %>
-            <%# Refreshes on every page navigation. For realtime updates
-            %# (admin toggles L7 → dot flips) navigate the user back to
-            %# the page anyway, so per-render is enough. %>
-            <span
-              class={["ng-env-badge", nexguard_env_class()]}
-              title="Deployment environment (set via NEXGUARD_ENV in .env)"
-            >
-              <%= nexguard_env() %>
-            </span>
+            <%# ── Ops signals (UI-6): live service health dots + ⌘K search ── %>
+            <%# Three service dots polled by HealthMonitor every 10s.
+            %# Click any → diagnostics page. Each dot is green when OK,
+            %# amber when degraded, red on outage. Tooltip carries the
+            %# last-known latency for forensic context. %>
+            <% health = service_health() %>
 
-            <%# L7 enforcement dot — link to the kill switch page. %>
-            <% l7 = l7_enforcement_status() %>
-            <a
-              href="/settings/l7"
-              class={["ng-topnav-status", "navbar-item", "is-desktop-icon-only", "ng-topnav-icon-btn",
-                      "ng-topnav-status--#{l7}"]}
-              title={case l7 do
-                :on -> "L7 enforcement is ACTIVE — proxy is routing traffic"
-                :off -> "L7 enforcement is DISABLED — proxy is dormant"
-                _ -> "L7 enforcement status unknown"
-              end}
-            >
-              <span class="ng-status-dot"></span>
-              <span class="ng-topnav-status-label">L7</span>
-            </a>
-
-            <%# Policy bundle pulse — last compile version + age. %>
-            <%= case bundle_status() do %>
-              <% {:ok, version, age} -> %>
-                <a
-                  href="/applications"
-                  class="ng-topnav-status navbar-item is-desktop-icon-only ng-topnav-icon-btn"
-                  title={"Policy bundle v#{version} compiled #{humanise_age(age)} ago"}
-                >
-                  <i class="mdi mdi-package-variant-closed"></i>
-                  <span class="ng-topnav-status-label">v<%= version %></span>
-                </a>
-              <% _ -> %>
-                <span
-                  class="ng-topnav-status navbar-item is-desktop-icon-only ng-topnav-icon-btn ng-topnav-status--off"
-                  title="Policy bundle has not compiled yet"
-                >
-                  <i class="mdi mdi-package-variant-closed-remove"></i>
-                  <span class="ng-topnav-status-label">no bundle</span>
-                </span>
+            <%= for {service, label, link} <- [
+                  {:db,      "DB",      ~p"/diagnostics/connectivity_checks"},
+                  {:coredns, "DNS",     ~p"/diagnostics/connectivity_checks"},
+                  {:proxy,   "Proxy",   ~p"/diagnostics/connectivity_checks"}
+                ] do %>
+              <% state = Map.get(health, service, :unknown) %>
+              <a
+                href={link}
+                class={["ng-topnav-health", "navbar-item", "ng-topnav-icon-btn",
+                        "ng-topnav-health--#{state}"]}
+                title={health_tooltip(service, state, health)}
+              >
+                <span class="ng-status-dot"></span>
+                <span class="ng-topnav-status-label"><%= label %></span>
+              </a>
             <% end %>
+
+            <%# ⌘K search trigger — keyboard shortcut handled by the
+            %# CmdKShortcut hook; the visible chip doubles as a click
+            %# target for trackpad / mobile users. %>
+            <button
+              id="cmd-k-trigger"
+              phx-hook="CmdKShortcut"
+              class="ng-topnav-search-trigger navbar-item ng-topnav-icon-btn"
+              title="Search anything (⌘K)"
+              aria-label="Open search (Command-K)"
+              type="button"
+            >
+              <i class="mdi mdi-magnify"></i>
+              <span class="ng-topnav-search-shortcut">⌘K</span>
+            </button>
 
             <%# ── WebSocket status ── %>
             <a
@@ -111,6 +102,14 @@
             <%# ── Notifications badge ── %>
             <%= Phoenix.Component.live_render(@conn, FzHttpWeb.NotificationsLive.Badge,
               router: FzHttpWeb.Router
+            ) %>
+
+            <%# ── Search modal (⌘K) — separate LiveView so the search
+            %# state survives navigation between admin pages. Rendered
+            %# hidden by default; CmdKShortcut hook toggles visibility. %>
+            <%= Phoenix.Component.live_render(@conn, FzHttpWeb.SearchLive,
+              router: FzHttpWeb.Router,
+              id: "global-search"
             ) %>
 
             <%# ── User dropdown ── %>
