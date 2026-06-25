@@ -3447,80 +3447,95 @@ pre {
 
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
-/* Group wrapper — keeps the 3 buttons flush together; no separator
-   between them, then a divider before the next navbar group via
-   the trailing button's :has-divider. */
+/* Group wrapper — keeps the 3 service pills flush; only the LAST
+   pill carries `has-divider` so the vertical separator appears once
+   between the health group and the icons that follow it. */
 .ng-topbar-health-group {
   display: inline-flex;
   align-items: stretch;
 }
 
-/* Each service health button. Inherits Bulma's `.navbar-item` layout
-   (padding, height, flex centering) so it aligns 1:1 with sibling
-   icon buttons (WS, docs, notifications). The corner state dot is
-   positioned ABSOLUTELY inside the icon container — same pattern as
-   the notifications count badge overlay. */
+/* Each service pill is just `<a class="navbar-item ...">` so it
+   inherits Bulma's `.navbar-item` padding (0.5rem 0.75rem) + the
+   flex centering that gives it the same height as the sibling
+   WS / docs / notifications icons. The class adds the gap between
+   the dot and the label, plus the state-driven colours. */
 .ng-topnav-health {
-  background: transparent;
-  border: none;
+  gap: 0.4rem;
   cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 500;
   transition: opacity 120ms ease;
 
-  /* Pin the dot inside the icon span. Bulma's .icon is 1.5rem
-     square — putting a 0.55rem dot at top-right gives the same
-     "notification dot" affordance as the bell + count overlay. */
-  .icon {
-    position: relative;
-  }
-
-  &.is-probing,
-  &[disabled] {
-    opacity: 0.55;
-    cursor: progress;
-  }
+  &.is-probing { opacity: 0.55; cursor: progress; }
 }
 
-/* Corner state dot — semantic color overlay on the service icon.
-   Slightly oversize border-shadow gives a halo effect that lifts it
-   visually off the icon underneath. */
+/* The dot — `inline-block` so it sits next to the label as a normal
+   inline sibling. `border` (not box-shadow) is used so the halo is
+   on the SAME box-model layer as the dot itself; some browsers
+   render box-shadow at sub-pixel offsets that look misaligned at
+   this size. */
 .ng-status-dot {
-  position: absolute;
-  top: -0.05rem;
-  right: -0.15rem;
-  width: 0.55rem;
-  height: 0.55rem;
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
   border-radius: 999px;
   background: #94a3b8;
-  box-shadow: 0 0 0 2px #ffffff;
-  pointer-events: none;
+  border: 2px solid transparent;
+  flex-shrink: 0;
+  transition: background 120ms ease, border-color 120ms ease;
 }
 
-.ng-topnav-health--ok .ng-status-dot {
-  background: #16a34a;
-  animation: ng-dot-pulse 2.4s ease-in-out infinite;
+.ng-topnav-health-label {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
 }
 
-.ng-topnav-health--degraded .ng-status-dot {
-  background: #d97706;
+/* ── State colours ─────────────────────────────────────────────
+   OK is a calm green that doesn't compete for attention (3 green
+   dots is the typical "everything is fine" baseline — make it
+   recede). Degraded + Down draw the eye via colour + animation. */
+
+.ng-topnav-health--ok {
+  color: #16a34a;
+  .ng-status-dot {
+    background: #16a34a;
+    border-color: rgba(22, 163, 74, 0.2);
+    animation: ng-dot-pulse 2.4s ease-in-out infinite;
+  }
 }
 
-.ng-topnav-health--down .ng-status-dot {
-  background: #dc2626;
-  animation: ng-dot-pulse 1s ease-in-out infinite;
+.ng-topnav-health--degraded {
+  color: #b45309;
+  .ng-status-dot {
+    background: #d97706;
+    border-color: rgba(217, 119, 6, 0.25);
+  }
 }
 
-.ng-topnav-health--unknown .ng-status-dot {
-  background: #94a3b8;
+.ng-topnav-health--down {
+  color: #b91c1c;
+  .ng-status-dot {
+    background: #dc2626;
+    border-color: rgba(220, 38, 38, 0.3);
+    animation: ng-dot-pulse 1s ease-in-out infinite;
+  }
 }
 
-/* The icon underneath inherits a subtle color cue too — keeps the
-   button readable even when the dot is small / glanced past. */
-.ng-topnav-health--down i.mdi    { color: #dc2626; }
-.ng-topnav-health--degraded i.mdi{ color: #d97706; }
+.ng-topnav-health--unknown {
+  color: #64748b;
+  .ng-status-dot { background: #94a3b8; }
+}
 
 @keyframes ng-dot-pulse {
   0%, 100% { opacity: 1;   }
   50%      { opacity: 0.55; }
+}
+
+/* On narrow screens drop the labels — dots alone communicate state
+   and the topnav doesn't wrap. */
+@media (max-width: 1024px) {
+  .ng-topnav-health-label { display: none; }
 }
 
 /* ── Page tab navigation (UI-5: Applications.Show split) ────── */

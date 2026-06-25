@@ -1,27 +1,31 @@
 <div id="topbar-health" class="ng-topbar-health-group">
-  <%= for {service, icon, label} <- [
-        {:db,      "mdi-database",                "DB"},
-        {:coredns, "mdi-dns",                     "DNS"},
-        {:proxy,   "mdi-shield-key-outline",      "Proxy"}
+  <%= for {service, label, is_last} <- [
+        {:db,      "DB",     false},
+        {:coredns, "DNS",    false},
+        {:proxy,   "Proxy",  true}    # last → carries the divider
       ] do %>
     <% state = Map.get(@snapshot, service, :unknown) %>
-    <button
-      type="button"
-      class={["navbar-item", "is-desktop-icon-only", "ng-topnav-icon-btn",
+    <a
+      class={["navbar-item", "ng-topnav-icon-btn",
               "ng-topnav-health", "ng-topnav-health--#{state}",
+              is_last && "has-divider",
               @probing && "is-probing"]}
-      title={health_tooltip(service, state, @snapshot) <> " — #{label}"}
+      role="button"
+      tabindex="0"
+      title={health_tooltip(service, state, @snapshot)}
       phx-click="probe_now"
       phx-disable-with="…"
     >
-      <%# Same `<span class="icon">` scaffold the sibling navbar-items use
-      %# so the button inherits Bulma's vertical centering + height. The
-      %# colored state dot is positioned absolutely on top of the icon —
-      %# mirrors the notifications badge count-overlay pattern. %>
-      <span class="icon">
-        <i class={["mdi", icon]}></i>
-        <span class="ng-status-dot"></span>
-      </span>
-    </button>
+      <%# `<a>` instead of `<button>` because Bulma's `.navbar-item`
+      %# styles assume an anchor — `<button>` carries browser defaults
+      %# (smaller font, no flex) that broke vertical alignment with
+      %# the WS / docs / notifications icons next to it.
+      %#
+      %# Dot + label are siblings (no extra .icon wrapper) so we get
+      %# the same visual weight as the original design but inheriting
+      %# proper navbar-item padding + height. %>
+      <span class="ng-status-dot" aria-hidden="true"></span>
+      <span class="ng-topnav-health-label"><%= label %></span>
+    </a>
   <% end %>
 </div>
