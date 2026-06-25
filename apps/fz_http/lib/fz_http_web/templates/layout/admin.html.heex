@@ -34,27 +34,12 @@
 
             <%# ── Service health dots (UI-6) ── %>
             <%# Embedded LiveView subscribes to nexguard:health PubSub
-            %# so dots flip live every 10s OR when admin clicks any
+            %# so dots flip live every 60s OR when admin clicks any
             %# dot to force a manual probe. %>
             <%= Phoenix.Component.live_render(@conn, FzHttpWeb.TopbarHealthLive,
               router: FzHttpWeb.Router,
               id: "topbar-health"
             ) %>
-
-            <%# ⌘K search trigger — keyboard shortcut handled by the
-            %# CmdKShortcut hook; the visible chip doubles as a click
-            %# target for trackpad / mobile users. %>
-            <button
-              id="cmd-k-trigger"
-              phx-hook="CmdKShortcut"
-              class="ng-topnav-search-trigger navbar-item ng-topnav-icon-btn"
-              title="Search anything (⌘K)"
-              aria-label="Open search (Command-K)"
-              type="button"
-            >
-              <i class="mdi mdi-magnify"></i>
-              <span class="ng-topnav-search-shortcut">⌘K</span>
-            </button>
 
             <%# ── WebSocket status ── %>
             <a
@@ -87,14 +72,6 @@
             <%# ── Notifications badge ── %>
             <%= Phoenix.Component.live_render(@conn, FzHttpWeb.NotificationsLive.Badge,
               router: FzHttpWeb.Router
-            ) %>
-
-            <%# ── Search modal (⌘K) — separate LiveView so the search
-            %# state survives navigation between admin pages. Rendered
-            %# hidden by default; CmdKShortcut hook toggles visibility. %>
-            <%= Phoenix.Component.live_render(@conn, FzHttpWeb.SearchLive,
-              router: FzHttpWeb.Router,
-              id: "global-search"
             ) %>
 
             <%# ── User dropdown ── %>

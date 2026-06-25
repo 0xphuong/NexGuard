@@ -99,38 +99,4 @@ Hooks.GenerateKeyPair = {
   mounted: generateKeyPair
 }
 
-// ⌘K / Ctrl-K — global search shortcut. The hook lives on the
-// trigger button in admin.html.heex; pressing the shortcut OR
-// clicking the button pushes a "toggle" event to the SearchLive
-// that owns the modal (rendered at #search-root via live_render).
-//
-// `pushEventTo("#search-root", "toggle")` is the supported public
-// API for sending events from a hook to a *different* LiveView in
-// the same page. `liveSocket.getViewByEl().pushEvent()` looks like
-// it'd work but isn't a documented API surface.
-Hooks.CmdKShortcut = {
-  mounted() {
-    this.keydownHandler = (e) => {
-      const isToggle = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k"
-      if (!isToggle) return
-      e.preventDefault()
-      this.pushEventTo("#search-root", "toggle", {})
-    }
-    window.addEventListener("keydown", this.keydownHandler)
-
-    // Visible trigger button: same event, same target — works for
-    // mouse / trackpad / touch.
-    this.clickHandler = (e) => {
-      e.preventDefault()
-      this.pushEventTo("#search-root", "toggle", {})
-    }
-    this.el.addEventListener("click", this.clickHandler)
-  },
-
-  destroyed() {
-    if (this.keydownHandler) window.removeEventListener("keydown", this.keydownHandler)
-    if (this.clickHandler) this.el.removeEventListener("click", this.clickHandler)
-  }
-}
-
 export default Hooks
