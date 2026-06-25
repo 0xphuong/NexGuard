@@ -3447,32 +3447,31 @@ pre {
 
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
-/* Group wrapper for the three dots so they sit flush together. */
+/* Group wrapper — keeps the 3 buttons flush together; no separator
+   between them, then a divider before the next navbar group via
+   the trailing button's :has-divider. */
 .ng-topbar-health-group {
   display: inline-flex;
   align-items: stretch;
 }
 
-/* Three service health pills (DB / DNS / Proxy). Mirror the
-   .ng-topnav-icon-btn dimensions so they sit cleanly inline with
-   the WS status / docs / notifications icons. Now a <button>
-   because click triggers a manual probe (no navigation). */
+/* Each service health button. Inherits Bulma's `.navbar-item` layout
+   (padding, height, flex centering) so it aligns 1:1 with sibling
+   icon buttons (WS, docs, notifications). The corner state dot is
+   positioned ABSOLUTELY inside the icon container — same pattern as
+   the notifications count badge overlay. */
 .ng-topnav-health {
-  display: inline-flex !important;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0 0.6rem !important;
   background: transparent;
   border: none;
-  text-decoration: none;
   cursor: pointer;
-  color: #475569;
-  font-size: 0.75rem;
-  font-weight: 500;
-  border-radius: 4px;
-  transition: background 120ms ease, color 120ms ease, opacity 120ms ease;
+  transition: opacity 120ms ease;
 
-  &:hover { background: #f1f5f9; color: #0f172a; }
+  /* Pin the dot inside the icon span. Bulma's .icon is 1.5rem
+     square — putting a 0.55rem dot at top-right gives the same
+     "notification dot" affordance as the bell + count overlay. */
+  .icon {
+    position: relative;
+  }
 
   &.is-probing,
   &[disabled] {
@@ -3481,34 +3480,32 @@ pre {
   }
 }
 
-.ng-topnav-status-label {
-  font-variant-numeric: tabular-nums;
-}
-
-/* Coloured dot — semantic state. */
+/* Corner state dot — semantic color overlay on the service icon.
+   Slightly oversize border-shadow gives a halo effect that lifts it
+   visually off the icon underneath. */
 .ng-status-dot {
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
+  position: absolute;
+  top: -0.05rem;
+  right: -0.15rem;
+  width: 0.55rem;
+  height: 0.55rem;
   border-radius: 999px;
-  flex-shrink: 0;
   background: #94a3b8;
+  box-shadow: 0 0 0 2px #ffffff;
+  pointer-events: none;
 }
 
 .ng-topnav-health--ok .ng-status-dot {
   background: #16a34a;
-  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
   animation: ng-dot-pulse 2.4s ease-in-out infinite;
 }
 
 .ng-topnav-health--degraded .ng-status-dot {
   background: #d97706;
-  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.15);
 }
 
 .ng-topnav-health--down .ng-status-dot {
   background: #dc2626;
-  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
   animation: ng-dot-pulse 1s ease-in-out infinite;
 }
 
@@ -3516,17 +3513,14 @@ pre {
   background: #94a3b8;
 }
 
-.ng-topnav-health--down    { color: #991b1b; }
-.ng-topnav-health--degraded{ color: #92400e; }
+/* The icon underneath inherits a subtle color cue too — keeps the
+   button readable even when the dot is small / glanced past. */
+.ng-topnav-health--down i.mdi    { color: #dc2626; }
+.ng-topnav-health--degraded i.mdi{ color: #d97706; }
 
 @keyframes ng-dot-pulse {
   0%, 100% { opacity: 1;   }
   50%      { opacity: 0.55; }
-}
-
-/* Hide health labels on tablets — keep just the dots. */
-@media (max-width: 1024px) {
-  .ng-topnav-status-label { display: none; }
 }
 
 /* ── Page tab navigation (UI-5: Applications.Show split) ────── */

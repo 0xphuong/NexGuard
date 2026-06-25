@@ -1,17 +1,27 @@
 <div id="topbar-health" class="ng-topbar-health-group">
-  <%= for {service, label} <- [{:db, "DB"}, {:coredns, "DNS"}, {:proxy, "Proxy"}] do %>
+  <%= for {service, icon, label} <- [
+        {:db,      "mdi-database",                "DB"},
+        {:coredns, "mdi-dns",                     "DNS"},
+        {:proxy,   "mdi-shield-key-outline",      "Proxy"}
+      ] do %>
     <% state = Map.get(@snapshot, service, :unknown) %>
     <button
       type="button"
-      class={["ng-topnav-health", "navbar-item", "ng-topnav-icon-btn",
-              "ng-topnav-health--#{state}",
+      class={["navbar-item", "is-desktop-icon-only", "ng-topnav-icon-btn",
+              "ng-topnav-health", "ng-topnav-health--#{state}",
               @probing && "is-probing"]}
-      title={health_tooltip(service, state, @snapshot)}
+      title={health_tooltip(service, state, @snapshot) <> " — #{label}"}
       phx-click="probe_now"
       phx-disable-with="…"
     >
-      <span class="ng-status-dot"></span>
-      <span class="ng-topnav-status-label"><%= label %></span>
+      <%# Same `<span class="icon">` scaffold the sibling navbar-items use
+      %# so the button inherits Bulma's vertical centering + height. The
+      %# colored state dot is positioned absolutely on top of the icon —
+      %# mirrors the notifications badge count-overlay pattern. %>
+      <span class="icon">
+        <i class={["mdi", icon]}></i>
+        <span class="ng-status-dot"></span>
+      </span>
     </button>
   <% end %>
 </div>
