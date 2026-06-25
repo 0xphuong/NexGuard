@@ -32,6 +32,54 @@
         <div class="navbar-menu fadeIn animated faster" id="navbar-menu">
           <div class="navbar-end">
 
+            <%# ── Ops signals (UI-6): env badge, L7 status, bundle pulse ── %>
+            <%# Refreshes on every page navigation. For realtime updates
+            %# (admin toggles L7 → dot flips) navigate the user back to
+            %# the page anyway, so per-render is enough. %>
+            <span
+              class={["ng-env-badge", nexguard_env_class()]}
+              title="Deployment environment (set via NEXGUARD_ENV in .env)"
+            >
+              <%= nexguard_env() %>
+            </span>
+
+            <%# L7 enforcement dot — link to the kill switch page. %>
+            <% l7 = l7_enforcement_status() %>
+            <a
+              href="/settings/l7"
+              class={["ng-topnav-status", "navbar-item", "is-desktop-icon-only", "ng-topnav-icon-btn",
+                      "ng-topnav-status--#{l7}"]}
+              title={case l7 do
+                :on -> "L7 enforcement is ACTIVE — proxy is routing traffic"
+                :off -> "L7 enforcement is DISABLED — proxy is dormant"
+                _ -> "L7 enforcement status unknown"
+              end}
+            >
+              <span class="ng-status-dot"></span>
+              <span class="ng-topnav-status-label">L7</span>
+            </a>
+
+            <%# Policy bundle pulse — last compile version + age. %>
+            <%= case bundle_status() do %>
+              <% {:ok, version, age} -> %>
+                <a
+                  href="/applications"
+                  class="ng-topnav-status navbar-item is-desktop-icon-only ng-topnav-icon-btn"
+                  title={"Policy bundle v#{version} compiled #{humanise_age(age)} ago"}
+                >
+                  <i class="mdi mdi-package-variant-closed"></i>
+                  <span class="ng-topnav-status-label">v<%= version %></span>
+                </a>
+              <% _ -> %>
+                <span
+                  class="ng-topnav-status navbar-item is-desktop-icon-only ng-topnav-icon-btn ng-topnav-status--off"
+                  title="Policy bundle has not compiled yet"
+                >
+                  <i class="mdi mdi-package-variant-closed-remove"></i>
+                  <span class="ng-topnav-status-label">no bundle</span>
+                </span>
+            <% end %>
+
             <%# ── WebSocket status ── %>
             <a
               id="web-ui-connect-success"

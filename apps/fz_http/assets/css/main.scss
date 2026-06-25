@@ -3445,6 +3445,93 @@ pre {
   font-size: 0.8125rem;
 }
 
+/* ── Topnav ops signals (UI-6) ──────────────────────────────── */
+
+/* Env badge — small, high-contrast chip identifying the deployment
+   environment. Reads loudest on PROD (the place you don't want to
+   accidentally configure), softer on STAGING / DEV. */
+.ng-env-badge {
+  display: inline-flex;
+  align-items: center;
+  height: 1.4rem;
+  padding: 0 0.55rem;
+  margin: 0 0.5rem 0 0.25rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.ng-env-badge--prod    { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+.ng-env-badge--staging { background: #fef3c7; color: #92400e; border-color: #fde68a; }
+.ng-env-badge--dev     { background: #dbeafe; color: #1e40af; border-color: #bfdbfe; }
+.ng-env-badge--local   { background: #f1f5f9; color: #475569; border-color: #e2e8f0; }
+.ng-env-badge--other   { background: #ede9fe; color: #5b21b6; border-color: #ddd6fe; }
+
+/* Status pill (L7 + bundle pulse) — mirrors the existing
+   .ng-topnav-icon-btn dimensions so they sit cleanly inline with
+   the WS status / docs / notifications icons. */
+.ng-topnav-status {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 0.65rem !important;
+  text-decoration: none;
+  color: #475569;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 4px;
+  transition: background 120ms ease, color 120ms ease;
+
+  &:hover { background: #f1f5f9; color: #0f172a; }
+
+  i { font-size: 1rem; }
+}
+
+.ng-topnav-status-label {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Coloured dot inside the L7 status pill. Green when on, amber
+   when off (NOT red — "off" is a deliberate state, not an error).
+   Gray on unknown. */
+.ng-status-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  background: #94a3b8;
+}
+
+.ng-topnav-status--on .ng-status-dot {
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
+}
+
+.ng-topnav-status--off .ng-status-dot {
+  background: #d97706;
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.12);
+}
+
+.ng-topnav-status--unknown .ng-status-dot {
+  background: #94a3b8;
+}
+
+.ng-topnav-status--off {
+  color: #92400e;
+  i { color: #d97706; }
+}
+
+/* Hide the text labels on narrow viewports — keep just the dot /
+   icon so the topnav doesn't wrap. */
+@media (max-width: 1024px) {
+  .ng-topnav-status-label { display: none; }
+}
+
 /* ── Page tab navigation (UI-5: Applications.Show split) ────── */
 
 /* Sits flush against the page header — visually anchors content
