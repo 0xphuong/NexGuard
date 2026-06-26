@@ -3991,6 +3991,110 @@ pre {
   i.mdi { color: #94a3b8; }
 }
 
+/* Users filter bar (U-B). Single row at desktop, wraps to grid on
+   narrow viewports. Right-aligned counter "N of M" reassures the
+   admin the filter is doing something. */
+.ng-user-filterbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.ng-user-filterbar-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0 0.25rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+
+  i.mdi { color: #94a3b8; font-size: 1rem; }
+}
+
+.ng-user-filterbar-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  padding: 0.35rem 0;
+  font-size: 0.85rem;
+  color: #0f172a;
+
+  &::placeholder { color: #94a3b8; }
+}
+
+.ng-user-filterbar-select {
+  appearance: none;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.35rem 1.6rem 0.35rem 0.6rem;
+  font-size: 0.8rem;
+  color: #1e293b;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.55rem center;
+
+  &:hover  { border-color: #cbd5e1; }
+  &:focus  { outline: 2px solid #93c5fd; outline-offset: -1px; }
+}
+
+.ng-user-filterbar-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.78rem;
+  color: #64748b;
+  cursor: pointer;
+
+  &:hover { background: #f1f5f9; color: #1e293b; }
+
+  i.mdi { font-size: 0.85rem; }
+}
+
+.ng-user-filterbar-count {
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .ng-user-filterbar { flex-direction: column; align-items: stretch; }
+  .ng-user-filterbar-search { width: 100%; }
+  .ng-user-filterbar-select { width: 100%; }
+  .ng-user-filterbar-count { margin-left: 0; text-align: right; }
+}
+
+/* Bulk-toolbar reuse + inline-link for empty-state action — keep
+   the empty-filter-result reset button visually consistent with
+   the existing inline-link helper. */
+.ng-inline-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: #2563eb;
+  cursor: pointer;
+  font-size: inherit;
+  text-decoration: underline;
+
+  &:hover { color: #1d4ed8; }
+}
+
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
 /* Group wrapper — keeps the 3 service pills flush; only the LAST

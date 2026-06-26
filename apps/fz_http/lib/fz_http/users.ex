@@ -254,6 +254,126 @@ defmodule FzHttp.Users do
     end
   end
 
+  @doc """
+  Admin-initiated disable. Same effect as `disable_user/1` (sets
+  `disabled_at`, broadcasts a forced disconnect) but with subject +
+  ip_address attached to the audit row for forensic context. The
+  no-subject overload above is reserved for system-driven disables
+  like OIDC refresh failure.
+  """
+  def disable_user(%User{} = user, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()) do
+      user
+      |> User.Changeset.disable_user()
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          FzHttp.Telemetry.disable_user()
+          FzHttpWeb.Endpoint.broadcast("users_socket:#{updated.id}", "disconnect", %{})
+
+          AuditLogs.log("user.disable",
+            actor_id: actor.id,
+            actor_email: actor.email,
+            ip_address: ip_address,
+            target_type: "user",
+            target_id: updated.id,
+            target_label: updated.email
+          )
+
+          {:ok, updated}
+
+        other ->
+          other
+      end
+    end
+  end
+
+  @doc """
+  Re-enable a previously-disabled user — clears `disabled_at`.
+  Sessions DO NOT auto-restore; the user has to sign in again.
+  """
+  def enable_user(%User{} = user, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()) do
+      user
+      |> User.Changeset.enable_user()
+      |> Repo.update()
+      |> case do
+        {:ok, updated} ->
+          AuditLogs.log("user.enable",
+            actor_id: actor.id,
+            actor_email: actor.email,
+            ip_address: ip_address,
+            target_type: "user",
+            target_id: updated.id,
+            target_label: updated.email
+          )
+
+          {:ok, updated}
+
+        other ->
+          other
+      end
+    end
+  end
+
+  @doc """
+  Bulk variants for the /users index toolbar. Each iterates the id
+  list and delegates to the single-row context call so per-row audit
+  + telemetry + broadcast fire unchanged — no opaque "bulk" audit
+  rows. Returns `%{ok, skip, error}` tally.
+
+  `:skip` covers already-in-target-state (e.g. disabling a user
+  who's already disabled), not failure.
+  """
+  def bulk_disable(ids, %Auth.Subject{} = subject, ip_address \\ nil) when is_list(ids) do
+    bulk_apply(ids, subject, fn user ->
+      cond do
+        not is_nil(user.disabled_at)  -> :skip
+        true                           ->
+          case disable_user(user, subject, ip_address) do
+            {:ok, _} -> :ok
+            _        -> :error
+          end
+      end
+    end)
+  end
+
+  def bulk_enable(ids, %Auth.Subject{} = subject, ip_address \\ nil) when is_list(ids) do
+    bulk_apply(ids, subject, fn user ->
+      cond do
+        is_nil(user.disabled_at) -> :skip
+        true                      ->
+          case enable_user(user, subject, ip_address) do
+            {:ok, _} -> :ok
+            _        -> :error
+          end
+      end
+    end)
+  end
+
+  def bulk_delete(ids, %Auth.Subject{} = subject, ip_address \\ nil) when is_list(ids) do
+    bulk_apply(ids, subject, fn user ->
+      case delete_user(user, subject, ip_address) do
+        {:ok, _} -> :ok
+        _        -> :error
+      end
+    end)
+  end
+
+  defp bulk_apply(ids, _subject, fun) do
+    Enum.reduce(ids, %{ok: 0, skip: 0, error: 0}, fn id, acc ->
+      case Repo.get(User, id) do
+        nil  -> %{acc | error: acc.error + 1}
+        user ->
+          case fun.(user) do
+            :ok    -> %{acc | ok: acc.ok + 1}
+            :skip  -> %{acc | skip: acc.skip + 1}
+            _      -> %{acc | error: acc.error + 1}
+          end
+      end
+    end)
+  end
+
   def delete_user(%User{} = user, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
     with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_users_permission()),
          :ok <- ensure_not_last_admin(user),

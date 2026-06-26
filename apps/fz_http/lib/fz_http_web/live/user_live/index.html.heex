@@ -13,6 +13,43 @@
   ) %>
 <% end %>
 
+<%# ── Bulk delete confirmation modal ────────────────────────────── %>
+<%= if @bulk_confirm == :delete do %>
+  <div class="modal is-active" phx-window-keydown="cancel_bulk_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_bulk_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete <%= FzHttpWeb.UserLive.Index.selection_count(@selected) %> user(s)
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_bulk_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <ul class="ng-modal-list">
+          <%= for user <- @users, MapSet.member?(@selected, user.id) do %>
+            <li><strong><%= user.email %></strong> · <%= user.role %></li>
+          <% end %>
+        </ul>
+        <p class="ng-modal-warn">
+          Each user's devices, OIDC connections, API tokens, and audit
+          history (actor link) are removed. This action cannot be undone.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_bulk_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="bulk_delete">
+          <i class="mdi mdi-delete"></i>
+          Delete <%= FzHttpWeb.UserLive.Index.selection_count(@selected) %> user(s)
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
     <div>
@@ -28,7 +65,7 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%= if @users == [] do %>
+  <%= if @all_users == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-account-group ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No users yet</p>
@@ -36,10 +73,6 @@
     </div>
   <% else %>
     <%# ── Stats strip — Identity domain pulse ─────────────────── %>
-    <%# Mirrors the dashboard's domain-grouped tiles. Always 5
-    %# tiles; break-glass count hides when 0 (auto via conditional
-    %# render — break-glass should be rare and noteworthy when it
-    %# isn't zero). %>
     <div class="ng-stat-strip">
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value"><%= @stats.total %></div>
@@ -69,93 +102,201 @@
       <% end %>
     </div>
 
+    <%# ── Filter bar — search + 3 chips ─────────────────────────── %>
+    <%# Single `phx-change="filter"` form so any input change pushes
+    %# the full filter set in one event. `phx-debounce` on the search
+    %# input keeps typing responsive without thrashing. %>
+    <.form
+      :let={f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by email…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="filters[role]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @role_options do %>
+          <option value={value} selected={value == @filters["role"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <select name="filters[mfa]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @mfa_options do %>
+          <option value={value} selected={value == @filters["mfa"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <select name="filters[status]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @status_options do %>
+          <option value={value} selected={value == @filters["status"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <%= if FzHttpWeb.UserLive.Index.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@users) %> of <%= length(@all_users) %>
+      </span>
+    </.form>
+
+    <%# ── Bulk toolbar — appears only when selection > 0 ──────── %>
+    <%= if FzHttpWeb.UserLive.Index.selection_count(@selected) > 0 do %>
+      <div class="ng-bulk-toolbar">
+        <div class="ng-bulk-toolbar-count">
+          <i class="mdi mdi-checkbox-multiple-marked"></i>
+          <strong><%= FzHttpWeb.UserLive.Index.selection_count(@selected) %></strong>
+          selected
+        </div>
+        <div class="ng-bulk-toolbar-actions">
+          <button class="ng-secondary-btn" phx-click="bulk_disable" title="Disable selected users — forces VPN disconnect">
+            <i class="mdi mdi-account-cancel-outline"></i> Disable
+          </button>
+          <button class="ng-secondary-btn" phx-click="bulk_enable" title="Re-enable selected users">
+            <i class="mdi mdi-account-check-outline"></i> Enable
+          </button>
+          <button class="ng-danger-btn" phx-click="confirm_bulk_delete">
+            <i class="mdi mdi-trash-can-outline"></i> Delete
+          </button>
+          <button class="ng-bulk-toolbar-clear" phx-click="clear_selection" title="Clear selection">
+            <i class="mdi mdi-close"></i>
+          </button>
+        </div>
+      </div>
+    <% end %>
+
     <%# ── Users table ─────────────────────────────────────────── %>
-    <div class="ng-table-wrap">
-      <table class="ng-table">
-        <thead>
-          <tr>
-            <th>User</th>
-            <th class="ng-th-center">Devices</th>
-            <th class="ng-th-center">MFA</th>
-            <th>Last activity</th>
-            <th>Auth method</th>
-          </tr>
-        </thead>
-        <tbody>
-          <%= for user <- @users do %>
-            <% mfa_st  = FzHttpWeb.UserLive.Index.mfa_state(user)
-               last   = FzHttpWeb.UserLive.Index.last_activity(user)
-               dsbl?  = FzHttpWeb.UserLive.Index.disabled?(user) %>
-            <tr class={dsbl? && "ng-user-row--disabled"}>
-              <td>
-                <div class="ng-user-cell">
-                  <%# Status dot — green when active, gray ◌ when disabled. %>
-                  <span class={["ng-user-dot",
-                                if(dsbl?, do: "ng-user-dot--disabled",
-                                          else: "ng-user-dot--active")]}
-                        title={if(dsbl?, do: "Disabled", else: "Active")}></span>
-                  <div class={"ng-avatar ng-avatar--#{user.role}"}>
-                    <%= user.email |> String.first() |> String.upcase() %>
-                  </div>
-                  <div class="ng-user-info">
-                    <div class="ng-user-info-line">
-                      <.link navigate={~p"/users/#{user}"}
-                             class={["ng-user-email",
-                                     dsbl? && "ng-user-email--disabled"]}>
-                        <%= user.email %>
-                      </.link>
-                      <%= if dsbl? do %>
-                        <span class="ng-user-disabled-tag">Disabled</span>
-                      <% end %>
-                      <%= if user.access_scope == :all do %>
-                        <span class="ng-user-scope-tag" title="Break-glass — bypasses L7 group gating">
-                          break-glass
-                        </span>
-                      <% end %>
-                    </div>
-                    <span class={"ng-role-badge ng-role-badge--#{user.role}"}>
-                      <%= user.role %>
-                    </span>
-                  </div>
-                </div>
-              </td>
-
-              <td class="ng-td-center" id={"user-#{user.id}-device-count"}>
-                <span class="ng-device-count">
-                  <i class="mdi mdi-laptop"></i> <%= user.device_count %>
-                </span>
-              </td>
-
-              <td class={["ng-td-center", "ng-mfa-cell",
-                          FzHttpWeb.UserLive.Index.mfa_state_class(mfa_st)]}
-                  title={case mfa_st do
-                           :fresh      -> "MFA factor used recently"
-                           :stale      -> "MFA enrolled but not verified in the last 30 days"
-                           :unverified -> "MFA enrolled but never verified"
-                           :none       -> "No MFA factor enrolled"
-                         end}>
-                <i class={["mdi", FzHttpWeb.UserLive.Index.mfa_state_icon(mfa_st)]}></i>
-                <%= case mfa_st do
-                      :none -> ""
-                      _     -> FzHttpWeb.UserLive.Index.relative_label(user.mfa_last_used)
-                    end %>
-              </td>
-
-              <td class="ng-td-muted">
-                <%= if last do %>
-                  <span title={"Sign-in: #{user.last_signed_in_at || "—"} · VPN: #{user.last_handshake || "—"}"}>
-                    <%= FzHttpWeb.UserLive.Index.relative_label(last) %> ago
-                  </span>
-                <% else %>
-                  —
-                <% end %>
-              </td>
-
-              <td class="ng-td-muted"><%= user.last_signed_in_method || "—" %></td>
+    <%= if @users == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No users match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
+      <% all_selected? = @users != [] and Enum.all?(@users, &MapSet.member?(@selected, &1.id)) %>
+      <div class="ng-table-wrap">
+        <table class="ng-table">
+          <thead>
+            <tr>
+              <th class="ng-bulk-checkbox-th">
+                <input
+                  type="checkbox"
+                  class="ng-bulk-checkbox"
+                  phx-click="toggle_select_all"
+                  checked={all_selected?}
+                  aria-label="Select all visible users"
+                />
+              </th>
+              <th>User</th>
+              <th class="ng-th-center">Devices</th>
+              <th class="ng-th-center">MFA</th>
+              <th>Last activity</th>
+              <th>Auth method</th>
             </tr>
-          <% end %>
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            <%= for user <- @users do %>
+              <% mfa_st  = FzHttpWeb.UserLive.Index.mfa_state(user)
+                 last   = FzHttpWeb.UserLive.Index.last_activity(user)
+                 dsbl?  = FzHttpWeb.UserLive.Index.disabled?(user)
+                 sel?   = MapSet.member?(@selected, user.id) %>
+              <tr class={[dsbl? && "ng-user-row--disabled",
+                          sel? && "is-row-selected"]}>
+                <td class="ng-bulk-checkbox-td">
+                  <input
+                    type="checkbox"
+                    class="ng-bulk-checkbox"
+                    checked={sel?}
+                    phx-click="toggle_select"
+                    phx-value-id={user.id}
+                    aria-label={"Select #{user.email}"}
+                  />
+                </td>
+                <td>
+                  <div class="ng-user-cell">
+                    <span class={["ng-user-dot",
+                                  if(dsbl?, do: "ng-user-dot--disabled",
+                                            else: "ng-user-dot--active")]}
+                          title={if(dsbl?, do: "Disabled", else: "Active")}></span>
+                    <div class={"ng-avatar ng-avatar--#{user.role}"}>
+                      <%= user.email |> String.first() |> String.upcase() %>
+                    </div>
+                    <div class="ng-user-info">
+                      <div class="ng-user-info-line">
+                        <.link navigate={~p"/users/#{user}"}
+                               class={["ng-user-email",
+                                       dsbl? && "ng-user-email--disabled"]}>
+                          <%= user.email %>
+                        </.link>
+                        <%= if dsbl? do %>
+                          <span class="ng-user-disabled-tag">Disabled</span>
+                        <% end %>
+                        <%= if user.access_scope == :all do %>
+                          <span class="ng-user-scope-tag" title="Break-glass — bypasses L7 group gating">
+                            break-glass
+                          </span>
+                        <% end %>
+                      </div>
+                      <span class={"ng-role-badge ng-role-badge--#{user.role}"}>
+                        <%= user.role %>
+                      </span>
+                    </div>
+                  </div>
+                </td>
+
+                <td class="ng-td-center" id={"user-#{user.id}-device-count"}>
+                  <span class="ng-device-count">
+                    <i class="mdi mdi-laptop"></i> <%= user.device_count %>
+                  </span>
+                </td>
+
+                <td class={["ng-td-center", "ng-mfa-cell",
+                            FzHttpWeb.UserLive.Index.mfa_state_class(mfa_st)]}
+                    title={case mfa_st do
+                             :fresh      -> "MFA factor used recently"
+                             :stale      -> "MFA enrolled but not verified in the last 30 days"
+                             :unverified -> "MFA enrolled but never verified"
+                             :none       -> "No MFA factor enrolled"
+                           end}>
+                  <i class={["mdi", FzHttpWeb.UserLive.Index.mfa_state_icon(mfa_st)]}></i>
+                  <%= case mfa_st do
+                        :none -> ""
+                        _     -> FzHttpWeb.UserLive.Index.relative_label(user.mfa_last_used)
+                      end %>
+                </td>
+
+                <td class="ng-td-muted">
+                  <%= if last do %>
+                    <span title={"Sign-in: #{user.last_signed_in_at || "—"} · VPN: #{user.last_handshake || "—"}"}>
+                      <%= FzHttpWeb.UserLive.Index.relative_label(last) %> ago
+                    </span>
+                  <% else %>
+                    —
+                  <% end %>
+                </td>
+
+                <td class="ng-td-muted"><%= user.last_signed_in_method || "—" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% end %>
   <% end %>
 </section>
