@@ -1,230 +1,202 @@
-<%= render(FzHttpWeb.SharedView, "heading.html",
-  page_title: @page_title,
-  page_subtitle: "NexGuard secure access overview"
-) %>
+<%# Compact page header — dashboard doesn't need the full hero
+%# treatment; vertical space is for content. %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title"><%= @page_title %></h1>
+      <p class="ng-page-subtitle">Health, identity, and L7 ZTNA at a glance.</p>
+    </div>
+  </div>
+</div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <div class="ng-stat-grid">
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--blue">
-        <i class="mdi mdi-account-group"></i>
+  <%# ── Zone 1: Hero status ─────────────────────────────────────
+  %# Single-glance "are we healthy?" banner. Severity derived from
+  %# the highest alert in @alerts. Empty alerts list → green "all
+  %# operational"; anything else lists the issues with deep links
+  %# to the page that fixes each one.
+  %#
+  %# Design principle (frontend-design-direction): the first
+  %# viewport must immediately answer the dashboard's job.
+  %# %>
+  <% hero = FzHttpWeb.DashboardLive.Index.hero_severity(@alerts) %>
+  <div class={["ng-hero-status", FzHttpWeb.DashboardLive.Index.severity_class(hero)]}>
+    <div class="ng-hero-status-main">
+      <i class={["mdi", FzHttpWeb.DashboardLive.Index.severity_icon(hero), "ng-hero-status-icon"]}></i>
+      <div class="ng-hero-status-text">
+        <div class="ng-hero-status-headline">
+          <%= case hero do %>
+            <% :ok       -> %>All systems operational
+            <% :info     -> %><%= length(@alerts) %> item<%= if length(@alerts) > 1, do: "s" %> need review
+            <% :warn     -> %><%= length(@alerts) %> item<%= if length(@alerts) > 1, do: "s" %> need attention
+            <% :critical -> %><%= length(@alerts) %> issue<%= if length(@alerts) > 1, do: "s" %> require immediate action
+          <% end %>
+        </div>
+        <div class="ng-hero-status-sub">
+          L7 <%= if @l7_enabled?, do: "ON", else: "OFF" %>
+          · <%= @apps_count %> app<%= if @apps_count != 1, do: "s" %>
+          · <%= @enabled_apps_count %> enabled
+          · <%= FzHttpWeb.DashboardLive.Index.bundle_label(@bundle) %>
+        </div>
       </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= @user_count %></div>
-        <div class="ng-stat-label">Total Users</div>
-      </div>
-      <.link navigate={~p"/users"} class="ng-stat-link">
-        View all <i class="mdi mdi-arrow-right"></i>
-      </.link>
     </div>
 
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--indigo">
-        <i class="mdi mdi-laptop"></i>
-      </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= @device_count %></div>
-        <div class="ng-stat-label">Total Devices</div>
-      </div>
-      <.link navigate={~p"/devices"} class="ng-stat-link">
-        View all <i class="mdi mdi-arrow-right"></i>
-      </.link>
-    </div>
-
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--green">
-        <i class="mdi mdi-vpn"></i>
-      </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= @active_device_count %></div>
-        <div class="ng-stat-label">Active VPN Sessions</div>
-      </div>
-      <span class="ng-stat-meta">Last 3 minutes</span>
-    </div>
-
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--amber">
-        <i class="mdi mdi-traffic-light"></i>
-      </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= @rule_count %></div>
-        <div class="ng-stat-label">Firewall Rules</div>
-      </div>
-      <.link navigate={~p"/rules"} class="ng-stat-link">
-        Manage <i class="mdi mdi-arrow-right"></i>
-      </.link>
-    </div>
+    <%= if @alerts != [] do %>
+      <ul class="ng-alert-list">
+        <%= for alert <- @alerts do %>
+          <li class={["ng-alert-row", FzHttpWeb.DashboardLive.Index.alert_severity_class(alert.severity)]}>
+            <i class={["mdi", alert.icon]}></i>
+            <span class="ng-alert-label"><%= alert.label %></span>
+            <.link navigate={alert.href} class="ng-alert-action">Review →</.link>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
   </div>
 
-  <div class="ng-dashboard-lower">
-    <%# ── Security Status ── %>
-    <div class="ng-security-panel">
-      <div class="ng-security-panel-header">
-        <i class="mdi mdi-shield-check-outline"></i>
-        Security Status
-      </div>
+  <%# ── Zone 2: Domain-grouped stat strip ───────────────────────
+  %# 4 tiles, each carrying 3 metrics (one headline + two sub).
+  %# Grouped by domain rather than per-entity so an admin sees the
+  %# whole product surface in one pass instead of 8 isolated cards.
+  %# %>
+  <div class="ng-domain-grid">
 
-      <%# MFA coverage %>
-      <% mfa_pct = mfa_pct(@users_with_mfa, @user_count) %>
-      <div class={"ng-security-row #{if mfa_pct < 80 && !@require_mfa, do: "ng-security-row--warn", else: ""}"}>
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-shield-account-outline ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">MFA Coverage</div>
-            <div class="ng-security-row-sub"><%= @users_with_mfa %> of <%= @user_count %> users enrolled</div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <%= if @require_mfa do %>
-            <span class="ng-sec-badge ng-sec-badge--ok">Force MFA On</span>
-          <% else %>
-            <span class={"ng-sec-badge #{if mfa_pct >= 80, do: "ng-sec-badge--ok", else: "ng-sec-badge--warn"}"}>
-              <%= mfa_pct %>%
+    <%# Identity %>
+    <.link navigate={~p"/users"} class="ng-domain-tile">
+      <div class="ng-domain-tile-head">
+        <i class="mdi mdi-account-group-outline"></i>
+        <span>Identity</span>
+      </div>
+      <div class="ng-domain-tile-headline"><%= @user_count %></div>
+      <div class="ng-domain-tile-headline-label">total users</div>
+      <ul class="ng-domain-tile-sub">
+        <li>
+          <span class={["ng-domain-tile-dot", if(@mfa_pct >= 80, do: "ok", else: "warn")]}></span>
+          <%= @mfa_pct %>% MFA enrolled
+        </li>
+        <li>
+          <span class="ng-domain-tile-dot info"></span>
+          <%= @admin_count %> admin<%= if @admin_count != 1, do: "s" %>
+        </li>
+      </ul>
+    </.link>
+
+    <%# Network / Devices %>
+    <.link navigate={~p"/devices"} class="ng-domain-tile">
+      <div class="ng-domain-tile-head">
+        <i class="mdi mdi-laptop"></i>
+        <span>Network</span>
+      </div>
+      <div class="ng-domain-tile-headline"><%= @device_count %></div>
+      <div class="ng-domain-tile-headline-label">total devices</div>
+      <ul class="ng-domain-tile-sub">
+        <li>
+          <span class="ng-domain-tile-dot ok"></span>
+          <%= @active_24h %> active 24h
+        </li>
+        <li>
+          <span class={["ng-domain-tile-dot", if(@pending_device_count > 0, do: "warn", else: "info")]}></span>
+          <%= @pending_device_count %> pending approval
+        </li>
+      </ul>
+    </.link>
+
+    <%# L7 ZTNA %>
+    <.link navigate={~p"/applications"} class="ng-domain-tile">
+      <div class="ng-domain-tile-head">
+        <i class="mdi mdi-shield-key-outline"></i>
+        <span>L7 ZTNA</span>
+      </div>
+      <div class="ng-domain-tile-headline"><%= @enabled_apps_count %><span class="ng-domain-tile-headline-divider">/<%= @apps_count %></span></div>
+      <div class="ng-domain-tile-headline-label">apps enabled</div>
+      <ul class="ng-domain-tile-sub">
+        <li>
+          <span class={["ng-domain-tile-dot", if(@l7_enabled?, do: "ok", else: "warn")]}></span>
+          enforcement <%= if @l7_enabled?, do: "ON", else: "OFF" %>
+        </li>
+        <li>
+          <span class={["ng-domain-tile-dot",
+                if(@cert_critical_count > 0, do: "critical",
+                   else: (if @cert_warn_count > 0, do: "warn", else: "ok"))]}></span>
+          <%= @cert_count %> cert<%= if @cert_count != 1, do: "s" %>
+          <%= cond do
+                @cert_critical_count > 0 -> "(#{@cert_critical_count} <7d)"
+                @cert_warn_count > 0     -> "(#{@cert_warn_count} <30d)"
+                true                      -> ""
+              end %>
+        </li>
+      </ul>
+    </.link>
+
+    <%# Activity %>
+    <.link navigate={~p"/settings/audit_log"} class="ng-domain-tile">
+      <div class="ng-domain-tile-head">
+        <i class="mdi mdi-pulse"></i>
+        <span>Activity</span>
+      </div>
+      <div class="ng-domain-tile-headline"><%= @active_3min %></div>
+      <div class="ng-domain-tile-headline-label">VPN connected now</div>
+      <ul class="ng-domain-tile-sub">
+        <li>
+          <span class="ng-domain-tile-dot info"></span>
+          <%= @today_audit_count %> audit event<%= if @today_audit_count != 1, do: "s" %> today
+        </li>
+        <li>
+          <span class="ng-domain-tile-dot info"></span>
+          <%= @group_count %> access group<%= if @group_count != 1, do: "s" %>
+        </li>
+      </ul>
+    </.link>
+  </div>
+
+  <%# ── Zone 3: Recent activity feed ─────────────────────────────
+  %# Last 8 audit events. Click row → audit log page; click "View
+  %# all" → audit log full table. We deliberately do NOT inline
+  %# the diff viewer here — it'd compete for vertical space with
+  %# the rest of the dashboard.
+  %# %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header" style="margin:0">
+        <i class="mdi mdi-history"></i> Recent activity
+      </span>
+      <.link navigate={~p"/settings/audit_log"} class="ng-section-link">
+        View full audit log <i class="mdi mdi-arrow-right"></i>
+      </.link>
+    </div>
+
+    <%= if @recent_audit == [] do %>
+      <div style="padding: 1.25rem 1.5rem;">
+        <p class="ng-td-muted" style="margin:0;">
+          <i class="mdi mdi-information-outline"></i>
+          No audit events yet — admin actions land here as you configure the system.
+        </p>
+      </div>
+    <% else %>
+      <ul class="ng-activity-feed">
+        <%= for log <- @recent_audit do %>
+          <li class="ng-activity-row">
+            <span class="ng-activity-time" title={DateTime.to_iso8601(log.inserted_at)}>
+              <%= FzHttpWeb.DashboardLive.Index.relative_time(log.inserted_at) %>
             </span>
-            <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Enable Force MFA</.link>
-          <% end %>
-        </div>
-      </div>
-
-      <%# Admin accounts %>
-      <div class={"ng-security-row #{if @admin_count > 3, do: "ng-security-row--warn", else: ""}"}>
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-shield-crown-outline ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">Admin Accounts</div>
-            <div class="ng-security-row-sub">Users with full admin access</div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <span class={"ng-sec-badge #{if @admin_count > 3, do: "ng-sec-badge--warn", else: "ng-sec-badge--ok"}"}>
-            <%= @admin_count %>
-          </span>
-          <.link navigate={~p"/users"} class="ng-sec-action-link">View users</.link>
-        </div>
-      </div>
-
-      <%# Stale devices %>
-      <div class={"ng-security-row #{if @stale_device_count > 0, do: "ng-security-row--warn", else: ""}"}>
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-laptop-off ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">Stale Devices</div>
-            <div class="ng-security-row-sub">No handshake in last 30 days</div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <span class={"ng-sec-badge #{if @stale_device_count > 0, do: "ng-sec-badge--warn", else: "ng-sec-badge--ok"}"}>
-            <%= @stale_device_count %>
-          </span>
-          <.link navigate={~p"/devices"} class="ng-sec-action-link">Review</.link>
-        </div>
-      </div>
-
-      <%# VPN session expiry %>
-      <div class="ng-security-row">
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-clock-outline ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">VPN Session Duration</div>
-            <div class="ng-security-row-sub">Sessions disconnect after this period</div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <span class={"ng-sec-badge #{if @vpn_session_duration == 0, do: "ng-sec-badge--warn", else: "ng-sec-badge--info"}"}>
-            <%= session_label(@vpn_session_duration) %>
-          </span>
-          <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Configure</.link>
-        </div>
-      </div>
-
-      <%# Auth methods %>
-      <div class="ng-security-row">
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-login-variant ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">Authentication Methods</div>
-            <div class="ng-security-row-sub">
-              <%= if @local_auth_enabled, do: "Local" %><%= if @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0), do: " · " %><%= if @oidc_provider_count > 0, do: "#{@oidc_provider_count} OIDC" %><%= if @oidc_provider_count > 0 && @saml_provider_count > 0, do: " · " %><%= if @saml_provider_count > 0, do: "#{@saml_provider_count} SAML" %>
-            </div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <span class={"ng-sec-badge #{if @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0), do: "ng-sec-badge--warn", else: "ng-sec-badge--info"}"}>
-            <%= cond do
-              @local_auth_enabled && (@oidc_provider_count > 0 || @saml_provider_count > 0) -> "Mixed"
-              !@local_auth_enabled -> "SSO Only"
-              true -> "Local"
-            end %>
-          </span>
-          <.link navigate={~p"/settings/security"} class="ng-sec-action-link">Configure</.link>
-        </div>
-      </div>
-
-      <%# WAN connectivity %>
-      <div class="ng-security-row">
-        <div class="ng-security-row-left">
-          <i class="mdi mdi-access-point ng-security-row-icon"></i>
-          <div>
-            <div class="ng-security-row-label">WAN Connectivity</div>
-            <div class="ng-security-row-sub">
-              <%= cond do %>
-                <% @last_connectivity_check -> %>
-                  Last check: <%= Calendar.strftime(@last_connectivity_check.inserted_at, "%b %d, %H:%M") %>
-                <% @connectivity_checks_enabled -> %>
-                  Enabled — no data yet
-                <% true -> %>
-                  Disabled in configuration
-              <% end %>
-            </div>
-          </div>
-        </div>
-        <div class="ng-security-row-right">
-          <%= cond do %>
-            <% @last_connectivity_check -> %>
-              <span class={"ng-sec-badge #{if @last_connectivity_check.response_code == 200, do: "ng-sec-badge--ok", else: "ng-sec-badge--risk"}"}>
-                HTTP <%= @last_connectivity_check.response_code %>
-              </span>
-            <% @connectivity_checks_enabled -> %>
-              <span class="ng-sec-badge ng-sec-badge--info">Pending</span>
-            <% true -> %>
-              <span class="ng-sec-badge ng-sec-badge--warn">Disabled</span>
-          <% end %>
-          <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-sec-action-link">View logs</.link>
-        </div>
-      </div>
-    </div>
-
-    <%# ── Quick Actions ── %>
-    <div>
-      <div class="ng-section-header">Quick Actions</div>
-      <div class="ng-quick-actions">
-        <.link navigate={~p"/users"} class="ng-action-btn">
-          <i class="mdi mdi-account-group"></i>
-          <span>Manage Users</span>
-        </.link>
-        <.link navigate={~p"/devices"} class="ng-action-btn">
-          <i class="mdi mdi-laptop"></i>
-          <span>Manage Devices</span>
-        </.link>
-        <.link navigate={~p"/rules"} class="ng-action-btn">
-          <i class="mdi mdi-traffic-light"></i>
-          <span>Firewall Rules</span>
-        </.link>
-        <.link navigate={~p"/settings/security"} class="ng-action-btn">
-          <i class="mdi mdi-lock-check"></i>
-          <span>Security Settings</span>
-        </.link>
-        <.link navigate={~p"/settings/customization"} class="ng-action-btn">
-          <i class="mdi mdi-palette"></i>
-          <span>Customization</span>
-        </.link>
-        <.link navigate={~p"/diagnostics/connectivity_checks"} class="ng-action-btn">
-          <i class="mdi mdi-access-point"></i>
-          <span>WAN Diagnostics</span>
-        </.link>
-      </div>
-    </div>
+            <span class={["ng-action-badge", "ng-action-badge--#{FzHttpWeb.DashboardLive.Index.action_category(log.action)}"]}>
+              <%= FzHttpWeb.DashboardLive.Index.short_action(log.action) %>
+            </span>
+            <span class="ng-activity-target">
+              <%= cond do
+                    log.target_label && log.target_label != "" -> log.target_label
+                    log.target_type                            -> log.target_type
+                    true                                        -> "—"
+                  end %>
+            </span>
+            <span class="ng-activity-actor">
+              <%= log.actor_email || "system" %>
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
   </div>
 </section>
