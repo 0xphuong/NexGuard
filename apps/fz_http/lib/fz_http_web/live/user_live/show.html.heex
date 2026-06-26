@@ -518,7 +518,7 @@
       </span>
     </div>
 
-    <div style="padding: 1.25rem 1.5rem;">
+    <div class="ng-detail-card-body">
       <%= if @available_groups != [] do %>
         <form id="add-to-group-form" phx-submit="add_to_group" class="ng-form-inline" autocomplete="off">
           <div class="ng-field" style="flex: 1; margin: 0;">
@@ -535,7 +535,7 @@
           </button>
         </form>
       <% else %>
-        <p class="ng-td-muted" style="margin-bottom:1rem">
+        <p class="ng-form-hint">
           <%= if @user_groups == [] do %>
             <i class="mdi mdi-information-outline"></i>
             No access groups defined yet.
@@ -548,12 +548,12 @@
     </div>
 
     <%= if @user_groups == [] do %>
-      <div style="padding: 0 1.5rem 1.5rem;">
+      <div class="ng-detail-card-body--bottom">
         <div class="ng-empty-state ng-empty-state--inline">
           <p class="ng-empty-state-hint">
             Not in any groups. Without membership, this user cannot reach any
             L7-managed application that requires a group (unless
-            <code>access_scope</code> below is set to <strong>all</strong>).
+            <code>access_scope</code> on the Access tab is set to <strong>all</strong>).
           </p>
         </div>
       </div>
@@ -622,8 +622,8 @@
         <%= @user.access_scope %>
       </span>
     </div>
-    <div style="padding: 1.25rem 1.5rem;">
-      <p class="ng-form-hint" style="margin-top:0">
+    <div class="ng-detail-card-body">
+      <p class="ng-form-hint">
         Controls whether L7-managed apps enforce group membership for this user.
         <strong>Limited</strong> is the default — normal group-intersection check applies.
         <strong>All</strong> is a break-glass bypass that lets the user reach every
@@ -670,8 +670,8 @@
           <i class="mdi mdi-link-variant"></i> OIDC connections
         </span>
       </div>
-      <div style="padding: 1.5rem;">
-        <p class="ng-td-muted" style="margin:0;">
+      <div class="ng-detail-card-body">
+        <p class="ng-form-hint">
           <i class="mdi mdi-information-outline"></i>
           Not linked to any OIDC provider — this user signs in
           locally. To enable SSO sign-in, configure an OIDC

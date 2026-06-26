@@ -4230,6 +4230,42 @@ pre {
   i.mdi { font-size: 0.95rem; vertical-align: -2px; }
 }
 
+/* ── Detail card chrome — baseline used across user / app show
+ *  pages. Replaces a half-dozen inline `style="padding: 1.25rem 1.5rem"`
+ *  declarations that drifted in size + spacing over time, plus
+ *  defines `.ng-form-hint` which was referenced from templates
+ *  but never had a rule of its own (defaulted to the browser's
+ *  ~1rem body size, which is why the Access tab's explainer felt
+ *  larger than every other tab's body content). */
+
+.ng-detail-card-body {
+  padding: 1.25rem 1.5rem;
+}
+
+.ng-detail-card-body--tight  { padding: 1rem 1.5rem; }
+.ng-detail-card-body--bottom { padding: 0 1.5rem 1.5rem; }
+
+.ng-form-hint {
+  margin: 0 0 0.6rem;
+  font-size: 0.82rem;
+  color: #475569;
+  line-height: 1.5;
+
+  &:last-child { margin-bottom: 0; }
+
+  /* Strong + em inside hints should match weight/style but keep
+     the base size — they were rendering at full 1rem before. */
+  strong { font-weight: 600; color: #1e293b; }
+  em     { color: #475569; }
+  code {
+    font-size: 0.78rem;
+    background: #f1f5f9;
+    color: #334155;
+    padding: 0.05rem 0.35rem;
+    border-radius: 4px;
+  }
+}
+
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
 /* Group wrapper — keeps the 3 service pills flush; only the LAST
