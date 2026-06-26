@@ -9,6 +9,188 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.8] - 2026-06-26
+
+**Users domain redesign — full refresh of `/users`, `/users/:id`,
+and the add/edit modal.** Applies the `frontend-design-direction`
+skill across the three surfaces an admin touches daily when
+managing identity. No schema changes — purely UI + a handful of
+context additions for bulk operations.
+
+### Added — `/users` (index)
+
+#### Stats strip — Identity domain pulse
+
+Five tiles mirroring the dashboard's domain-tile pattern: Total
+users · Active 24h · MFA enrolled (%) · Admin count · Break-glass
+count (only rendered when > 0, since `access_scope = :all` should
+be rare + noteworthy).
+
+#### MFA column — freshness, not just enrolment
+
+The previous "Auth method" string didn't tell admin whether a user
+could satisfy a `require_mfa_age_seconds` rule. The new column
+shows:
+
+  * `✓ 5m`  — at least one factor verified ≤30 days ago
+  * `⚠ 45d` — enrolled but stale
+  * `?`     — enrolled but never verified
+  * `—`     — no factor enrolled
+
+Drives off `mfa_methods.last_used_at` aggregated per user via the
+new `User.Query.hydrate_index/1` — single LEFT JOIN, no N+1.
+
+#### Last activity column
+
+`max(last_signed_in_at, latest_device_handshake)` — the VPN
+handshake is the strong activity signal in a ZTNA context.
+Tooltip shows both raw values for forensic context.
+
+#### Disabled row styling + break-glass marker
+
+Disabled rows get muted background + strikethrough email + red
+`[Disabled]` tag. `access_scope = :all` rows get an amber
+`[break-glass]` tag. A status dot (green/gray) at the left of
+the User cell mirrors the dashboard's session indicator.
+
+#### Filter bar — search + 3 chips
+
+Single-row bar above the table: email substring search
+(`phx-debounce="200"`), Role chip (All / Admin / Unprivileged),
+MFA chip (Any / Enrolled / None), Status chip (Active default /
+All / Disabled). Filter runs in-memory over the already-loaded
+list — NexGuard deployments are typically <100 users so the
+expensive bit is the hydrate query, not the filter. `N of M`
+counter + Reset button appear whenever any filter diverges.
+
+#### Bulk actions — Disable / Enable / Delete
+
+Reuses the toolbar pattern shipped for /devices in v3.0.4.
+Checkbox column + header select-all (respects current filter),
+sticky toolbar when selection > 0, delete behind a confirm modal
+listing affected emails. Selected rows tint blue via the
+existing `.is-row-selected`.
+
+New context functions in `FzHttp.Users`: `disable_user/3` and
+`enable_user/3` (subject-aware variants), plus `bulk_disable/3`
+/ `bulk_enable/3` / `bulk_delete/3` which iterate + delegate
+per row so each operation produces its own audit row (no opaque
+"bulk" entries). The audit whitelist gains `user.enable` — was
+missing because the existing `user.disable` action was the only
+side-channel before this work.
+
+### Added — `/users/:id` (show)
+
+#### Three-line hero
+
+Replaces the previous single-line breadcrumb + role + VPN badge
+with three lines that answer "is this user OK?" in one glance:
+
+  Line 1: avatar + breadcrumb + email + active/disabled dot
+  Line 2: role + break-glass tag + Disabled tag
+  Line 3a: MFA state (icon + freshness) · auth source
+  Line 3b: device count · group count · last VPN handshake
+
+State drives colour: MFA fresh = calm green, stale = amber, none =
+red. Same active/disabled dot pattern as the Users index.
+
+#### Overview card — 4-zone compact summary
+
+Replaces the bloated `user_details.html.heex` partial on the show
+page (partial still used by /user_account, untouched). 2×2 grid:
+
+  Identity  — email · role · source · joined
+  Security  — MFA · L7 scope · status
+  Activity  — last sign-in · auth method · last VPN · last activity
+  Access    — devices · groups · L3/L4 rules
+
+Dense scan via 2-column `dl` per zone (max-content + 1fr columns)
+with tabular-nums so counts and timestamps align vertically.
+
+#### URL-addressable tabs
+
+Splits the previous 1500px vertical scroll into 6 URL-addressable
+tabs. Same LiveView module + event handlers; the template gates
+each existing card on `@tab` derived from the live_action:
+
+  /users/:id              → Overview
+  /users/:id/devices      → Devices    (table + Add Device)
+  /users/:id/groups       → Groups     (memberships + add picker)
+  /users/:id/access       → Access     (L7 scope toggle)
+  /users/:id/connections  → Connections (OIDC list + empty state)
+  /users/:id/danger       → Danger      (VPN toggle + Promote + Delete)
+
+Tab nav matches the Applications Show pattern: soft `<.link patch>`
+swaps, count badges on Devices / Groups / Connections, Danger
+styled with the red accent. Edit and Add Device modals overlay
+the right tab (Add Device auto-surfaces Devices underneath so
+closing lands in the correct place).
+
+#### Typography normalised across tabs
+
+Previously Devices / Groups / Access tabs looked larger than
+Overview — root cause was `.ng-form-hint` being referenced in
+templates but never defined in SCSS (browser fallback ~1rem
+vs Overview's tight 0.82rem `dl`). Defined `.ng-form-hint`
+properly + added `.ng-detail-card-body` family to replace
+scattered inline `style="padding..."` declarations. Tables in
+Devices / Groups stay table-typography (intentional — table
+cells have their own rhythm).
+
+### Added — `/users/new` + `/users/:id/edit` (form modal)
+
+#### Field chrome harmonised
+
+The email field was using the modal family (`.ng-field` / `.ng-label`
+/ `.ng-input`) while the two password inputs came from a shared
+partial that emits the settings family (`.ng-setting-input`). All
+three fields now share the modal family. The shared partial is
+unchanged — still used by /settings and /user_account.
+
+#### Email-change warning on edit
+
+An amber `.ng-modal-callout--warning` callout at the top of the
+edit modal spells out: "Email is the user's sign-in identity and
+the OIDC/SAML linkage key. Changing it may break login until the
+user re-authenticates with the new address." Editing email
+without the warning was a footgun — the field doubles as the OIDC
+linkage key, so a stealth edit could silently desync identity
+from the upstream IdP.
+
+#### Smaller fixes
+
+  * `x-autocomplete="off"` (dead Alpine prefix) → plain
+    `autocomplete="off"` plus per-input attrs. Email gets
+    `spellcheck="false"`.
+  * "Leave blank to keep the current password." hint under the
+    password field on edit so admins don't think the field is
+    required.
+  * Submit button copy per action — "Create user" on /new,
+    "Save changes" on /edit (instead of generic "Save").
+  * Modal title sentence-case ("Add user" / "Edit \<email>").
+
+### Removed
+
+  * **VPN Status column** from `/users` — the dashboard's Live
+    Sessions panel (v3.0.7) covers "who is connected right now";
+    the per-row column was 99% "Not connected" noise.
+  * **Created column** from `/users` — replaced by Last activity,
+    which is what admins actually care about daily.
+
+### Notes
+
+Phase U-Show-C (modal partial extraction) deferred indefinitely —
+Phoenix LiveView 0.18 doesn't ship `embed_templates`, so a clean
+partial include requires a function-component refactor. The four
+confirm modals (Delete / Promote / Remove-group / Scope-change)
+stay inline above the tab content; they overlay regardless of
+which tab is active, so functionally nothing changes.
+
+Phase E-Form-B (role select at create) and E-Form-C (password
+"Change password" disclosure on edit) intentionally deferred.
+
+---
+
 ## [3.0.7] - 2026-06-26
 
 **Dashboard Phase B — compliance scorecard + live VPN sessions.**
