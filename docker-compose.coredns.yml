@@ -86,6 +86,14 @@ services:
     # restart. Admins edit upstreams via /settings/l7 in the portal
     # instead of editing .env + recreating.
     command: ["-conf", "/etc/nexguard/Corefile.generated"]
+    # Capacity tuning — CoreDNS at ~100 req/s baseline + burst from
+    # multi-iOS clients can chew through default file descriptors
+    # (1024) when forward connection pooling keeps sockets open.
+    # 65K nofile is the standard production ceiling.
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
     network_mode: "service:nexguard"

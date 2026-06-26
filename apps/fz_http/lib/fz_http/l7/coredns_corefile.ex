@@ -69,6 +69,15 @@ defmodule FzHttp.L7.CoreDnsCorefile do
       """
 
       . {
+        # Explicit bind — don't rely on implicit "all interfaces".
+        bind 0.0.0.0
+
+        # EDNS0 UDP buffer size — 1232 bytes is the DNS Flag Day 2020
+        # recommended ceiling for VPN-wrapped paths (MTU 1280 minus
+        # IPv6/UDP overhead). Larger responses fall back to TCP cleanly
+        # instead of fragmenting at the network layer.
+        bufsize 1232
+
         # Drop mDNS-style noise BEFORE upstream — these never resolve
         # publicly and would otherwise spam bind9.
         template ANY ANY local lan home internal corp {
@@ -87,15 +96,27 @@ defmodule FzHttp.L7.CoreDnsCorefile do
         # Forward — admins edit upstream list via /settings/l7 in the
         # portal. `policy sequential` keeps the cache hot on the first
         # healthy upstream; fail-over is health-check driven, not
-        # per-query.
+        # per-query. `prefer_udp` keeps the fast path on UDP and only
+        # escalates to TCP for large responses or when bind9 truncates.
+        # `max_concurrent 1000` is the per-CoreDNS-instance ceiling on
+        # in-flight upstream queries — bind9 is already exempt from RRL
+        # for the gateway IP so we don't need to shape on the CoreDNS
+        # side.
         forward . #{upstreams} {
-          max_concurrent 100
+          prefer_udp
+          max_concurrent 1000
           health_check 5s
           expire 30s
           policy sequential
         }
 
-        # Cache hardening — see migrations/v3.0.1.md.
+        # Cache layer — the main weapon for keeping bind9 traffic
+        # low. `success` 16K entries with min TTL 60s clamps records
+        # whose origin TTL is set too low (some internal records ship
+        # at 5s, which would defeat caching). `denial` keeps NXDOMAIN
+        # cached 5min. `serve_stale` makes us survive bind9 outages
+        # invisibly. `prefetch` refreshes the hot tail BEFORE expiry
+        # so clients never wait on a cache miss.
         cache {
           success 16384 3600 60
           denial 4096 300 30
@@ -103,14 +124,27 @@ defmodule FzHttp.L7.CoreDnsCorefile do
           prefetch 10 1m 10%
         }
 
+        # Defensive: catch a misconfigured forward that loops back.
+        loop
+
+        # Shuffle multi-IP A/AAAA responses — internal services that
+        # return several backend IPs (e.g. systems-internal-ingress
+        # returns 4 entries) get client-side load balancing for free.
+        loadbalance
+
+        # Logs ONLY errors — full query logging is expensive and we
+        # have Prometheus metrics for cache hit rate / forward latency.
         errors
-        # `reload 2s` watches THIS Corefile for changes — admins edit
-        # upstreams in the portal, Phoenix rewrites this file,
-        # CoreDNS picks it up within ~2s. 2s is CoreDNS' minimum;
-        # `reload 1s` would refuse to start with
-        # `plugin/reload: interval value must be greater or equal to 2s`.
+
+        # Hot-reload THIS Corefile when Phoenix rewrites it. 2s is the
+        # CoreDNS minimum (the plugin refuses < 2s with an explicit
+        # error).
         reload 2s
-        log . "{remote}:{port} {>id} {type} {name} -> {rcode} {>rflags} {rsize} {duration}"
+
+        # Prometheus scrape endpoint — cache hit rate, forward latency
+        # by upstream, request counts by rcode. Scrape from inside the
+        # nexguard network namespace.
+        prometheus :9153
       }
       """
   end
