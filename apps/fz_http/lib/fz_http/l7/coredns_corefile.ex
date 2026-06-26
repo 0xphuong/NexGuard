@@ -96,19 +96,9 @@ defmodule FzHttp.L7.CoreDnsCorefile do
         }
 
         # Cache hardening — see migrations/v3.0.1.md.
-        #
-        # Denial cap deliberately short (5s, no min): when admin
-        # creates a new L7 app, clients often resolve the hostname
-        # BEFORE it's been enabled — public upstream returns
-        # NXDOMAIN, which then gets cached. Once admin enables the
-        # app, the hosts plugin DOES have an entry, but the cache
-        # answers from its NXDOMAIN entry first (CoreDNS plugin
-        # order is fixed: cache → hosts → forward, regardless of
-        # Corefile declaration order). Keeping `denial` near zero
-        # lets a freshly-enabled app resolve within seconds.
         cache {
           success 16384 3600 60
-          denial 4096 5 0
+          denial 4096 300 30
           serve_stale 1h immediate
           prefetch 10 1m 10%
         }
