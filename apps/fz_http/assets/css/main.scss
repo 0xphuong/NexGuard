@@ -3737,6 +3737,164 @@ pre {
   }
 }
 
+/* ── Dashboard Phase B ──────────────────────────────────────── */
+
+/* Bottom grid hosts Zone 4 (compliance) + Zone 5 (live sessions)
+   side-by-side at desktop; stacks at <= 1024px. */
+.ng-dashboard-bottom-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 1024px) {
+  .ng-dashboard-bottom-grid { grid-template-columns: 1fr; }
+}
+
+/* Compliance checklist — every row visible regardless of state;
+   :ok rows are visually muted (low ink). The point is reassurance,
+   so the eye lands on warn/critical without crowding out passes. */
+.ng-compliance-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ng-compliance-row {
+  display: grid;
+  grid-template-columns: 1.5rem 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.7rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:last-child { border-bottom: none; }
+}
+
+.ng-compliance-row-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.ng-compliance-row-text { min-width: 0; }
+
+.ng-compliance-row-label {
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.ng-compliance-row-detail {
+  font-size: 0.75rem;
+  color: #64748b;
+  margin-top: 0.1rem;
+}
+
+.ng-compliance-row-badge {
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.ng-compliance-row--ok       { .ng-compliance-row-icon { color: #16a34a; } }
+.ng-compliance-row--info     { .ng-compliance-row-icon { color: #2563eb; } }
+.ng-compliance-row--warn     {
+  .ng-compliance-row-icon  { color: #d97706; }
+  .ng-compliance-row-label { color: #1e293b; }
+}
+.ng-compliance-row--critical {
+  background: #fef2f2;
+  .ng-compliance-row-icon   { color: #dc2626; }
+  .ng-compliance-row-label  { color: #991b1b; }
+  .ng-compliance-row-detail { color: #b91c1c; }
+}
+
+.ng-compliance-row-badge--ok       { background: #dcfce7; color: #166534; }
+.ng-compliance-row-badge--info     { background: #dbeafe; color: #1e40af; }
+.ng-compliance-row-badge--warn     { background: #fef3c7; color: #92400e; }
+.ng-compliance-row-badge--critical { background: #fee2e2; color: #991b1b; }
+
+/* Live VPN sessions panel — list of currently-connected devices,
+   one row per device. Green pulse dot = "active right now". */
+.ng-live-sessions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ng-live-session-row {
+  display: grid;
+  grid-template-columns: 0.6rem 1fr auto;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 1.5rem;
+  border-bottom: 1px solid #f1f5f9;
+  font-size: 0.85rem;
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: #f8fafc; }
+}
+
+.ng-live-session-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: #16a34a;
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.18);
+  animation: ng-dot-pulse 2.4s ease-in-out infinite;
+}
+
+.ng-live-session-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.ng-live-session-device {
+  font-weight: 500;
+  color: #0f172a;
+  text-decoration: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  &:hover { text-decoration: underline; }
+}
+
+.ng-live-session-user {
+  font-size: 0.75rem;
+  color: #64748b;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ng-live-session-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.05rem;
+
+  code {
+    font-size: 0.75rem;
+    color: #334155;
+    background: #f1f5f9;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+  }
+}
+
+.ng-live-session-when {
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
 /* Group wrapper — keeps the 3 service pills flush; only the LAST

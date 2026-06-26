@@ -33,6 +33,8 @@ defmodule FzHttpWeb.DashboardLive.Index do
   @stale_device_days 30
   @cert_warn_days 30
   @cert_critical_days 7
+  @live_session_window_secs 180
+  @live_session_limit 8
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -81,6 +83,7 @@ defmodule FzHttpWeb.DashboardLive.Index do
     # ── Activity ────────────────────────────────────────────────
     recent_audit = AuditLogs.list_logs() |> Enum.take(@recent_activity_limit)
     today_audit_count = audit_count_today(now)
+    live_sessions = list_live_sessions(@live_session_window_secs, @live_session_limit)
 
     # ── Service health ──────────────────────────────────────────
     health = safe_health_snapshot()
@@ -133,6 +136,159 @@ defmodule FzHttpWeb.DashboardLive.Index do
     |> assign(:today_audit_count, today_audit_count)
     |> assign(:health, health)
     |> assign(:alerts, alerts)
+    |> assign(:live_sessions, live_sessions)
+    |> assign(:compliance, build_compliance(%{
+      require_mfa: require_mfa,
+      mfa_pct: pct(users_with_mfa, user_count),
+      vpn_session_duration: vpn_session,
+      local_auth_enabled: local_auth,
+      oidc_count: oidc_count,
+      saml_count: saml_count,
+      cert_summary: cert_summary,
+      cert_count: length(certs),
+      orphan_enabled_apps: orphan_enabled_apps,
+      health: health
+    }))
+  end
+
+  # ── Compliance checklist (Zone 4) ───────────────────────────────
+  #
+  # Unlike `build_alerts/1` (which suppresses passing rows), the
+  # compliance list shows EVERY check with its current state. Admins
+  # use it to verify "yes my org meets the baseline" rather than
+  # only learning when something's wrong. Order is fixed so the
+  # admin's eye can muscle-memory the layout — failures stand out
+  # by colour, not position.
+
+  defp build_compliance(d) do
+    [
+      compliance_row(:force_mfa,
+        if(d.require_mfa, do: :ok, else: :warn),
+        "Force MFA",
+        if(d.require_mfa,
+          do: "Every user must enrol an MFA factor",
+          else: "Users may sign in without an MFA factor")),
+
+      compliance_row(:mfa_coverage,
+        cond do
+          d.mfa_pct >= 95 -> :ok
+          d.mfa_pct >= 80 -> :info
+          true            -> :warn
+        end,
+        "MFA enrolment",
+        "#{d.mfa_pct}% of users have an MFA factor"),
+
+      compliance_row(:session_ttl,
+        if(d.vpn_session_duration == 0, do: :warn, else: :ok),
+        "VPN session TTL",
+        if(d.vpn_session_duration == 0,
+          do: "Sessions never expire — set an expiry policy",
+          else: "Sessions expire after #{format_duration(d.vpn_session_duration)}")),
+
+      compliance_row(:auth_surface,
+        cond do
+          d.local_auth_enabled and (d.oidc_count > 0 or d.saml_count > 0) and not d.require_mfa -> :warn
+          d.local_auth_enabled and (d.oidc_count > 0 or d.saml_count > 0)                       -> :ok
+          d.local_auth_enabled                                                                   -> :info
+          d.oidc_count > 0 or d.saml_count > 0                                                   -> :ok
+          true                                                                                    -> :warn
+        end,
+        "Auth surface",
+        auth_surface_text(d)),
+
+      compliance_row(:certs,
+        cond do
+          d.cert_summary.expired > 0  -> :critical
+          d.cert_summary.critical > 0 -> :warn
+          d.cert_summary.warn > 0     -> :info
+          d.cert_count == 0           -> :info
+          true                         -> :ok
+        end,
+        "TLS certificates",
+        cond do
+          d.cert_count == 0           -> "No certificates uploaded"
+          d.cert_summary.expired > 0  -> "#{d.cert_summary.expired} EXPIRED · #{d.cert_count} total"
+          d.cert_summary.critical > 0 -> "#{d.cert_summary.critical} expiring <7 days · #{d.cert_count} total"
+          d.cert_summary.warn > 0     -> "#{d.cert_summary.warn} expiring <30 days · #{d.cert_count} total"
+          true                         -> "All #{d.cert_count} certs valid >30 days"
+        end),
+
+      compliance_row(:orphan_apps,
+        if(d.orphan_enabled_apps.count > 0, do: :critical, else: :ok),
+        "L7 app authorisation",
+        if(d.orphan_enabled_apps.count > 0,
+          do: "#{d.orphan_enabled_apps.count} enabled app(s) have no allowed groups",
+          else: "All enabled apps have at least one allowed group")),
+
+      compliance_row(:services,
+        cond do
+          health_unhealthy?(d.health) -> :critical
+          Enum.any?([:db, :proxy, :coredns], fn k -> Map.get(d.health, k) == :unknown end) -> :info
+          true -> :ok
+        end,
+        "Service health",
+        services_text(d.health))
+    ]
+  end
+
+  defp compliance_row(id, status, label, detail) do
+    %{id: id, status: status, label: label, detail: detail}
+  end
+
+  defp format_duration(secs) when secs < 3600,  do: "#{div(secs, 60)} minutes"
+  defp format_duration(secs) when secs < 86400, do: "#{div(secs, 3600)} hours"
+  defp format_duration(secs),                    do: "#{div(secs, 86400)} days"
+
+  defp auth_surface_text(d) do
+    parts =
+      [
+        if(d.local_auth_enabled, do: "Local", else: nil),
+        if(d.oidc_count > 0,     do: "#{d.oidc_count} OIDC", else: nil),
+        if(d.saml_count > 0,     do: "#{d.saml_count} SAML", else: nil)
+      ]
+      |> Enum.reject(&is_nil/1)
+      |> Enum.join(" · ")
+
+    suffix =
+      cond do
+        d.local_auth_enabled and (d.oidc_count > 0 or d.saml_count > 0) and not d.require_mfa ->
+          " — local form bypasses SSO MFA"
+        true ->
+          ""
+      end
+
+    parts <> suffix
+  end
+
+  defp services_text(h) do
+    downs    = for k <- [:db, :proxy, :coredns], Map.get(h, k) == :down, do: Atom.to_string(k)
+    degraded = for k <- [:db, :proxy, :coredns], Map.get(h, k) == :degraded, do: Atom.to_string(k)
+
+    cond do
+      downs != []    -> "Down: #{Enum.join(downs, ", ")}"
+      degraded != [] -> "Degraded: #{Enum.join(degraded, ", ")}"
+      Enum.any?([:db, :proxy, :coredns], fn k -> Map.get(h, k) == :unknown end) ->
+        "Probes still warming up"
+      true -> "All probes healthy (DB · proxy · CoreDNS)"
+    end
+  end
+
+  # ── Live VPN sessions (Zone 5) ──────────────────────────────────
+
+  defp list_live_sessions(window_secs, limit) do
+    import Ecto.Query
+
+    try do
+      from(d in FzHttp.Devices.Device,
+        where: d.latest_handshake >= ago(^window_secs, "second"),
+        order_by: [desc: d.latest_handshake],
+        preload: :user,
+        limit: ^limit
+      )
+      |> FzHttp.Repo.all()
+    rescue
+      _ -> []
+    end
   end
 
   # ── Aggregation: build the hero status alert list ──────────────
@@ -383,6 +539,27 @@ defmodule FzHttpWeb.DashboardLive.Index do
   def alert_severity_class(:warn),     do: "ng-alert-row--warn"
   def alert_severity_class(:critical), do: "ng-alert-row--critical"
   def alert_severity_class(_),         do: "ng-alert-row--info"
+
+  # Compliance row icon + class mapping. `:ok` is the muted-green
+  # pass state (low visual weight — the row exists for reassurance
+  # not attention); :info / :warn / :critical escalate.
+  def compliance_status_class(:ok),       do: "ng-compliance-row--ok"
+  def compliance_status_class(:info),     do: "ng-compliance-row--info"
+  def compliance_status_class(:warn),     do: "ng-compliance-row--warn"
+  def compliance_status_class(:critical), do: "ng-compliance-row--critical"
+  def compliance_status_class(_),         do: "ng-compliance-row--info"
+
+  def compliance_status_icon(:ok),       do: "mdi-check-circle-outline"
+  def compliance_status_icon(:info),     do: "mdi-information-outline"
+  def compliance_status_icon(:warn),     do: "mdi-alert-outline"
+  def compliance_status_icon(:critical), do: "mdi-alert-octagon-outline"
+  def compliance_status_icon(_),         do: "mdi-help-circle-outline"
+
+  def compliance_status_label(:ok),       do: "OK"
+  def compliance_status_label(:info),     do: "Info"
+  def compliance_status_label(:warn),     do: "Review"
+  def compliance_status_label(:critical), do: "Action"
+  def compliance_status_label(_),         do: "Unknown"
 
   def relative_time(%DateTime{} = ts) do
     diff = DateTime.diff(DateTime.utc_now(), ts, :second)

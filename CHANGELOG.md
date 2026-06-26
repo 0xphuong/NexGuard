@@ -9,6 +9,58 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.7] - 2026-06-26
+
+**Dashboard Phase B — compliance scorecard + live VPN sessions.**
+Completes the dashboard redesign begun in v3.0.6 by adding the two
+deferred zones below the hero/stats/activity strip.
+
+### Added
+
+#### Zone 4 — Security compliance scorecard
+
+Different in spirit from the hero alerts (which suppress passes and
+only fire on problems). The compliance list shows EVERY check with
+its current state — admins get reassurance the baseline is met,
+not just notification when it isn't. Passing rows are visually
+muted (low ink); failures stand out by colour, not position.
+
+Seven checks, fixed order so the layout becomes muscle memory:
+
+| Check | OK condition |
+|---|---|
+| Force MFA | `require_mfa = true` |
+| MFA enrolment | ≥95% of users have a factor (≥80% = info) |
+| VPN session TTL | `vpn_session_duration > 0` |
+| Auth surface | No bypass path (pure local / pure SSO / mixed + Force MFA) |
+| TLS certificates | All valid >30 days, no expired |
+| L7 app authorisation | No enabled app with zero allowed groups |
+| Service health | DB / proxy / CoreDNS all `:ok` |
+
+Each row carries label + plain-language detail + status badge
+(OK / Info / Review / Action). Click "Configure →" in the header
+jumps to `/settings/security`.
+
+#### Zone 5 — Live VPN sessions
+
+Lists up to 8 devices that handshook within the last 3 minutes —
+"who's connected RIGHT NOW". Each row: pulsing green dot, device
+name (deep link to /devices/<id>), user email, VPN IP, "Xm ago"
+relative handshake time. Click "All devices →" for the full list.
+
+Single Ecto query (`Device.latest_handshake >= ago(180, "second")`)
+preloading `:user` for the email column, ordered by handshake desc.
+Cap at 8 entries; empty state shows "No devices connected in the
+last 3 minutes."
+
+### Layout
+
+Two-column grid below the activity feed at desktop, stacks at
+≤1024px. Both panels share the existing `.ng-detail-card` chrome
+so they read as siblings to the rest of the dashboard.
+
+---
+
 ## [3.0.6] - 2026-06-26
 
 **Dashboard redesign — Phase A.** Health-first ops surface for the

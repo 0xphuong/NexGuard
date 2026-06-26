@@ -1524,9 +1524,15 @@ single glance. It's NOT a navigation hub — the sidebar serves that.
    headline metric + two semantic-dot sub-metrics.
 3. **Recent activity feed** — last 8 entries from
    `AuditLogs.list_logs/1`, four-column grid.
-
-(Zones 4-5: Security-checks panel rebuilt + Live VPN sessions →
-Phase B.)
+4. **Security compliance scorecard** (v3.0.7) — always-visible
+   checklist of 7 baseline checks, each with OK / Info / Warn /
+   Critical state. Different from hero alerts in that passing
+   rows are shown (muted) so admins get reassurance the baseline
+   is met. Rendered by `build_compliance/1`.
+5. **Live VPN sessions** (v3.0.7) — top 8 devices that handshook
+   in the last 3 minutes, ordered desc by `latest_handshake`,
+   with user email + VPN IP + relative time. Driven by
+   `list_live_sessions/2` (single Ecto query, preloads `:user`).
 
 ### Alert taxonomy
 
@@ -1564,6 +1570,8 @@ Active alert checks (`build_alerts/1`):
 | Service health | `FzHttp.HealthMonitor.snapshot/0` (60s poll) |
 | Recent activity | `AuditLogs.list_logs/1` (newest first, `Enum.take(8)`) |
 | Config-driven alerts | `FzHttp.Config.fetch_config!/1` for `:require_mfa`, `:vpn_session_duration`, `:local_auth_enabled`, `:openid_connect_providers`, `:saml_identity_providers` |
+| Compliance scorecard | Same sources as alerts; `build_compliance/1` returns the always-visible list (passing checks included with `:ok` status). |
+| Live VPN sessions | `Device` query with `latest_handshake >= ago(180, "second")`, preload `:user`, limit 8. |
 
 ### Defensive posture
 

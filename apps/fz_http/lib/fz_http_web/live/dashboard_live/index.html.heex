@@ -199,4 +199,86 @@
       </ul>
     <% end %>
   </div>
+
+  <%# ── Zone 4 + Zone 5 — side-by-side on desktop, stack on mobile ─
+  %# Zone 4 = always-visible compliance scorecard (different from
+  %# the hero alerts: shows passes too, so admins get confidence
+  %# the baseline is met).
+  %# Zone 5 = live VPN sessions — who's connected RIGHT NOW.
+  %# %>
+  <div class="ng-dashboard-bottom-grid">
+
+    <%# ── Zone 4: Security compliance ─────────────────────────── %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header" style="margin:0">
+          <i class="mdi mdi-clipboard-check-outline"></i> Security compliance
+        </span>
+        <.link navigate={~p"/settings/security"} class="ng-section-link">
+          Configure <i class="mdi mdi-arrow-right"></i>
+        </.link>
+      </div>
+      <ul class="ng-compliance-list">
+        <%= for row <- @compliance do %>
+          <li class={["ng-compliance-row",
+                      FzHttpWeb.DashboardLive.Index.compliance_status_class(row.status)]}>
+            <i class={["mdi", FzHttpWeb.DashboardLive.Index.compliance_status_icon(row.status),
+                       "ng-compliance-row-icon"]}></i>
+            <div class="ng-compliance-row-text">
+              <div class="ng-compliance-row-label"><%= row.label %></div>
+              <div class="ng-compliance-row-detail"><%= row.detail %></div>
+            </div>
+            <span class={["ng-compliance-row-badge",
+                          "ng-compliance-row-badge--#{row.status}"]}>
+              <%= FzHttpWeb.DashboardLive.Index.compliance_status_label(row.status) %>
+            </span>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+
+    <%# ── Zone 5: Live VPN sessions ───────────────────────────── %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header" style="margin:0">
+          <i class="mdi mdi-vpn"></i> Live VPN sessions
+          <span class="ng-section-badge"><%= length(@live_sessions) %></span>
+        </span>
+        <.link navigate={~p"/devices"} class="ng-section-link">
+          All devices <i class="mdi mdi-arrow-right"></i>
+        </.link>
+      </div>
+
+      <%= if @live_sessions == [] do %>
+        <div style="padding: 1.25rem 1.5rem;">
+          <p class="ng-td-muted" style="margin:0;">
+            <i class="mdi mdi-information-outline"></i>
+            No devices connected in the last 3 minutes.
+          </p>
+        </div>
+      <% else %>
+        <ul class="ng-live-sessions">
+          <%= for device <- @live_sessions do %>
+            <li class="ng-live-session-row">
+              <span class="ng-live-session-dot" title="Active in last 3 minutes"></span>
+              <div class="ng-live-session-info">
+                <.link navigate={~p"/devices/#{device}"} class="ng-live-session-device">
+                  <%= device.name %>
+                </.link>
+                <span class="ng-live-session-user">
+                  <%= if device.user, do: device.user.email, else: "—" %>
+                </span>
+              </div>
+              <span class="ng-live-session-meta">
+                <code><%= device.ipv4 %></code>
+                <span class="ng-live-session-when">
+                  <%= FzHttpWeb.DashboardLive.Index.relative_time(device.latest_handshake) %>
+                </span>
+              </span>
+            </li>
+          <% end %>
+        </ul>
+      <% end %>
+    </div>
+  </div>
 </section>
