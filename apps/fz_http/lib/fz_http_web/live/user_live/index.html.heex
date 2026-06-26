@@ -2,14 +2,15 @@
   <%= live_modal(
     FzHttpWeb.UserLive.FormComponent,
     return_to: ~p"/users",
-    title: "Add User",
+    title: "Add user",
     id: "user-form-component",
     user: nil,
     current_user: @current_user,
     subject: @subject,
     remote_ip: @remote_ip,
     action: @live_action,
-    form: "user-form"
+    form: "user-form",
+    button_text: "Create user"
   ) %>
 <% end %>
 

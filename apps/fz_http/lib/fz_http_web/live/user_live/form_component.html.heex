@@ -2,39 +2,56 @@
   <.form
     :let={f}
     for={@changeset}
-    x-autocomplete="off"
+    autocomplete="off"
     id="user-form"
     phx-target={@myself}
     phx-submit="save"
   >
     <%= if @action == :edit do %>
-      <p class="ng-modal-form-hint">Change user email or enter new password below.</p>
+      <div class="ng-modal-callout ng-modal-callout--warning">
+        <i class="mdi mdi-alert-outline"></i>
+        <span>
+          Email is the user's sign-in identity and the OIDC/SAML
+          linkage key. Changing it may break login until the user
+          re-authenticates with the new address.
+        </span>
+      </div>
     <% end %>
 
     <div class="ng-field">
       <%= label(f, :email, class: "ng-label") %>
-      <%= text_input(f, :email, class: "ng-input #{input_error_class(f, :email)}") %>
-      <p class="ng-field-error">
-        <%= error_tag(f, :email) %>
-      </p>
+      <%= text_input(f, :email,
+            class: "ng-input #{input_error_class(f, :email)}",
+            autocomplete: "off",
+            spellcheck: "false"
+          ) %>
+      <p class="ng-field-error"><%= error_tag(f, :email) %></p>
     </div>
 
-    <%= render(
-      FzHttpWeb.SharedView,
-      "password_field.html",
-      context: f,
-      field: :password,
-      autocomplete: "new-password",
-      label: "New Password"
-    ) %>
+    <div class="ng-field">
+      <%= label(f, :password, "New password", class: "ng-label") %>
+      <%= password_input(f, :password,
+            class: "ng-input #{input_error_class(f, :password)}",
+            id: "password-field",
+            autocomplete: "new-password",
+            data_target: "password-progress",
+            phx_hook: "PasswordStrength"
+          ) %>
+      <progress id="password-progress" class="is-hidden ng-password-strength" value="0" max="100">0%</progress>
+      <p class="ng-field-error"><%= error_tag(f, :password) %></p>
+      <%= if @action == :edit do %>
+        <p class="ng-field-hint">Leave blank to keep the current password.</p>
+      <% end %>
+    </div>
 
-    <%= render(
-      FzHttpWeb.SharedView,
-      "password_field.html",
-      context: f,
-      field: :password_confirmation,
-      autocomplete: "new-password",
-      label: "New Password Confirmation"
-    ) %>
+    <div class="ng-field">
+      <%= label(f, :password_confirmation, "Confirm new password", class: "ng-label") %>
+      <%= password_input(f, :password_confirmation,
+            class: "ng-input #{input_error_class(f, :password_confirmation)}",
+            id: "password_confirmation-field",
+            autocomplete: "new-password"
+          ) %>
+      <p class="ng-field-error"><%= error_tag(f, :password_confirmation) %></p>
+    </div>
   </.form>
 </div>

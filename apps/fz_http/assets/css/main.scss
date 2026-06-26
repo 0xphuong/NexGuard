@@ -4788,11 +4788,24 @@ pre {
   margin: 0.5rem 0 1rem;
   color: #1e3a8a;
   font-size: 0.85rem;
+  line-height: 1.5;
 
   i {
     color: #2563eb;
     font-size: 1.1rem;
     flex-shrink: 0;
+    line-height: 1.4;
+  }
+
+  /* Amber/warning variant — used for caveats like "changing this
+     email may break OIDC linkage". Same chrome as the default blue
+     callout, swapped to warm hues. */
+  &--warning {
+    background: #fef3c7;
+    border-color: #fcd34d;
+    color: #92400e;
+
+    i { color: #d97706; }
   }
 }
 
