@@ -67,6 +67,12 @@ defmodule FzHttpWeb.DashboardLive.Index do
     l7_enabled? = safe_l7_enabled?()
     apps = safe_apps_list(subject)
     enabled_apps = Enum.count(apps, & &1.enabled)
+    # Orphan-enabled: app is `enabled=true` but has zero allowed
+    # groups. The proxy fail-closes on this since v3.0.5, so the app
+    # is silently unreachable until the admin re-adds a group OR
+    # disables the app. Surface it on the dashboard so the silent
+    # failure doesn't stay silent.
+    orphan_enabled_apps = count_orphan_enabled_apps(apps)
     groups = safe_group_count(subject)
     certs = safe_certs()
     cert_summary = summarise_certs(certs, now)
@@ -89,7 +95,8 @@ defmodule FzHttpWeb.DashboardLive.Index do
       health: health,
       bundle: bundle,
       l7_enabled?: l7_enabled?,
-      enabled_apps: enabled_apps
+      enabled_apps: enabled_apps,
+      orphan_enabled_apps: orphan_enabled_apps
     })
 
     socket
@@ -168,8 +175,30 @@ defmodule FzHttpWeb.DashboardLive.Index do
       label: "L7 enforcement is ON but no apps are enabled — proxy idle",
       href: "/applications"
     })
+    |> maybe_alert(d.orphan_enabled_apps.count > 0, %{
+      severity: :critical,
+      icon: "mdi-shield-off-outline",
+      label: orphan_alert_label(d.orphan_enabled_apps),
+      href: orphan_alert_href(d.orphan_enabled_apps)
+    })
     |> Enum.reverse()
   end
+
+  # Format the orphan-enabled alert. Single app → mention by
+  # hostname so the admin knows exactly which one needs a group;
+  # multiple → just the count + plural noun.
+  defp orphan_alert_label(%{count: 1, first_hostname: host, first_id: _}) do
+    "#{host} is enabled but has no allowed groups — currently unreachable"
+  end
+
+  defp orphan_alert_label(%{count: n}) do
+    "#{n} apps are enabled but have no allowed groups — currently unreachable"
+  end
+
+  defp orphan_alert_href(%{count: 1, first_id: id}) when not is_nil(id),
+    do: "/applications/#{id}/groups"
+
+  defp orphan_alert_href(_), do: "/applications"
 
   defp maybe_alert(list, true, alert), do: [alert | list]
   defp maybe_alert(list, _false, _), do: list
@@ -191,6 +220,25 @@ defmodule FzHttpWeb.DashboardLive.Index do
 
   defp safe_l7_enabled? do
     try do OrgSettings.l7_enabled?() rescue _ -> false end
+  end
+
+  # Count apps that are `enabled = true` but have zero allowed
+  # groups. `list_applications/1` selects an `allowed_group_count`
+  # virtual field already, so the check is one Enum.filter without
+  # a second query. Returns `%{count, first_hostname, first_id}`
+  # so the alert can deep-link to the single offending app's groups
+  # tab when there's only one.
+  defp count_orphan_enabled_apps(apps) do
+    orphans =
+      apps
+      |> Enum.filter(fn app ->
+        app.enabled and (Map.get(app, :allowed_group_count) || 0) == 0
+      end)
+
+    case orphans do
+      []      -> %{count: 0, first_hostname: nil, first_id: nil}
+      [a | _] -> %{count: length(orphans), first_hostname: a.hostname, first_id: a.id}
+    end
   end
 
   defp safe_apps_list(subject) do
