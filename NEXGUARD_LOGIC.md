@@ -1501,3 +1501,82 @@ until the `applications` schema gains those columns.
 This makes the entire bundle response a secret-bearing artifact —
 the same threat model as the per-app `cert_pem` entries — and is
 the reason `/internal/bundle.json` is gated behind `:api_internal`.
+
+---
+
+## 18. Admin Dashboard
+
+Module: `FzHttpWeb.DashboardLive.Index`
+(`apps/fz_http/lib/fz_http_web/live/dashboard_live/`).
+
+The dashboard is the admin's daily landing page, designed (Phase A,
+v3.0.6) to answer **"is the system healthy right now?"** in a
+single glance. It's NOT a navigation hub — the sidebar serves that.
+
+### Zones
+
+1. **Hero status banner** — aggregate severity across all alerts
+   drives the banner colour. Empty alert list → green "All systems
+   operational"; any alert flips it to info/warn/critical with the
+   highest severity winning.
+2. **Domain-grouped stat strip** — 4 click-through tiles
+   (Identity / Network / L7 ZTNA / Activity), each carrying one
+   headline metric + two semantic-dot sub-metrics.
+3. **Recent activity feed** — last 8 entries from
+   `AuditLogs.list_logs/1`, four-column grid.
+
+(Zones 4-5: Security-checks panel rebuilt + Live VPN sessions →
+Phase B.)
+
+### Alert taxonomy
+
+Each alert is a map `%{severity, icon, label, href}`. Severity
+gradient (highest wins for the hero colour):
+
+| Severity   | When |
+|------------|------|
+| `:critical`| Real outage / silent breakage (orphan-enabled apps, expired/<7d certs, service down) |
+| `:warn`    | Security gap that won't break things today (low MFA, mixed-auth bypass, <30d cert) |
+| `:info`    | Operational nudge (pending devices, stale devices, idle proxy, never-expire sessions) |
+
+Active alert checks (`build_alerts/1`):
+
+| Check | Trigger | Severity |
+|-------|---------|----------|
+| `pending_devices` | ≥1 device with `status=pending` | info |
+| `cert_expired` | any cert past `not_after` | critical |
+| `cert_critical` | cert expiring within 7d | critical |
+| `cert_warn` | cert expiring within 30d (suppressed when critical also fires) | warn |
+| `mfa_low_coverage` | enrolment <80% AND Force-MFA off | warn |
+| `stale_devices` | >10 devices idle >30d | info |
+| `service_health` | DB / proxy / CoreDNS `:down` or `:degraded` | critical |
+| `l7_idle` | L7 enforcement ON but `enabled_apps == 0` | info |
+| `orphan_enabled_apps` | app `enabled=true` AND `allowed_group_count == 0` (silently unreachable post-v3.0.5) | critical |
+| `session_never_expires` | `vpn_session_duration == 0` | info |
+| `mixed_auth_no_force_mfa` | local_auth + ≥1 SSO + Force-MFA OFF | warn |
+
+### Data sources
+
+| Surface | Reads from |
+|---------|------------|
+| Hero banner | `build_alerts/1` over all the below |
+| Stat tile values | `Users.count/0`, `Devices.count_active_within/1`, `Applications.list_applications/1` (preloads `allowed_group_count`), `AccessGroups.list_groups/1`, `TlsCertificates.list_all_for_bundle/0`, `BundleBuilder.current/0` |
+| Service health | `FzHttp.HealthMonitor.snapshot/0` (60s poll) |
+| Recent activity | `AuditLogs.list_logs/1` (newest first, `Enum.take(8)`) |
+| Config-driven alerts | `FzHttp.Config.fetch_config!/1` for `:require_mfa`, `:vpn_session_duration`, `:local_auth_enabled`, `:openid_connect_providers`, `:saml_identity_providers` |
+
+### Defensive posture
+
+`assign_all/1` MUST never raise. Every auxiliary call sits inside a
+`safe_*` wrapper that rescues to a sane empty-state value:
+
+  * `safe_l7_enabled?/0` → `false`
+  * `safe_apps_list/1` → `[]`
+  * `safe_group_count/1` → `0`
+  * `safe_certs/0` → `[]`
+  * `safe_bundle/0` → `nil`
+  * `safe_health_snapshot/0` → all `:unknown`
+  * `pending_device_count/0`, `audit_count_today/1` → `0`
+
+A pre-bootstrap DB or a mid-restart supervisor surfaces as an
+empty dashboard with the "all operational" banner — never a 500.

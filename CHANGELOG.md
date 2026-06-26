@@ -9,6 +9,103 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.6] - 2026-06-26
+
+**Dashboard redesign — Phase A.** Health-first ops surface for the
+admin portal. Single-glance "is the system healthy?" answer, four
+domain-grouped stat tiles, and a recent-activity feed. No schema
+changes, no migration. Live on prod, untagged.
+
+### Added
+
+#### `/dashboard` redesigned around health, not navigation
+
+Applies the `frontend-design-direction` skill — the dashboard is an
+ops tool that admins look at multiple times a day, so it should
+answer "is the system healthy right now?" in <2 seconds rather
+than serve as a navigation hub (the sidebar already does that).
+
+Five zones, three shipped in Phase A:
+
+  * **Hero status banner** (Zone 1) — single-line health summary
+    with an aggregate severity (ok / info / warn / critical) that
+    drives the entire banner colour. Sub-line carries the L7 stack
+    pulse: enforcement on/off · apps count · enabled count · bundle
+    version + age. When alerts are present they list below the
+    headline with severity-coloured left borders + deep-link
+    "Review →" actions.
+
+  * **Domain-grouped stat strip** (Zone 2) — four tiles by domain
+    (Identity / Network / L7 ZTNA / Activity), each with one
+    headline metric plus two sub-metrics with semantic dots
+    (ok/warn/critical/info). Each tile is a click-through to its
+    primary admin page. Responsive: 4→2→1 columns at 1024/540px.
+
+  * **Recent activity feed** (Zone 3) — last 8 audit log entries
+    embedded directly, four-column grid (time | category badge |
+    target | actor) for top-to-bottom log scanning. "View full
+    audit log →" link to the v3.0.3 inline diff viewer.
+
+Zones 4-5 (Security checks rebuilt + Live VPN sessions) deferred to
+Phase B.
+
+#### Hero alerts — surface silent misconfigurations
+
+Each alert is conditional, only fires when the org is in the risky
+state. A correctly configured deployment sees none of them; the
+banner stays green.
+
+  * `cert_expired` (:critical) — at least one TLS cert in the
+    library is past `not_after`. Deep link to /settings/certificates.
+  * `cert_critical` (:critical) — cert expiring within 7 days.
+  * `cert_warn` (:warn) — cert expiring within 30 days
+    (suppressed if `cert_critical` is also active to avoid noise).
+  * `mfa_low_coverage` (:warn) — MFA enrolment < 80% AND Force-MFA
+    off. Deep link to /settings/security.
+  * `pending_devices` (:info) — at least one device awaiting
+    approval. Deep link to /devices.
+  * `stale_devices` (:info) — > 10 devices idle for > 30 days
+    (was previously `> 0` in the old security panel — too noisy).
+  * `service_health` (:critical) — DB / proxy / CoreDNS reports
+    `:down` or `:degraded`. Reuses the HealthMonitor snapshot the
+    topbar dots already poll.
+  * `l7_idle` (:info) — L7 enforcement is ON but no apps are
+    enabled — proxy bundle compiled but routes nothing.
+  * `orphan_enabled_apps` (:critical) — app is `enabled = true` but
+    has zero allowed groups. The v3.0.5 fail-closed work made these
+    apps silently unreachable; this alert surfaces them so the
+    silent failure stops being silent. Deep link to the offending
+    app's Groups tab (single-app case) or the apps list (multiple).
+  * `session_never_expires` (:info) — `vpn_session_duration = 0`.
+    A leaked credential keeps VPN access indefinitely; standard
+    ZTNA practice is a TTL.
+  * `mixed_auth_no_force_mfa` (:warn) — local password auth is
+    enabled AND an SSO provider is configured AND Force MFA is off.
+    SSO MFA enforced at the provider level is bypassed by anyone
+    using the local `/sign_in` form. Fix is either disable local
+    auth or enable Force MFA in NexGuard.
+
+### Removed
+
+  * **Quick Actions panel** — six buttons that duplicated the
+    sidebar entries (Manage Users, Manage Devices, Firewall Rules,
+    Security Settings, Customization, WAN Diagnostics). The
+    sidebar already serves navigation; the dashboard should serve
+    health visibility.
+  * **Per-card random colour scheme** (blue/indigo/green/amber on
+    the four stat cards). Replaced by state-driven colour — dots
+    and badges carry semantic meaning only.
+
+### Defensive
+
+All auxiliary calls in `assign_all/1` are wrapped in `try/rescue`
+that fall back to safe empty/unknown values: a mis-bootstrapped
+HealthMonitor, BundleBuilder, or cert library cannot crash the
+dashboard. A fresh DB pre-bootstrap renders an "all operational"
+banner with empty stats instead of a 500.
+
+---
+
 ## [3.0.5] - 2026-06-26
 
 **Admin-portal DNS forwarder configuration + ZTNA policy hardening.**
