@@ -104,10 +104,12 @@ defmodule FzHttp.L7.CoreDnsCorefile do
         }
 
         errors
-        # `reload 1s` here is the plugin that watches THIS Corefile
-        # for changes — admins edit upstreams in the portal, Phoenix
-        # rewrites this file, CoreDNS picks it up within a second.
-        reload 1s
+        # `reload 2s` watches THIS Corefile for changes — admins edit
+        # upstreams in the portal, Phoenix rewrites this file,
+        # CoreDNS picks it up within ~2s. 2s is CoreDNS' minimum;
+        # `reload 1s` would refuse to start with
+        # `plugin/reload: interval value must be greater or equal to 2s`.
+        reload 2s
         log . "{remote}:{port} {>id} {type} {name} -> {rcode} {>rflags} {rsize} {duration}"
       }
       """

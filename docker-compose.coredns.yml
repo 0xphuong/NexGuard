@@ -45,11 +45,36 @@ services:
 
   coredns:
     image: coredns/coredns:1.11.3
-    # Phoenix writes the Corefile from DB-backed org_settings; CoreDNS
-    # `reload 1s` plugin picks up edits without container restart.
-    # No env-var Corefile substitution — admins edit upstreams via
-    # /settings/l7 in the portal instead of editing .env + recreating.
-    command: ["-conf", "/etc/nexguard/Corefile.generated"]
+    # Phoenix writes the Corefile from DB-backed org_settings;
+    # CoreDNS' `reload 2s` plugin picks up edits without container
+    # restart. Admins edit upstreams via /settings/l7 in the portal
+    # instead of editing .env + recreating.
+    #
+    # Boot race fix: CoreDNS starts (almost) immediately when nexguard
+    # is healthy, but Phoenix's bootstrap_dns/0 (which writes the
+    # initial Corefile.generated) only runs AFTER the supervisor tree
+    # completes — there's a brief window where the file doesn't exist
+    # yet. Without the wait loop, CoreDNS crash-loops with
+    # "Caddyfile via flag: open ...: no such file or directory" until
+    # the Phoenix supervisor catches up. The shell loop polls every
+    # 0.5s up to ~60s. The distroless CoreDNS image doesn't ship sh,
+    # but the upstream `coredns/coredns:1.11.3` image is debian-based
+    # and does.
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        i=0
+        while [ ! -f /etc/nexguard/Corefile.generated ]; do
+          if [ $$i -ge 120 ]; then
+            echo "Corefile.generated still missing after 60s — giving up" >&2
+            exit 1
+          fi
+          echo "waiting for /etc/nexguard/Corefile.generated... ($$i/120)"
+          i=$$((i+1))
+          sleep 0.5
+        done
+        echo "Corefile.generated found, starting coredns"
+        exec /coredns -conf /etc/nexguard/Corefile.generated
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
     network_mode: "service:nexguard"
