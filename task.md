@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-06-24 · Server at **v3.0.2** (on prod, untagged) · Pairs with NexGuard Connect **v0.0.9**
+Last updated: 2026-06-26 · Server at **v3.0.7** · Pairs with NexGuard Connect **v0.0.9**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).
@@ -249,6 +249,24 @@ Findings from the post-v3.0.2 module review. PR #1 ($1+#7+#2 — enable-bypass +
 - [ ] **O1**: Add `prometheus :9153` to `coredns/Corefile` + scrape config. Gives cache hit rate, forward latency, SERVFAIL count — confirms the 85-90% cache-hit assumption from the design
 - [ ] **O2**: Grafana dashboard template for CoreDNS + L7 proxy metrics — drop-in JSON in `docs/dashboards/`
 - [ ] **O3**: Post-mortem doc — `docs/post-mortem/v3.0.0-launch.md` captures the DNS forward bug, `fallthrough .` syntax, env-line discipline, audit whitelist gap, microsecond-precision pitfall, modal stateful-root requirement. Learnings durable across the team
+
+##### D — Admin dashboard (`/dashboard`)
+
+`/dashboard` redesign tracked across three phases, applying the
+`frontend-design-direction` skill — dashboard answers "is the system
+healthy right now?" in <2 seconds, NOT a navigation hub (sidebar
+serves that).
+
+- [x] **D-Phase-A** (shipped `v3.0.6`, commit `9083f83`): Hero status banner + 4 domain stat tiles (Identity / Network / L7 ZTNA / Activity) + recent activity feed. 11 conditional hero alerts. Removed Quick Actions duplicate of sidebar. Per-card random color scheme dropped — state-driven colour only
+- [x] **D-Phase-B** (shipped `v3.0.7`, commit `c11d718`): Security compliance scorecard (7 always-visible checks) + Live VPN sessions panel (top 8 devices handshook in last 3 minutes)
+- [ ] **D-Phase-C**: Historical trend visualisations — 2-4 chart panels below the current zones. Scope split by data availability:
+  - [ ] **D-C1** (~3-4h, no deps): Connection sparkline (24h active VPN sessions, hourly buckets) + Audit events timeline (7-day daily buckets). Inline SVG sparkline — no chart library dep. Data sources already exist (`Device.latest_handshake`, `AuditLogs.list_logs`)
+  - [ ] **D-C2** (~6h, blocked by **E**): L7 access pulse (allow/deny ratio + top denied apps) + Top apps by traffic. Requires proxy → audit DB pipeline (task E below) to land first so the data is queryable from Phoenix
+- [ ] **D-Phase-D** (nice-to-have, no schedule): Realtime via PubSub — dashboard subscribes to `nexguard:l7:apps`, `nexguard:health`, `nexguard:audit` (new) so admin doesn't refresh page to see new events. Replaces the current mount-once snapshot pattern
+
+Phase A+B are stable and live on prod. Phase C-1 ship-able today;
+Phase C-2 deferred until task E (next section) lands. Phase D
+purely UX nicety — defer until there's a real need.
 
 ---
 
