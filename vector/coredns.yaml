@@ -1,0 +1,93 @@
+# Vector config — CoreDNS log archiver.
+#
+# Reads docker stdout from the nexguard-coredns-1 container via the
+# Docker API and writes line-per-line text logs to a host-mounted
+# volume. The output file is rotated daily by date in the filename.
+#
+# Future ELK / Loki / Splunk shipping: add a parallel sink under
+# `sinks:` (Vector supports elasticsearch, loki, splunk_hec, kafka,
+# s3, etc) and they all read from the same `coredns_raw` source. The
+# file sink can stay for local audit even after shipping is wired —
+# Vector is designed for fan-out.
+
+data_dir: /var/lib/vector
+
+# ── Sources ────────────────────────────────────────────────────────
+
+sources:
+  coredns_raw:
+    type: docker_logs
+    # Whitelist by exact container name. Force-recreate gives the
+    # container a new internal ID but the name stays stable, so Vector
+    # picks the new container up automatically without restart.
+    include_containers:
+      - nexguard-coredns-1
+    # Docker JSON log lines arrive with stdout / stderr separately —
+    # CoreDNS writes everything to stderr (Go logger default), so
+    # leave both enabled and rely on the upstream filter.
+    auto_partial_merge: true
+
+# ── Transforms ────────────────────────────────────────────────────
+#
+# `remap` is Vector's Remap Language (VRL). Here we strip the
+# docker_logs envelope down to the CoreDNS line + a few useful labels
+# so the file output reads like a normal log file (not nested JSON).
+
+transforms:
+  coredns_text:
+    type: remap
+    inputs:
+      - coredns_raw
+    source: |
+      # `.message` is CoreDNS' raw log line as emitted on stderr.
+      # Keep timestamp from the docker envelope so chronology survives
+      # container restart-then-replay scenarios.
+      .ts = format_timestamp!(.timestamp, format: "%Y-%m-%d %H:%M:%S")
+      . = .ts + " " + string!(.message)
+
+# ── Sinks ──────────────────────────────────────────────────────────
+
+sinks:
+  coredns_file:
+    type: file
+    inputs:
+      - coredns_text
+    # Daily rotation via date templating. Files are created lazily
+    # on first message of the day; old files are NEVER deleted by
+    # Vector — operator manages retention via logrotate / cron / s3
+    # archive. Keeps the design simple + leaves the retention policy
+    # explicit.
+    path: /logs/coredns-%Y-%m-%d.log
+    encoding:
+      codec: text
+    # Flush on every line — DNS audit logs are small, and we'd rather
+    # lose 1 line on a hard crash than have a 4KB buffer hold an
+    # hour's traffic.
+    buffer:
+      type: memory
+      max_events: 500
+      when_full: drop_newest
+
+# ── (Future) ELK / Loki / etc — uncomment + configure when ready
+#
+#  coredns_elasticsearch:
+#    type: elasticsearch
+#    inputs: [coredns_text]
+#    endpoints:
+#      - http://elasticsearch.example.com:9200
+#    bulk:
+#      index: nexguard-coredns-%Y.%m.%d
+#    auth:
+#      strategy: basic
+#      user: vector
+#      password: ${ELASTICSEARCH_PASSWORD}
+#
+#  coredns_loki:
+#    type: loki
+#    inputs: [coredns_text]
+#    endpoint: http://loki.example.com:3100
+#    labels:
+#      service: coredns
+#      host: "{{ host }}"
+#    encoding:
+#      codec: text

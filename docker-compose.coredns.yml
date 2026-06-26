@@ -79,6 +79,30 @@ services:
         condition: service_started
     restart: "no"
 
+  # Vector log archiver — reads CoreDNS' docker stdout via the
+  # Docker API and writes structured text log files to a
+  # host-mounted volume. Daily rotation by filename. Future shipping
+  # to ELK / Loki / Splunk is a config-only change (add sink in
+  # vector/coredns.yaml). Read-only docker socket is the standard
+  # log-shipper pattern — Vector only uses /containers/<id>/logs
+  # endpoint, doesn't have generic docker control.
+  coredns-logger:
+    image: timberio/vector:0.34.0-alpine
+    restart: unless-stopped
+    depends_on:
+      coredns:
+        condition: service_started
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ${FZ_INSTALL_DIR:-.}/coredns-logs:/logs
+      - ${FZ_INSTALL_DIR:-.}/vector/coredns.yaml:/etc/vector/vector.yaml:ro
+    command: ["--config", "/etc/vector/vector.yaml"]
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
   coredns:
     image: coredns/coredns:1.11.3
     # Phoenix writes the Corefile from DB-backed org_settings;
