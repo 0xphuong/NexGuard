@@ -132,9 +132,16 @@ defmodule FzHttp.L7.CoreDnsCorefile do
         # returns 4 entries) get client-side load balancing for free.
         loadbalance
 
-        # Logs ONLY errors — full query logging is expensive and we
-        # have Prometheus metrics for cache hit rate / forward latency.
+        # Always log errors (forward timeouts, plugin failures, etc).
         errors
+
+        # Full per-query audit log to stdout — captured by Docker's
+        # json-file driver, retained for ~10GB across rotation
+        # (configured on the coredns service in docker-compose). At
+        # 20 VPN clients this gives ~3-4 weeks of forensic-grade
+        # history. Useful for compliance + post-incident lookup.
+        # Access via `docker logs nexguard-coredns-1`.
+        log . "{remote}:{port} {>id} {type} {name} -> {rcode} {>rflags} {rsize} {duration}"
 
         # Hot-reload THIS Corefile when Phoenix rewrites it. 2s is the
         # CoreDNS minimum (the plugin refuses < 2s with an explicit

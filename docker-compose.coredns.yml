@@ -94,6 +94,19 @@ services:
       nofile:
         soft: 65535
         hard: 65535
+    # Per-container log retention override — daemon default is
+    # 3×512MB = 1.5GB. CoreDNS with full query logging at our
+    # client scale generates 100-500MB/day, so bumping to
+    # 10×1GB = 10GB gives ~3-4 weeks of forensic-grade DNS audit
+    # history accessible via `docker logs nexguard-coredns-1`.
+    # The `errors`-only baseline (when full query log is off) keeps
+    # ~years of history in the same budget.
+    logging:
+      driver: json-file
+      options:
+        max-size: "1g"
+        max-file: "10"
+        tag: "coredns"
     volumes:
       - ${FZ_INSTALL_DIR:-.}/coredns-hosts:/etc/nexguard:ro
     network_mode: "service:nexguard"
