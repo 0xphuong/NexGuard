@@ -9,6 +9,144 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.5] - 2026-06-26
+
+**Admin-portal DNS forwarder configuration + ZTNA policy hardening.**
+Two BREAKING behavior changes — read the migration notes below
+before deploying. Live on prod, untagged.
+
+### ⚠ Breaking — read first
+
+#### Empty `allowed_groups` is now fail-closed
+
+Pre-v3.0.5: an enabled app with NO allowed groups + an `allow` L7
+rule was reachable by every authenticated VPN user (the proxy's
+group gate skipped on empty list). This contradicted ZTNA
+conventions (Cloudflare Access, Tailscale, IAP all fail-closed).
+
+Now both proxy + Phoenix enforce: "no allowed groups" = "no one
+allowed", not "everyone allowed".
+
+  * **Proxy** (`policy.Decide`): empty `AllowedGroupIDs` short-
+    circuits to deny BEFORE rule eval. Distinct log reason
+    `group gate: app has no allowed groups (fail-closed)`.
+  * **Phoenix** (`set_application_enabled/4`): refuses
+    `enable = true` if the app has zero allowed_group rows. Clear
+    error at toggle time: "cannot enable without at least one
+    allowed access group — add a group on the Groups tab".
+
+**Migration check before deploy:**
+
+```sql
+SELECT a.hostname, a.enabled,
+       (SELECT COUNT(*) FROM application_allowed_groups ag
+        WHERE ag.application_id = a.id) AS group_count
+FROM applications a
+WHERE a.enabled = true
+ORDER BY group_count, a.hostname;
+```
+
+Any row with `group_count = 0` will become unreachable after the
+proxy upgrade. Add groups via /applications/<id>/groups BEFORE
+deploying the proxy, OR deploy Phoenix first (changeset guard
+blocks new mis-configurations) then audit existing apps.
+
+#### CoreDNS Corefile is now generated, not bind-mounted
+
+`docker-compose.coredns.yml` no longer mounts `coredns/Corefile`
+read-only. Phoenix writes `/etc/nexguard/Corefile.generated` from
+DB-backed org_settings; CoreDNS' `reload 2s` plugin picks it up.
+
+  * `.env` `COREDNS_FORWARD_TO` is now a **bootstrap-only** seed:
+    on a fresh deployment Phoenix reads it once to populate the DB,
+    then ignores subsequent edits. Admins edit upstreams via the
+    portal (`/settings/l7` → "DNS forward upstreams" card).
+  * Multi-value supported native (the `{$VAR}` one-token limitation
+    is gone since Phoenix templates the Corefile itself). Both
+    primary AND fallback fields accept comma-separated lists.
+  * New `coredns-init` busybox sidecar gates CoreDNS startup on the
+    generated Corefile existing — fixes a boot race where CoreDNS
+    crash-looped during the ~2s before Phoenix's bootstrap_dns/0
+    finished.
+
+### Added
+
+#### DNS forwarder config in admin portal
+
+  * Migration `20260624000003_add_coredns_forward_to_org_settings`
+    adds `coredns_forward_to` + `coredns_forward_to_fallback` as
+    PostgreSQL `text[]` on the `org_settings` table.
+  * New `FzHttp.L7.CoreDnsCorefile` GenServer — sibling of
+    `CoreDnsHosts`. Subscribes to `nexguard:l7:settings`, regenerates
+    `/etc/nexguard/Corefile.generated` on every `set_dns_forward/4`
+    via atomic tmp+rename.
+  * `OrgSettings.set_dns_forward/4` — context API with full audit
+    trail (new whitelist action `org_settings.dns_forward.change`).
+  * `OrgSettings.seed_dns_from_env/2` — first-boot helper called
+    from `FzHttp.Application.bootstrap_dns/0`.
+  * UI: `/settings/l7` gets a "DNS forward upstreams" card with two
+    comma-separated input fields (primary required, fallback
+    optional) + "last edited" relative timestamp.
+
+#### CoreDNS production tuning
+
+Generated Corefile now ships with the production-grade settings
+from the design review:
+
+```corefile
+. {
+  bind 0.0.0.0
+  bufsize 1232                       # EDNS0 ceiling for VPN MTU 1280
+  template ANY ANY local lan home internal corp { rcode NXDOMAIN }
+  hosts /etc/nexguard/internal-hosts {
+    reload 1s; ttl 30; fallthrough .
+  }
+  forward . <upstreams> {
+    prefer_udp
+    max_concurrent 1000             # was 100 — bind9 RRL-exempt
+    health_check 5s
+    expire 30s
+    policy sequential
+  }
+  cache {
+    success 16384 3600 60
+    denial 4096 300 30
+    serve_stale 1h immediate
+    prefetch 10 1m 10%
+  }
+  loop                              # detect forwarding loops
+  loadbalance                       # shuffle multi-IP A records
+  errors
+  log . "..."                       # full per-query audit
+  reload 2s
+  prometheus :9153                  # cache hit / forward latency
+}
+```
+
+Container limits also bumped:
+
+  * `ulimits.nofile: 65535/65535` — accommodate the larger forward
+    connection pool.
+  * `logging: max-size 1g, max-file 10` — 10GB rolling buffer per
+    container for the full query log (~3-4 weeks of forensic
+    history at 20 VPN clients).
+
+### Fixed
+
+  * Settings changeset regex (`~r{...\d...}i`) failed to compile on
+    Elixir 1.14 — switched to `~r/.../` form with three short
+    patterns (IPv4 / IPv6 / hostname).
+  * CoreDNS `reload 1s` would refuse to start — minimum is 2s.
+  * Initial Corefile bootstrap race — CoreDNS crash-looped opening
+    a not-yet-written `Corefile.generated`. Added a `coredns-init`
+    busybox sidecar that polls for the file before letting the
+    `coredns` service start (depends_on:
+    `service_completed_successfully`). The CoreDNS image is
+    distroless so wrapping its own entrypoint in `sh -c` wasn't an
+    option — discovered the hard way.
+
+---
+
 ## [3.0.4] - 2026-06-24
 
 **Ops productivity polish.** Bulk actions on the devices list,
