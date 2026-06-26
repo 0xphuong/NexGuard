@@ -228,6 +228,12 @@ defmodule FzHttpWeb.Router do
       live "/applications/:id/policy", ApplicationsLive.Show, :policy
       live "/applications/:id/groups", ApplicationsLive.Show, :groups
       live "/applications/:id/danger", ApplicationsLive.Show, :danger
+
+      live "/users/:id/devices", UserLive.Show, :devices
+      live "/users/:id/groups", UserLive.Show, :groups
+      live "/users/:id/access", UserLive.Show, :access
+      live "/users/:id/connections", UserLive.Show, :connections
+      live "/users/:id/danger", UserLive.Show, :danger
       live "/settings/client_defaults", SettingLive.ClientDefaults, :show
       live "/settings/network", SettingLive.Network, :show
 

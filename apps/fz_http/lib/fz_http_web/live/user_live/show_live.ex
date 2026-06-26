@@ -25,6 +25,7 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:device_config, socket.assigns[:device_config])
      |> assign(:connections, connections)
      |> assign(:user, user)
+     |> assign(:tab, tab_for_action(socket.assigns[:live_action]))
      |> assign(:page_title, "Users")
      |> assign(:rules_path, ~p"/rules")
      |> assign(:show_delete_confirm, false)
@@ -72,19 +73,31 @@ defmodule FzHttpWeb.UserLive.Show do
   end
 
   @doc """
-  Called when a modal is dismissed; reload devices.
+  Called on every URL change. Re-reads devices (in case a device
+  modal was just dismissed) and assigns `:tab` derived from the
+  live_action so the template can pick the active panel.
   """
   @impl Phoenix.LiveView
   def handle_params(%{"id" => user_id} = _params, _url, socket) do
     {:ok, user} = Users.fetch_user_by_id(user_id, socket.assigns.subject)
     {:ok, devices} = Devices.list_devices_for_user(user, socket.assigns.subject)
 
-    socket =
-      socket
-      |> assign(:devices, devices)
-
-    {:noreply, socket}
+    {:noreply,
+     socket
+     |> assign(:devices, devices)
+     |> assign(:tab, tab_for_action(socket.assigns.live_action))}
   end
+
+  # `:edit` opens the edit modal — tab underneath stays on Overview.
+  # `:new_device` opens the add-device modal — surface the Devices
+  # tab underneath so closing the modal lands in the right place.
+  defp tab_for_action(:devices),    do: :devices
+  defp tab_for_action(:new_device), do: :devices
+  defp tab_for_action(:groups),     do: :groups
+  defp tab_for_action(:access),     do: :access
+  defp tab_for_action(:connections),do: :connections
+  defp tab_for_action(:danger),     do: :danger
+  defp tab_for_action(_),           do: :overview
 
   @impl Phoenix.LiveView
   def handle_event("confirm_delete", _params, socket) do

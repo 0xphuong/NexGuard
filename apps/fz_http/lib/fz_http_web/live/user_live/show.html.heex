@@ -287,9 +287,57 @@
   </div>
 </div>
 
+<%# ── Tab navigation (Phase U-Show-B) ─────────────────────────────────────── %>
+<%# Six URL-addressable tabs. Each is a soft `<.link patch>` so swap
+%# is a re-render, not a remount — modals open via `:edit` /
+%# `:new_device` keep the underlying tab. Active tab matches
+%# `@tab` (derived from live_action in `handle_params/3`). %>
+<nav class="ng-tab-nav">
+  <.link patch={~p"/users/#{@user}"}
+         replace={true}
+         class={["ng-tab", @tab == :overview && "is-active"]}>
+    <i class="mdi mdi-account-outline"></i>
+    <span>Overview</span>
+  </.link>
+  <.link patch={~p"/users/#{@user}/devices"}
+         replace={true}
+         class={["ng-tab", @tab == :devices && "is-active"]}>
+    <i class="mdi mdi-laptop"></i>
+    <span>Devices</span>
+    <span class="ng-tab-count"><%= length(@devices) %></span>
+  </.link>
+  <.link patch={~p"/users/#{@user}/groups"}
+         replace={true}
+         class={["ng-tab", @tab == :groups && "is-active"]}>
+    <i class="mdi mdi-account-multiple-check-outline"></i>
+    <span>Groups</span>
+    <span class="ng-tab-count"><%= length(@user_groups) %></span>
+  </.link>
+  <.link patch={~p"/users/#{@user}/access"}
+         replace={true}
+         class={["ng-tab", @tab == :access && "is-active"]}>
+    <i class="mdi mdi-shield-key-outline"></i>
+    <span>Access</span>
+  </.link>
+  <.link patch={~p"/users/#{@user}/connections"}
+         replace={true}
+         class={["ng-tab", @tab == :connections && "is-active"]}>
+    <i class="mdi mdi-link-variant"></i>
+    <span>Connections</span>
+    <span class="ng-tab-count"><%= length(@connections) %></span>
+  </.link>
+  <.link patch={~p"/users/#{@user}/danger"}
+         replace={true}
+         class={["ng-tab ng-tab--danger", @tab == :danger && "is-active"]}>
+    <i class="mdi mdi-alert-octagon-outline"></i>
+    <span>Danger zone</span>
+  </.link>
+</nav>
+
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+<%= if @tab == :overview do %>
   <%# ── Overview — compact 4-zone summary (Phase U-Show-A) ──────────────────── %>
   <%# Replaces the old `user_details.html.heex` partial (which still
   %# lives in the codebase — Account pages reuse it). 4 zones: Identity
@@ -458,6 +506,9 @@
     </div>
   </div>
 
+<% end %>
+
+<%= if @tab == :groups do %>
   <%# ── L7 Group Memberships ────────────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -558,6 +609,9 @@
     <% end %>
   </div>
 
+<% end %>
+
+<%= if @tab == :access do %>
   <%# ── L7 Access Scope ─────────────────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -598,6 +652,9 @@
     </div>
   </div>
 
+<% end %>
+
+<%= if @tab == :connections do %>
   <%# ── OIDC Connections ────────────────────────────────────────────────────── %>
   <%= if length(@connections) > 0 do %>
     <.live_component
@@ -606,8 +663,28 @@
       connections={@connections}
       user={@user}
     />
+  <% else %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header" style="margin:0">
+          <i class="mdi mdi-link-variant"></i> OIDC connections
+        </span>
+      </div>
+      <div style="padding: 1.5rem;">
+        <p class="ng-td-muted" style="margin:0;">
+          <i class="mdi mdi-information-outline"></i>
+          Not linked to any OIDC provider — this user signs in
+          locally. To enable SSO sign-in, configure an OIDC
+          provider in <.link navigate={~p"/settings/security"}>Security settings</.link>
+          and have the user sign in via the SSO flow once; the
+          connection appears here automatically.
+        </p>
+      </div>
+    </div>
   <% end %>
+<% end %>
 
+<%= if @tab == :devices do %>
   <%# ── Devices ─────────────────────────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
@@ -638,6 +715,9 @@
     <% end %>
   </div>
 
+<% end %>
+
+<%= if @tab == :danger do %>
   <%# ── Danger Zone ─────────────────────────────────────────────────────────── %>
   <div class="ng-danger-zone">
     <div class="ng-danger-zone-header">
@@ -680,4 +760,5 @@
       </div>
     </div>
   </div>
+<% end %>
 </section>
