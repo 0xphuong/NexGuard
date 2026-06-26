@@ -7,7 +7,13 @@ defmodule FzHttp.OrgSettings.Settings.Changeset do
   # variants aren't allowed yet — CoreDNS' forward plugin defaults to
   # :53 and admins should keep it that way; revisit if we ever need
   # custom port.
-  @host_or_ip ~r{^(?:\d{1,3}(?:\.\d{1,3}){3}|[0-9a-f:]+|[a-z0-9][a-z0-9.\-]*\.[a-z]{2,})$}i
+  #
+  # Three separate patterns instead of one mega-regex — Elixir 1.14's
+  # parser chokes on `~r{...\d...}` (backslash + curly-brace delimiter
+  # interaction). Plain `~r/.../` keeps the patterns short + readable.
+  @ipv4_re ~r/\A(?:\d{1,3}\.){3}\d{1,3}\z/
+  @ipv6_re ~r/\A[0-9a-f:]+\z/i
+  @hostname_re ~r/\A[a-z0-9][a-z0-9.\-]*\.[a-z]{2,}\z/i
 
   @doc """
   Update the single-row org_settings record. `id` is immutable
@@ -74,7 +80,15 @@ defmodule FzHttp.OrgSettings.Settings.Changeset do
   end
 
   defp valid_server?(s) when is_binary(s) do
-    String.length(s) in 1..253 and Regex.match?(@host_or_ip, s)
+    cond do
+      String.length(s) not in 1..253 -> false
+      Regex.match?(@ipv4_re, s)      -> true
+      Regex.match?(@hostname_re, s)  -> true
+      # IPv6 must have at least one colon to disambiguate from
+      # hex-only strings; @ipv6_re alone would match "abcdef" too.
+      String.contains?(s, ":") and Regex.match?(@ipv6_re, s) -> true
+      true -> false
+    end
   end
 
   defp valid_server?(_), do: false
