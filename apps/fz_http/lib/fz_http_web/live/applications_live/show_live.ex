@@ -1,9 +1,9 @@
 defmodule FzHttpWeb.ApplicationsLive.Show do
   @moduledoc """
-  Detail page for one application. Wave 3b-1 ships the read-only
-  detail + edit-via-modal + delete. The required-groups picker
-  (Wave 3b-3) and L7 rules editor (Wave 3c) plug into separate cards
-  on this page in later waves.
+  Detail page for one application — read-only Overview + L7 Policy
+  editor + Allowed-Groups picker + Danger zone, split across four
+  URL-addressable tabs (`:overview`, `:policy`, `:groups`, `:danger`).
+  Edit overlays as a modal from any tab.
   """
   use FzHttpWeb, :live_view
 
@@ -55,13 +55,16 @@ defmodule FzHttpWeb.ApplicationsLive.Show do
   end
 
   # Map the URL-driven live_action onto a single :tab atom. The :edit
-  # action opens a modal overlay — the tab underneath defaults to
-  # :overview because that's what `/applications/:id/edit` patches
-  # from. Bookmarkable URLs land on the right tab directly.
-  defp tab_for_action(:policy), do: :policy
-  defp tab_for_action(:groups), do: :groups
-  defp tab_for_action(:danger), do: :danger
-  defp tab_for_action(_),       do: :overview
+  # action opens a modal overlay — the underlying tab stays on
+  # :overview so closing the modal lands somewhere sensible.
+  # Explicit clauses for each action (no `_` catch-all) so a new tab
+  # added in the router won't silently fall through to :overview.
+  defp tab_for_action(:policy),   do: :policy
+  defp tab_for_action(:groups),   do: :groups
+  defp tab_for_action(:danger),   do: :danger
+  defp tab_for_action(:overview), do: :overview
+  defp tab_for_action(:show),     do: :overview
+  defp tab_for_action(:edit),     do: :overview
 
   @impl Phoenix.LiveView
   def handle_event("confirm_delete", _, socket),

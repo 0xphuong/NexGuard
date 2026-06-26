@@ -87,17 +87,17 @@
 <%# ── Hero ─────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
-    <div class="ng-user-cell">
-      <div class="ng-avatar ng-avatar--lg ng-avatar--group">
+    <div class="ng-app-hero">
+      <div class="ng-avatar ng-avatar--lg ng-avatar--app">
         <i class="mdi mdi-application-cog-outline"></i>
       </div>
-      <div class="ng-user-info">
-        <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap">
+      <div class="ng-app-hero-meta">
+        <div class="ng-app-hero-breadcrumb">
           <.link navigate={~p"/applications"} class="ng-breadcrumb">Applications</.link>
           <span class="ng-breadcrumb-sep">/</span>
-          <h1 class="ng-page-title" style="margin:0"><%= @application.name %></h1>
+          <h1 class="ng-page-title"><%= @application.name %></h1>
         </div>
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+        <div class="ng-app-hero-status">
           <%= if @application.enabled do %>
             <span class="ng-source-badge ng-source-badge--idp_sync">
               <i class="mdi mdi-check-circle-outline"></i> Enabled
@@ -111,7 +111,7 @@
         </div>
       </div>
     </div>
-    <div style="display:flex;gap:0.5rem;">
+    <div class="ng-app-hero-action">
       <.link patch={~p"/applications/#{@application}/edit"} replace={true} class="ng-secondary-btn">
         <i class="mdi mdi-pencil"></i> Edit
       </.link>
@@ -121,7 +121,7 @@
 
 <%# ── Tab navigation ─────────────────────────────────────────── %>
 <%# Four tabs split what used to be a 500-line scroll into focused
-%# views: Overview (read-only summary), Policy (L7 rules editor),
+%# views: Overview (4-zone summary), Policy (L7 rules editor),
 %# Groups (allowed-groups picker), Danger (enable/disable + delete).
 %# Each tab is URL-addressable + bookmarkable; the live_action atom
 %# carries which tab is active. %>
@@ -158,35 +158,117 @@
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
 <%= if @tab == :overview do %>
-  <%# ── Routing card ─────────────────────────────────────────── %>
+  <%# ── 4-zone Overview card (App-Show-B) ──────────────────────
+  %# Replaces a 5-row stand-alone Routing card with a 2×2 grid
+  %# covering everything an admin scans first: where it lives
+  %# (Routing), how it's gated (Policy + Access), and how it
+  %# terminates TLS (Cert / TLS). Each zone uses the same dense
+  %# `.ng-user-overview-list` dt/dd grid as the user show page. %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
-        <i class="mdi mdi-router-network"></i> Routing
+      <span class="ng-section-header">
+        <i class="mdi mdi-application-cog-outline"></i> Application overview
       </span>
     </div>
-    <dl class="ng-details-list" style="padding: 1.25rem 1.5rem;">
-      <div class="ng-details-row">
-        <dt class="ng-details-label">Hostname</dt>
-        <dd><code><%= @application.hostname %></code></dd>
+    <div class="ng-user-overview-grid">
+      <%# ── Routing zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-router-network"></i> Routing
+        </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>Hostname</dt>
+            <dd><code><%= @application.hostname %></code></dd></div>
+          <div><dt>Virtual IP</dt>
+            <dd><code><%= FzHttpWeb.ApplicationsLive.Index.vip_to_string(@application.virtual_ip) %></code></dd></div>
+          <div><dt>Backend</dt>
+            <dd><code><%= @application.backend %></code></dd></div>
+          <div><dt>TLS mode</dt>
+            <dd><%= @application.tls_mode %></dd></div>
+        </dl>
       </div>
-      <div class="ng-details-row">
-        <dt class="ng-details-label">Virtual IP</dt>
-        <dd><code><%= FzHttpWeb.ApplicationsLive.Index.vip_to_string(@application.virtual_ip) %></code></dd>
+
+      <%# ── Policy zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-filter-variant"></i> Policy
+        </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>L7 rules</dt>
+            <dd>
+              <%= length(@application.l7_rules) %>
+              <.link patch={~p"/applications/#{@application}/policy"}
+                     replace={true}
+                     class="ng-overview-link">Edit →</.link>
+            </dd></div>
+          <div><dt>Default</dt>
+            <dd>
+              <span class="ng-rule-action-badge ng-rule-action-badge--deny">deny</span>
+              <span class="ng-td-muted"> (implicit)</span>
+            </dd></div>
+          <div><dt>Status</dt>
+            <dd>
+              <%= if @application.enabled do %>
+                <span class="ng-source-badge ng-source-badge--idp_sync">Enabled</span>
+              <% else %>
+                <span class="ng-source-badge ng-source-badge--manual">Draft</span>
+              <% end %>
+            </dd></div>
+        </dl>
       </div>
-      <div class="ng-details-row">
-        <dt class="ng-details-label">Backend</dt>
-        <dd><code><%= @application.backend %></code></dd>
+
+      <%# ── Access zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-account-multiple-check-outline"></i> Access
+        </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>Allowed groups</dt>
+            <dd>
+              <%= length(@allowed_groups) %>
+              <.link patch={~p"/applications/#{@application}/groups"}
+                     replace={true}
+                     class="ng-overview-link">Manage →</.link>
+            </dd></div>
+          <div><dt>Visibility</dt>
+            <dd>
+              <%= if @allowed_groups == [] do %>
+                <span class="ng-td-muted">No one (gate is fail-closed)</span>
+              <% else %>
+                <span class="ng-td-muted">Members of the allowed groups, plus break-glass users</span>
+              <% end %>
+            </dd></div>
+        </dl>
       </div>
-      <div class="ng-details-row">
-        <dt class="ng-details-label">TLS mode</dt>
-        <dd><%= @application.tls_mode %></dd>
+
+      <%# ── Cert / TLS zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-certificate-outline"></i> Cert / TLS
+        </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>Cert source</dt>
+            <dd>
+              <%= case @application.cert_source do %>
+                <% :library -> %><i class="mdi mdi-certificate-outline"></i> Shared library
+                <% :step_ca -> %><i class="mdi mdi-shield-key-outline"></i> Internal CA (step-ca)
+                <% :upload  -> %><i class="mdi mdi-cloud-upload-outline"></i> Per-app upload
+                <% other     -> %><%= other %>
+              <% end %>
+            </dd></div>
+          <%= if @application.cert_source == :library and not is_nil(@application.tls_auto_match) do %>
+            <div><dt>Auto-match</dt>
+              <dd>
+                <%= if @application.tls_auto_match do %>
+                  <span class="ng-source-badge ng-source-badge--idp_sync">on</span>
+                <% else %>
+                  <span class="ng-source-badge ng-source-badge--manual">off — pinned</span>
+                <% end %>
+              </dd></div>
+          <% end %>
+        </dl>
       </div>
-      <div class="ng-details-row">
-        <dt class="ng-details-label">Cert source</dt>
-        <dd><%= @application.cert_source %></dd>
-      </div>
-    </dl>
+    </div>
   </div>
 <% end %>
 
@@ -194,14 +276,14 @@
   <%# ── L7 Rules editor ─────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
+      <span class="ng-section-header">
         <i class="mdi mdi-filter-variant"></i> L7 Rules
         <span class="ng-section-badge"><%= length(@application.l7_rules) %></span>
       </span>
     </div>
 
-    <div style="padding: 1.25rem 1.5rem;">
-      <p class="ng-form-hint" style="margin-top:0">
+    <div class="ng-detail-card-body">
+      <p class="ng-form-hint ng-form-hint--lead">
         Rules evaluate <strong>first-match wins</strong>; an implicit
         <code>deny</code> applies if no rule matches. Each rule can
         narrow on HTTP method, path prefix, required groups (beyond
@@ -216,11 +298,11 @@
             <div class="ng-radio-row">
               <label class="ng-radio-inline">
                 <input type="radio" name="action" value="allow" checked />
-                <span class="ng-source-badge ng-source-badge--idp_sync">allow</span>
+                <span class="ng-rule-action-badge ng-rule-action-badge--allow">allow</span>
               </label>
               <label class="ng-radio-inline">
                 <input type="radio" name="action" value="deny" />
-                <span class="ng-source-badge ng-scope-badge--all" style="text-transform:lowercase;letter-spacing:0;font-weight:600;padding:0.1rem 0.5rem">deny</span>
+                <span class="ng-rule-action-badge ng-rule-action-badge--deny">deny</span>
               </label>
             </div>
           </div>
@@ -246,7 +328,7 @@
           <div class="ng-field">
             <label class="ng-label">Require groups <span class="ng-td-muted">(any of)</span></label>
             <%= if @allowed_groups == [] do %>
-              <p class="ng-td-muted" style="margin:0">Add allowed groups first to pick from.</p>
+              <p class="ng-form-hint">Add allowed groups first to pick from.</p>
             <% else %>
               <div class="ng-checkbox-row">
                 <%= for g <- @allowed_groups do %>
@@ -266,7 +348,7 @@
           </div>
         </div>
 
-        <div class="ng-form-actions" style="margin-top:0.5rem">
+        <div class="ng-form-actions ng-form-actions--spaced">
           <button type="submit" class="ng-primary-btn">
             <i class="mdi mdi-plus"></i> Add Rule
           </button>
@@ -276,7 +358,7 @@
 
     <%# ── Existing rules table ──────────────────────────────────── %>
     <%= if @application.l7_rules == [] do %>
-      <div style="padding: 0 1.5rem 1.5rem;">
+      <div class="ng-detail-card-body--bottom">
         <div class="ng-empty-state ng-empty-state--inline">
           <p class="ng-empty-state-hint">
             No rules yet. With zero rules the implicit default
@@ -287,18 +369,18 @@
         </div>
       </div>
     <% else %>
-      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+      <div class="ng-table-wrap ng-table-wrap--flush">
         <table class="ng-table">
           <thead>
             <tr>
-              <th style="width: 3rem;">#</th>
+              <th class="ng-th-narrow">#</th>
               <th>Action</th>
               <th>Method</th>
               <th>Path prefix</th>
               <th>Require groups</th>
               <th>MFA age (s)</th>
-              <th class="ng-th-center" style="width: 7rem;">Order</th>
-              <th class="ng-th-center" style="width: 3rem;"></th>
+              <th class="ng-th-center ng-th-actions">Order</th>
+              <th class="ng-th-center ng-th-narrow"></th>
             </tr>
           </thead>
           <tbody>
@@ -308,9 +390,9 @@
                 <td>
                   <%= case rule["action"] do %>
                     <% "allow" -> %>
-                      <span class="ng-source-badge ng-source-badge--idp_sync">allow</span>
+                      <span class="ng-rule-action-badge ng-rule-action-badge--allow">allow</span>
                     <% _ -> %>
-                      <span class="ng-source-badge" style="background:#fee2e2;color:#b91c1c">deny</span>
+                      <span class="ng-rule-action-badge ng-rule-action-badge--deny">deny</span>
                   <% end %>
                 </td>
                 <td>
@@ -372,7 +454,7 @@
             <tr class="ng-rule-implicit">
               <td class="ng-td-muted">∞</td>
               <td>
-                <span class="ng-source-badge" style="background:#fee2e2;color:#b91c1c">deny</span>
+                <span class="ng-rule-action-badge ng-rule-action-badge--deny">deny</span>
               </td>
               <td class="ng-td-muted" colspan="4">
                 <em>Implicit default deny — applied if no rule above matched.</em>
@@ -391,16 +473,17 @@
   <%# ── Allowed Groups ───────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
+      <span class="ng-section-header">
         <i class="mdi mdi-account-group-outline"></i> Allowed Groups
         <span class="ng-section-badge"><%= length(@allowed_groups) %></span>
       </span>
     </div>
 
-    <div style="padding: 1.25rem 1.5rem;">
+    <div class="ng-detail-card-body">
       <%= if @available_groups != [] do %>
-        <form id="add-allowed-group-form" phx-submit="add_allowed_group" class="ng-form-inline" autocomplete="off">
-          <div class="ng-field" style="flex: 1; margin: 0;">
+        <form id="add-allowed-group-form" phx-submit="add_allowed_group"
+              class="ng-form-inline" autocomplete="off">
+          <div class="ng-field ng-field--grow">
             <label class="ng-label">Allow a group</label>
             <select name="group_id" class="ng-input" required>
               <option value="">Select a group…</option>
@@ -409,16 +492,17 @@
               <% end %>
             </select>
           </div>
-          <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
+          <button type="submit" class="ng-primary-btn ng-form-inline-btn">
             <i class="mdi mdi-plus"></i> Add
           </button>
         </form>
       <% else %>
-        <p class="ng-td-muted" style="margin-bottom:1rem">
+        <p class="ng-form-hint">
           <%= if @allowed_groups == [] do %>
             <i class="mdi mdi-information-outline"></i>
             No access groups defined yet.
-            <.link navigate={~p"/access-groups"}>Create one</.link> first to gate this app.
+            <.link navigate={~p"/access-groups"} class="ng-inline-link">Create one</.link>
+            first to gate this app.
           <% else %>
             Every existing group is already allowed for this app.
           <% end %>
@@ -427,7 +511,7 @@
     </div>
 
     <%= if @allowed_groups == [] do %>
-      <div style="padding: 0 1.5rem 1.5rem;">
+      <div class="ng-detail-card-body--bottom">
         <div class="ng-empty-state ng-empty-state--inline">
           <p class="ng-empty-state-hint">
             No groups allowed. With zero allowed groups the policy bundle
@@ -438,14 +522,14 @@
         </div>
       </div>
     <% else %>
-      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+      <div class="ng-table-wrap ng-table-wrap--flush">
         <table class="ng-table">
           <thead>
             <tr>
               <th>Group</th>
               <th>Source</th>
               <th>Description</th>
-              <th class="ng-th-center" style="width: 3rem;"></th>
+              <th class="ng-th-center ng-th-narrow"></th>
             </tr>
           </thead>
           <tbody>
@@ -507,7 +591,7 @@
               routing traffic to its backend and CoreDNS releases the hostname.
             <% else %>
               Adds this app to the next policy bundle. Requires at least one
-              L7 rule (Wave 3c) before the toggle will succeed.
+              L7 rule before the toggle will succeed.
             <% end %>
           </p>
         </div>
@@ -519,7 +603,7 @@
           <% end %>
         </button>
       </div>
-      <hr style="border:none;border-top:1px solid #fee2e2;margin:1.25rem 0" />
+      <hr class="ng-danger-zone-divider" />
       <div class="ng-danger-zone-item">
         <div>
           <div class="ng-danger-zone-label">Delete this application</div>

@@ -91,21 +91,6 @@
           </div>
         </label>
 
-        <label class={"ng-radio-card #{if cert_source == :step_ca, do: "is-selected", else: ""}"}>
-          <%= radio_button(f, :cert_source, :step_ca, checked: cert_source == :step_ca) %>
-          <div class="ng-radio-card-body">
-            <div class="ng-radio-card-title">
-              <i class="mdi mdi-shield-key-outline"></i> Internal CA (step-ca)
-            </div>
-            <p class="ng-radio-card-desc">
-              NexGuard's smallstep CA issues a 90-day leaf cert and
-              auto-renews it. Best for <code>.internal</code> /
-              <code>.lan</code> hostnames; requires NexGuard Connect
-              clients to trust the internal root CA.
-            </p>
-          </div>
-        </label>
-
         <label class={"ng-radio-card #{if cert_source == :upload, do: "is-selected", else: ""}"}>
           <%= radio_button(f, :cert_source, :upload, checked: cert_source == :upload) %>
           <div class="ng-radio-card-body">
@@ -117,6 +102,28 @@
               the cert can't be shared (different issuer, different
               SAN). Consider the shared library above for wildcard
               certs covering multiple apps.
+            </p>
+          </div>
+        </label>
+
+        <%# step_ca is demoted to last position with a "Pending" badge
+        %# — ADR-011 specifies it but the pipeline (CA bootstrap +
+        %# auto-rotation + Connect-client trust) hasn't shipped yet.
+        %# Existing apps that already use step_ca keep working; the
+        %# demotion is purely visual so new declarations default to
+        %# library. %>
+        <label class={"ng-radio-card ng-radio-card--disabled #{if cert_source == :step_ca, do: "is-selected", else: ""}"}>
+          <%= radio_button(f, :cert_source, :step_ca, checked: cert_source == :step_ca) %>
+          <div class="ng-radio-card-body">
+            <div class="ng-radio-card-title">
+              <i class="mdi mdi-shield-key-outline"></i> Internal CA (step-ca)
+              <span class="ng-radio-card-badge">Pending</span>
+            </div>
+            <p class="ng-radio-card-desc">
+              NexGuard's smallstep CA will issue a 90-day leaf cert
+              and auto-renew it (ADR-011). Pipeline still in build;
+              prefer <strong>Shared library</strong> above for new
+              apps until step-ca ships.
             </p>
           </div>
         </label>
@@ -204,7 +211,7 @@
 
         <%# Explicit cert picker (shown either as fallback when auto-match disabled %>
         <%# or as an override option even when auto-match is on). %>
-        <div class="ng-field" style="margin-top: 0.75rem;">
+        <div class="ng-field ng-field--spaced">
           <%= label(f, :tls_cert_id, "Explicit certificate (optional)", class: "ng-label ng-label--secondary") %>
           <%= select(f, :tls_cert_id,
                 [{"— Auto-match —", nil} | Enum.map(@library, fn c -> {"#{c.label} (#{c.primary_san})", c.id} end)],

@@ -1,9 +1,8 @@
 defmodule FzHttpWeb.ApplicationsLive.FormComponent do
   @moduledoc """
-  Create / edit a managed application. Wave 3b-1: covers name +
-  hostname + backend + cert_source picker (step_ca path only).
-  Upload cert path comes in 3b-2; required-groups picker in 3b-3;
-  L7 rules row-editor in 3c.
+  Create / edit a managed application — name + hostname + backend +
+  cert source picker (shared library / per-app upload / step-ca).
+  Required-groups + L7 rules are edited on the per-app show page.
   """
   use FzHttpWeb, :live_component
 

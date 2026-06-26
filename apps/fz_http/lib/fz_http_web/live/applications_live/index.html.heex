@@ -71,7 +71,7 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%= if @applications == [] do %>
+  <%= if @all_applications == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-application-cog-outline ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No applications yet</p>
@@ -88,24 +88,26 @@
     <%# Stats strip — org-wide pulse for declared apps. State tiles
     %# (Total / Enabled / Draft) always render; cert-source tiles
     %# only render when count > 0 so the strip doesn't carry a dead
-    %# "step-ca: 0" tile after ADR-015 made :library the default. %>
-    <% library_count = Enum.count(@applications, &(&1.cert_source == :library)) %>
-    <% upload_count  = Enum.count(@applications, &(&1.cert_source == :upload))  %>
-    <% step_ca_count = Enum.count(@applications, &(&1.cert_source == :step_ca)) %>
+    %# "step-ca: 0" tile after ADR-015 made :library the default.
+    %# Counts are derived from the unfiltered `@all_applications` so
+    %# the strip pulses the whole org regardless of the active filter. %>
+    <% library_count = Enum.count(@all_applications, &(&1.cert_source == :library)) %>
+    <% upload_count  = Enum.count(@all_applications, &(&1.cert_source == :upload))  %>
+    <% step_ca_count = Enum.count(@all_applications, &(&1.cert_source == :step_ca)) %>
     <div class="ng-stat-strip">
       <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value"><%= length(@applications) %></div>
+        <div class="ng-stat-tile-value"><%= length(@all_applications) %></div>
         <div class="ng-stat-tile-label">Total apps</div>
       </div>
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value">
-          <%= Enum.count(@applications, & &1.enabled) %>
+          <%= Enum.count(@all_applications, & &1.enabled) %>
         </div>
         <div class="ng-stat-tile-label">Enabled</div>
       </div>
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value">
-          <%= Enum.count(@applications, &(!&1.enabled)) %>
+          <%= Enum.count(@all_applications, &(!&1.enabled)) %>
         </div>
         <div class="ng-stat-tile-label">Draft</div>
       </div>
@@ -135,6 +137,52 @@
       <% end %>
     </div>
 
+    <%# ── Filter bar (App-Idx-A) — search + status chip ────── %>
+    <.form
+      :let={_f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by name or hostname…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="filters[status]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @status_options do %>
+          <option value={value} selected={value == @filters["status"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <%= if FzHttpWeb.ApplicationsLive.Index.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@applications) %> of <%= length(@all_applications) %>
+      </span>
+    </.form>
+
+    <%= if @applications == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No applications match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
     <div class="ng-table-wrap">
       <table class="ng-table">
         <thead>
@@ -145,7 +193,7 @@
             <th class="ng-th-center">Groups</th>
             <th>Status</th>
             <th>Created</th>
-            <th class="ng-th-center" style="width: 3rem;"></th>
+            <th class="ng-th-center ng-th-narrow"></th>
           </tr>
         </thead>
         <tbody>
@@ -211,5 +259,6 @@
         </tbody>
       </table>
     </div>
+    <% end %>
   <% end %>
 </section>
