@@ -2,7 +2,7 @@
   <div class="ng-page-header-inner">
     <div>
       <h1 class="ng-page-title">Devices</h1>
-      <p class="ng-page-subtitle"><%= length(@devices) %> device<%= if length(@devices) != 1, do: "s" %> — managed via user profiles</p>
+      <p class="ng-page-subtitle">Identity-bound WireGuard peers — managed via user profiles.</p>
     </div>
     <.link navigate={~p"/users"} class="ng-secondary-btn">
       <i class="mdi mdi-account-group"></i> Go to Users
@@ -49,7 +49,7 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%= if @devices == [] do %>
+  <%= if @all_devices == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-laptop ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No devices yet</p>
@@ -59,6 +59,90 @@
       </p>
     </div>
   <% else %>
+    <%# ── Stats strip — Device domain pulse ─────────────────── %>
+    <div class="ng-stat-strip">
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= @stats.total %></div>
+        <div class="ng-stat-tile-label">Total devices</div>
+      </div>
+      <div class={["ng-stat-tile", @stats.pending > 0 && "ng-stat-tile--warn"]}>
+        <div class="ng-stat-tile-value"><%= @stats.pending %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-clock-outline"></i> Pending approval
+        </div>
+      </div>
+      <div class={["ng-stat-tile", @stats.connected > 0 && "ng-stat-tile--ok"]}>
+        <div class="ng-stat-tile-value"><%= @stats.connected %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-circle"></i> Connected now
+        </div>
+      </div>
+      <div class={["ng-stat-tile", @stats.stale > 0 && "ng-stat-tile--muted"]}>
+        <div class="ng-stat-tile-value"><%= @stats.stale %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-alert-circle-outline"></i> Stale (>30d)
+        </div>
+      </div>
+    </div>
+
+    <%# ── Pending banner — surfaces what needs triage ───────── %>
+    <%= if @stats.pending > 0 and @filters["status"] != "pending" do %>
+      <div class="ng-banner ng-banner--warning">
+        <i class="mdi mdi-clock-alert-outline"></i>
+        <span>
+          <strong><%= @stats.pending %></strong>
+          device<%= if @stats.pending != 1, do: "s" %> awaiting approval.
+        </span>
+        <button class="ng-banner-action" phx-click="filter_pending_only">
+          Show only pending
+        </button>
+      </div>
+    <% end %>
+
+    <%# ── Filter bar — search + 2 chips ──────────────────────── %>
+    <.form
+      :let={_f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by device name or user email…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="filters[status]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @status_options do %>
+          <option value={value} selected={value == @filters["status"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <select name="filters[connection]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @connection_options do %>
+          <option value={value} selected={value == @filters["connection"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <%= if FzHttpWeb.DeviceLive.Admin.Index.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@devices) %> of <%= length(@all_devices) %>
+      </span>
+    </.form>
+
     <%# ── Bulk toolbar — appears only when there's a selection ── %>
     <%= if FzHttpWeb.DeviceLive.Admin.Index.selection_count(@selected) > 0 do %>
       <div class="ng-bulk-toolbar">
@@ -84,16 +168,26 @@
       </div>
     <% end %>
 
-    <div class="ng-table-wrap">
+    <%# ── Devices table ──────────────────────────────────────── %>
+    <%= if @devices == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No devices match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
       <% all_selected? = @devices != [] and Enum.all?(@devices, &MapSet.member?(@selected, &1.id)) %>
-      <%= render(FzHttpWeb.SharedView, "devices_table.html",
-        devices: @devices,
-        show_user: true,
-        socket: @socket,
-        selected: @selected,
-        bulk_enabled: true,
-        all_selected: all_selected?
-      ) %>
-    </div>
+      <div class="ng-table-wrap">
+        <%= render(FzHttpWeb.SharedView, "devices_table.html",
+          devices: @devices,
+          show_user: true,
+          socket: @socket,
+          selected: @selected,
+          bulk_enabled: true,
+          all_selected: all_selected?
+        ) %>
+      </div>
+    <% end %>
   <% end %>
 </section>

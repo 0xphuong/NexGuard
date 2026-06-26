@@ -16,6 +16,70 @@ defmodule FzHttp.Devices do
   def has_handshaken?(%Device{latest_handshake: %DateTime{year: year}}) when year < 2000, do: false
   def has_handshaken?(%Device{latest_handshake: %DateTime{}}), do: true
 
+  # ── Connection state ────────────────────────────────────────────
+  #
+  # Answers "is this device healthy right now?" — used by /devices,
+  # /users/:id/devices, and the device show pages to merge what used
+  # to be two separate columns (admin status + raw handshake ts).
+  # `:pending` overrides everything: an unapproved device can never
+  # be "connected" because the proxy peer list excludes it.
+
+  @connected_threshold_seconds 180
+  @recent_threshold_seconds 86_400
+  @idle_threshold_seconds 30 * 86_400
+
+  def connection_state(%Device{status: "pending"}), do: :pending
+
+  def connection_state(%Device{} = device) do
+    if has_handshaken?(device) do
+      diff = DateTime.diff(DateTime.utc_now(), device.latest_handshake, :second)
+
+      cond do
+        diff <= @connected_threshold_seconds -> :connected
+        diff <= @recent_threshold_seconds    -> :recent
+        diff <= @idle_threshold_seconds      -> :idle
+        true                                 -> :stale
+      end
+    else
+      :never
+    end
+  end
+
+  def connection_class(:connected), do: "ng-conn--connected"
+  def connection_class(:recent),    do: "ng-conn--recent"
+  def connection_class(:idle),      do: "ng-conn--idle"
+  def connection_class(:stale),     do: "ng-conn--stale"
+  def connection_class(:pending),   do: "ng-conn--pending"
+  def connection_class(:never),     do: "ng-conn--never"
+
+  def connection_label(:connected), do: "Connected"
+  def connection_label(:recent),    do: "Recent"
+  def connection_label(:idle),      do: "Idle"
+  def connection_label(:stale),     do: "Stale"
+  def connection_label(:pending),   do: "Pending"
+  def connection_label(:never),     do: "Never connected"
+
+  def connection_icon(:connected), do: "mdi-circle"
+  def connection_icon(:recent),    do: "mdi-circle-outline"
+  def connection_icon(:idle),      do: "mdi-circle-outline"
+  def connection_icon(:stale),     do: "mdi-alert-circle-outline"
+  def connection_icon(:pending),   do: "mdi-clock-outline"
+  def connection_icon(:never),     do: "mdi-minus-circle-outline"
+
+  def relative_handshake(nil), do: nil
+  def relative_handshake(%DateTime{year: y}) when y < 2000, do: nil
+
+  def relative_handshake(%DateTime{} = ts) do
+    diff = DateTime.diff(DateTime.utc_now(), ts, :second)
+
+    cond do
+      diff < 60      -> "just now"
+      diff < 3600    -> "#{div(diff, 60)}m ago"
+      diff < 86_400  -> "#{div(diff, 3600)}h ago"
+      true           -> "#{div(diff, 86_400)}d ago"
+    end
+  end
+
   def count_by_user_id(user_id) do
     Device.Query.by_user_id(user_id)
     |> Repo.aggregate(:count)

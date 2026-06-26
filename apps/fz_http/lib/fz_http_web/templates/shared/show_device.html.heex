@@ -7,7 +7,7 @@
     <div class="modal-card">
       <header class="modal-card-head">
         <p class="modal-card-title">
-          <i class="mdi mdi-check-circle ng-modal-title-icon" style="color:#16a34a"></i>
+          <i class="mdi mdi-check-circle ng-modal-title-icon ng-modal-title-icon--ok"></i>
           Approve Device
         </p>
         <button class="ng-modal-close" aria-label="Close" phx-click="cancel_approve_device">
@@ -42,7 +42,7 @@
     <div class="modal-card">
       <header class="modal-card-head">
         <p class="modal-card-title">
-          <i class="mdi mdi-alert-octagon ng-modal-title-icon" style="color:#f59e0b"></i>
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon ng-modal-title-icon--warn"></i>
           Revoke Approval
         </p>
         <button class="ng-modal-close" aria-label="Close" phx-click="cancel_revoke_approval">
@@ -105,166 +105,137 @@
   </div>
 <% end %>
 
-<%# ── Page Header ──────────────────────────────────────────────────────────── %>
+<%# ── Hero ─────────────────────────────────────────────────────────────────
+%# Single status zone consolidating what used to be two surfaces:
+%# the page-header "Connected / Never connected" badge AND a
+%# separate "Approval status" card lower down. Approval state now
+%# overrides connection state (a pending device cannot be
+%# connected; the proxy excludes it). The Approve / Revoke button
+%# moves up next to the status badge so the action is one click
+%# away, not buried below the network details. %>
+<% conn_state = FzHttp.Devices.connection_state(@device) %>
+<% admin?     = FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) %>
+
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
-    <div>
-      <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap;margin-bottom:0.25rem">
-        <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) do %>
+    <div class="ng-device-hero">
+      <div class="ng-device-hero-breadcrumb">
+        <%= if admin? do %>
           <.link navigate={~p"/users/#{@user}"} class="ng-breadcrumb"><%= @user.email %></.link>
           <span class="ng-breadcrumb-sep">/</span>
         <% else %>
           <.link navigate={~p"/user_devices"} class="ng-breadcrumb">My Devices</.link>
           <span class="ng-breadcrumb-sep">/</span>
         <% end %>
-        <h1 class="ng-page-title" style="margin:0"><%= @device.name %></h1>
+        <h1 class="ng-page-title ng-device-hero-title"><%= @device.name %></h1>
       </div>
-      <div style="display:flex;align-items:center;gap:0.5rem">
-        <%= if FzHttp.Devices.has_handshaken?(@device) do %>
-          <span class="ng-status-badge ng-status-badge--active">
-            <i class="mdi mdi-circle ng-status-dot"></i> Connected
-          </span>
-        <% else %>
-          <span class="ng-status-badge ng-status-badge--inactive">
-            <i class="mdi mdi-circle ng-status-dot"></i> Never connected
-          </span>
-        <% end %>
+      <div class="ng-device-hero-status">
+        <span class={["ng-conn-cell ng-conn-cell--lg",
+                      FzHttp.Devices.connection_class(conn_state)]}>
+          <i class={["mdi", FzHttp.Devices.connection_icon(conn_state)]}></i>
+          <strong><%= FzHttp.Devices.connection_label(conn_state) %></strong>
+          <%= case FzHttp.Devices.relative_handshake(@device.latest_handshake) do
+                nil -> ""
+                s   -> " · last handshake " <> s
+              end %>
+        </span>
         <%= if @device.description do %>
           <span class="ng-breadcrumb-sep">·</span>
           <span class="ng-td-muted"><%= @device.description %></span>
         <% end %>
       </div>
     </div>
+    <%# Admin: approval action surfaces here, not in a separate card %>
+    <%= if admin? do %>
+      <div class="ng-device-hero-action">
+        <%= if @device.status == "pending" do %>
+          <button class="ng-primary-btn" phx-click="confirm_approve_device">
+            <i class="mdi mdi-check"></i> Approve device
+          </button>
+        <% else %>
+          <button class="ng-secondary-btn" phx-click="confirm_revoke_approval">
+            <i class="mdi mdi-cancel"></i> Revoke approval
+          </button>
+        <% end %>
+      </div>
+    <% end %>
   </div>
 </div>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Transfer Stats ───────────────────────────────────────────────────────── %>
-  <div class="ng-stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:1.5rem">
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--blue">
-        <i class="mdi mdi-download"></i>
-      </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= to_human_bytes(@device.rx_bytes) %></div>
-        <div class="ng-stat-label">Received</div>
-      </div>
-    </div>
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--indigo">
-        <i class="mdi mdi-upload"></i>
-      </div>
-      <div class="ng-stat-body">
-        <div class="ng-stat-value"><%= to_human_bytes(@device.tx_bytes) %></div>
-        <div class="ng-stat-label">Sent</div>
+  <%# ── Transfer + Handshake stat strip — neutral, state-driven ──
+  %# Old version used colored icon tiles (blue/indigo/green) per
+  %# the dashboard pre-v3.0.6 pattern. Dashboard already dropped
+  %# colored icons in favour of state-driven colour; device show
+  %# follows the same rule now. %>
+  <div class="ng-stat-strip ng-stat-strip--device">
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value"><%= to_human_bytes(@device.rx_bytes) %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-arrow-down-bold"></i> Received
       </div>
     </div>
-    <div class="ng-stat-card">
-      <div class="ng-stat-icon ng-stat-icon--green">
-        <i class="mdi mdi-handshake"></i>
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value"><%= to_human_bytes(@device.tx_bytes) %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-arrow-up-bold"></i> Sent
       </div>
-      <div class="ng-stat-body">
+    </div>
+    <div class={["ng-stat-tile", FzHttp.Devices.connection_class(conn_state)]}>
+      <div
+        class="ng-stat-tile-value ng-stat-tile-value--sm"
+        id={"device-#{@device.id}-handshake-stat"}
+        data-timestamp={@device.latest_handshake}
+        phx-hook="FormatTimestamp"
+      >…</div>
+      <div class="ng-stat-tile-label">
+        <i class={["mdi", FzHttp.Devices.connection_icon(conn_state)]}></i> Latest handshake
+      </div>
+    </div>
+    <%= if admin? and @device.status == "approved" and @device.approved_at do %>
+      <div class="ng-stat-tile">
         <div
-          class="ng-stat-value ng-stat-value--sm"
-          id={"device-#{@device.id}-handshake-stat"}
-          data-timestamp={@device.latest_handshake}
+          class="ng-stat-tile-value ng-stat-tile-value--sm"
+          id={"device-#{@device.id}-approved-at"}
+          data-timestamp={@device.approved_at}
           phx-hook="FormatTimestamp"
         >…</div>
-        <div class="ng-stat-label">Latest Handshake</div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-check-circle"></i> Approved
+        </div>
       </div>
-    </div>
+    <% end %>
   </div>
 
-  <%# ── Details ─────────────────────────────────────────────────────────────── %>
-  <%= render(FzHttpWeb.SharedView, "device_details.html", assigns) %>
+  <%# ── Network + WireGuard side-by-side on desktop ──────────── %>
+  <div class="ng-device-detail-grid">
+    <%= render(FzHttpWeb.SharedView, "device_details.html", assigns) %>
+  </div>
 
-  <%# ── Admin: Approval status ──────────────────────────────────────────────── %>
-  <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) do %>
-    <div class="ng-settings-card" style="margin-top:1.5rem">
-      <div style="padding:1.25rem 1.5rem">
-        <%= if @device.status == "pending" do %>
-          <div style="display:flex;align-items:flex-start;gap:1rem">
-            <div style="flex-shrink:0;width:40px;height:40px;background:#fef3c7;border-radius:8px;display:flex;align-items:center;justify-content:center">
-              <i class="mdi mdi-clock-outline" style="color:#92400e;font-size:1.25rem"></i>
-            </div>
-            <div style="flex:1">
-              <h3 style="margin:0 0 0.25rem 0;font-size:0.9375rem;font-weight:600;color:#92400e">
-                Pending Admin Approval
-              </h3>
-              <p style="margin:0 0 0.75rem 0;color:#64748b;font-size:0.8125rem;line-height:1.5">
-                This device was self-enrolled by <strong><%= @user.email %></strong>
-                and cannot connect to the VPN until you approve it.
-              </p>
-              <button
-                class="ng-primary-btn"
-                phx-click="confirm_approve_device"
-              >
-                <i class="mdi mdi-check"></i> Approve Device
-              </button>
-            </div>
-          </div>
-        <% else %>
-          <div style="display:flex;align-items:flex-start;gap:1rem">
-            <div style="flex-shrink:0;width:40px;height:40px;background:#dcfce7;border-radius:8px;display:flex;align-items:center;justify-content:center">
-              <i class="mdi mdi-check-circle" style="color:#16a34a;font-size:1.25rem"></i>
-            </div>
-            <div style="flex:1">
-              <h3 style="margin:0 0 0.25rem 0;font-size:0.9375rem;font-weight:600;color:#166534">
-                Approved
-              </h3>
-              <p style="margin:0 0 0.75rem 0;color:#64748b;font-size:0.8125rem;line-height:1.5">
-                <%= if @device.approved_at do %>
-                  Approved
-                  <span
-                    id={"device-#{@device.id}-approved-at"}
-                    data-timestamp={@device.approved_at}
-                    phx-hook="FormatTimestamp"
-                  >…</span>.
-                <% else %>
-                  Approved by default (created via admin portal).
-                <% end %>
-                Revoke to require re-approval — the device will be removed from
-                the WireGuard peer list immediately.
-              </p>
-              <button
-                class="ng-secondary-btn"
-                phx-click="confirm_revoke_approval"
-              >
-                <i class="mdi mdi-close"></i> Revoke Approval
-              </button>
-            </div>
-          </div>
-        <% end %>
+  <%# ── Admin: Network Configuration (edit tunnel IPs) ──────── %>
+  <%= if admin? and assigns[:ip_changeset] do %>
+    <div class="ng-detail-card ng-detail-card--admin">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-ip-network"></i> Network configuration
+        </span>
       </div>
-    </div>
-  <% end %>
-
-  <%# ── Admin: Network Configuration (edit tunnel IPs) ──────────────────────── %>
-  <%= if FzHttpWeb.LiveAuth.has_role?(@current_user, :admin) and assigns[:ip_changeset] do %>
-    <div class="ng-settings-card" style="margin-top:1.5rem">
-      <div style="padding:1.25rem 1.5rem;border-bottom:1px solid #f1f5f9">
-        <h2 style="margin:0 0 0.25rem 0;font-size:1rem;font-weight:600;display:flex;align-items:center;gap:0.5rem">
-          <i class="mdi mdi-ip-network" style="color:#64748b"></i> Network Configuration
-        </h2>
-        <p style="margin:0;color:#64748b;font-size:0.8125rem">
+      <div class="ng-detail-card-body">
+        <p class="ng-form-hint ng-form-hint--lead">
           Change the tunnel IP assigned to this device. Must be within the configured
           WireGuard network range and not in use by another device. The user must
           sign out and sign in on their NexGuard Connect client to apply changes.
         </p>
-      </div>
-      <div style="padding:1.25rem 1.5rem">
         <%= if assigns[:ip_update_message] do %>
-          <div style="display:flex;align-items:flex-start;gap:0.5rem;padding:0.75rem 1rem;background:#dcfce7;border:1px solid #86efac;border-radius:6px;margin-bottom:1rem">
-            <i class="mdi mdi-check-circle" style="color:#16a34a;font-size:1.25rem;flex-shrink:0"></i>
-            <span style="color:#166534;font-size:0.875rem;line-height:1.4;flex:1">
-              <%= @ip_update_message %>
-            </span>
+          <div class="ng-modal-callout ng-modal-callout--success">
+            <i class="mdi mdi-check-circle"></i>
+            <span><%= @ip_update_message %></span>
             <button
               type="button"
+              class="ng-modal-callout-dismiss"
               phx-click="dismiss_ip_update_message"
-              style="background:none;border:none;cursor:pointer;color:#166534;padding:0;display:flex;align-items:center"
               title="Dismiss"
             >
               <i class="mdi mdi-close"></i>
@@ -274,7 +245,7 @@
         <.form :let={f} for={@ip_changeset} id="device-ip-form" phx-submit="update_ip">
           <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv4_enabled) do %>
             <div class="ng-field">
-              <%= label(f, :ipv4, "Tunnel IPv4 Address", class: "ng-label") %>
+              <%= label(f, :ipv4, "Tunnel IPv4 address", class: "ng-label") %>
               <%= text_input(f, :ipv4,
                 value: to_string(@device.ipv4),
                 placeholder: "e.g. 100.64.0.5",
@@ -285,7 +256,7 @@
           <% end %>
           <%= if FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv6_enabled) do %>
             <div class="ng-field">
-              <%= label(f, :ipv6, "Tunnel IPv6 Address", class: "ng-label") %>
+              <%= label(f, :ipv6, "Tunnel IPv6 address", class: "ng-label") %>
               <%= text_input(f, :ipv6,
                 value: to_string(@device.ipv6),
                 placeholder: "e.g. fd00::5",
@@ -294,7 +265,7 @@
               <p class="ng-field-error"><%= error_tag(@ip_changeset, :ipv6) %></p>
             </div>
           <% end %>
-          <div style="margin-top:1rem">
+          <div class="ng-form-actions">
             <%= submit("Update IP",
               phx_disable_with: "Updating…",
               class: "ng-primary-btn"
@@ -305,7 +276,7 @@
     </div>
   <% end %>
 
-  <%# ── Danger Zone ─────────────────────────────────────────────────────────── %>
+  <%# ── Danger Zone ─────────────────────────────────────────── %>
   <%= if FzHttp.Devices.authorize_user_device_management(@current_user.id, @subject) == :ok do %>
     <div class="ng-danger-zone">
       <div class="ng-danger-zone-header">

@@ -1,7 +1,13 @@
 <%# `@bulk_enabled` is opt-in — when set, the table grows a checkbox
 %# column with select-all in the header. Other callers (user show
 %# page, unprivileged device list) leave it unset and render the
-%# original table shape. %>
+%# original table shape.
+%#
+%# v3.0.9 (D-Idx-A): Status + Last Handshake collapsed into a single
+%# Connection column (pending overrides connection state). Public
+%# Key and Created columns dropped — public key is on the device
+%# show page, created timestamp is rarely scanned daily and clutter
+%# was hiding the security-meaningful signals. %>
 <% bulk = assigns[:bulk_enabled] || false %>
 <% selected = assigns[:selected] || MapSet.new() %>
 <% all_selected = assigns[:all_selected] || false %>
@@ -23,18 +29,18 @@
       <%= if @show_user do %>
         <th>User</th>
       <% end %>
-      <th>Status</th>
+      <th>Connection</th>
       <th>Tunnel IPs</th>
       <th>Remote IP</th>
-      <th>Last Handshake</th>
       <th>Transfer</th>
-      <th>Public Key</th>
-      <th>Created</th>
     </tr>
   </thead>
   <tbody>
     <%= for device <- @devices do %>
-      <tr class={[bulk and MapSet.member?(selected, device.id) and "is-row-selected"]}>
+      <% state = FzHttp.Devices.connection_state(device) %>
+      <tr class={[bulk and MapSet.member?(selected, device.id) and "is-row-selected",
+                  state == :pending and "ng-row--pending",
+                  state == :stale and "ng-row--stale"]}>
         <%= if bulk do %>
           <td class="ng-bulk-checkbox-td">
             <input
@@ -62,28 +68,21 @@
           </td>
         <% end %>
         <td>
-          <%= if device.status == "pending" do %>
-            <span class="ng-status-badge ng-status-badge--inactive" style="background:#fef3c7;color:#92400e">
-              <i class="mdi mdi-clock-outline ng-status-dot"></i> Pending
-            </span>
-          <% else %>
-            <span class="ng-status-badge ng-status-badge--active">
-              <i class="mdi mdi-check-circle ng-status-dot"></i> Approved
-            </span>
-          <% end %>
+          <span class={["ng-conn-cell", FzHttp.Devices.connection_class(state)]}>
+            <i class={["mdi", FzHttp.Devices.connection_icon(state)]}></i>
+            <strong><%= FzHttp.Devices.connection_label(state) %></strong>
+            <%= case FzHttp.Devices.relative_handshake(device.latest_handshake) do
+                  nil -> ""
+                  s   -> " · " <> s
+                end %>
+          </span>
         </td>
         <td class="ng-td-mono">
           <div><%= device.ipv4 %></div>
           <div class="ng-td-muted"><%= device.ipv6 %></div>
         </td>
-        <td class="ng-td-mono ng-td-muted"><%= device.remote_ip %></td>
-        <td
-          id={"device-#{device.id}-latest-handshake"}
-          data-timestamp={device.latest_handshake}
-          phx-hook="FormatTimestamp"
-          class="ng-td-muted"
-        >
-          …
+        <td class="ng-td-mono ng-td-muted">
+          <%= device.remote_ip || "—" %>
         </td>
         <td class="ng-td-mono">
           <div class="ng-transfer-row">
@@ -94,17 +93,6 @@
             <i class="mdi mdi-arrow-up-bold ng-transfer-tx"></i>
             <%= to_human_bytes(device.tx_bytes) %>
           </div>
-        </td>
-        <td class="ng-pubkey" title={device.public_key}>
-          <%= device.public_key %>
-        </td>
-        <td
-          id={"device-#{device.id}-inserted-at"}
-          data-timestamp={device.inserted_at}
-          phx-hook="FormatTimestamp"
-          class="ng-td-muted"
-        >
-          …
         </td>
       </tr>
     <% end %>

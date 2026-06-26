@@ -501,6 +501,11 @@ pre {
 .ng-modal-title-icon {
   color: #dc2626;
   margin-right: 0.4rem;
+
+  /* Semantic variants — default is destructive red (most modals are
+     dangerous), but approve/revoke flows want green/amber. */
+  &--ok   { color: #16a34a; }
+  &--warn { color: #f59e0b; }
 }
 
 .ng-modal-intro {
@@ -962,6 +967,45 @@ pre {
     margin-right: 0.15rem;
     color: #94a3b8;
   }
+}
+
+/* Optional state modifiers on the tile itself — used by /devices
+   stats strip to colour-code "Pending" amber / "Connected" green /
+   "Stale" muted ONLY when the count is > 0. A zero count stays
+   neutral so the strip doesn't shout when there is nothing to do. */
+.ng-stat-tile--warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+  .ng-stat-tile-value { color: #92400e; }
+  .ng-stat-tile-label { color: #92400e; i.mdi { color: #d97706; } }
+}
+
+.ng-stat-tile--ok {
+  background: #f0fdf4;
+  border-color: #86efac;
+  .ng-stat-tile-value { color: #14532d; }
+  .ng-stat-tile-label { color: #166534; i.mdi { color: #16a34a; } }
+}
+
+.ng-stat-tile--muted {
+  background: #f8fafc;
+  .ng-stat-tile-value { color: #64748b; }
+  .ng-stat-tile-label i.mdi { color: #94a3b8; }
+}
+
+/* Smaller tile value — for timestamps that don't fit the default
+   1.5rem heading size (e.g. "30 seconds ago"). */
+.ng-stat-tile-value--sm {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+/* Stat strip variant — device show page. Slightly tighter than the
+   index strip so it doesn't dominate the page header. */
+.ng-stat-strip--device {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin-bottom: 1.25rem;
 }
 
 /* Inline form layout for "Add member" inside Members card. */
@@ -4253,6 +4297,12 @@ pre {
 
   &:last-child { margin-bottom: 0; }
 
+  /* Lead variant — used at the TOP of a card body to explain the
+     form below. Bigger bottom margin than the inline hint. */
+  &--lead {
+    margin-bottom: 1rem;
+  }
+
   /* Strong + em inside hints should match weight/style but keep
      the base size — they were rendering at full 1rem before. */
   strong { font-weight: 600; color: #1e293b; }
@@ -4807,6 +4857,32 @@ pre {
 
     i { color: #d97706; }
   }
+
+  /* Success variant — green chrome, used after a destructive admin
+     edit completes ("IP updated. The device's client must sign out
+     and sign in to apply.") so the success message reads as a
+     callout, not a flash. Includes an optional close button. */
+  &--success {
+    background: #dcfce7;
+    border-color: #86efac;
+    color: #166534;
+
+    i { color: #16a34a; }
+  }
+}
+
+.ng-modal-callout-dismiss {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.7;
+
+  &:hover { opacity: 1; }
 }
 
 /* Preview block inside the cert upload/replace modal — same idea as
@@ -4897,4 +4973,155 @@ pre {
   }
 
   span { flex: 1; }
+}
+
+/* ── Devices: connection state cell (D-Idx-A / D-Show-A) ────────
+   Merges what used to be two columns — admin Status (pending /
+   approved) AND raw last-handshake timestamp — into a single
+   semantic badge: state + relative time. Pending overrides
+   everything: an unapproved device cannot be "connected" because
+   the proxy excludes it from the peer list. The same component
+   scales up to the device hero via the `--lg` modifier. */
+.ng-conn-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  white-space: nowrap;
+  color: #475569;
+
+  strong { font-weight: 600; }
+
+  i.mdi {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+
+  &.ng-conn--connected {
+    color: #166534;
+    i { color: #16a34a; animation: ng-conn-pulse 1.8s ease-in-out infinite; }
+    strong { color: #14532d; }
+  }
+  &.ng-conn--recent    { color: #1e3a8a; i { color: #2563eb; } strong { color: #1e3a8a; } }
+  &.ng-conn--idle      { color: #475569; i { color: #94a3b8; } strong { color: #1e293b; } }
+  &.ng-conn--stale     { color: #92400e; i { color: #d97706; } strong { color: #92400e; } }
+  &.ng-conn--pending   { color: #92400e; i { color: #f59e0b; } strong { color: #92400e; } }
+  &.ng-conn--never     { color: #64748b; i { color: #94a3b8; } strong { color: #475569; } }
+
+  /* Large variant — used in device show page hero where it sits
+     next to the device name and breadcrumb. */
+  &.ng-conn-cell--lg {
+    font-size: 0.95rem;
+    gap: 0.45rem;
+    i.mdi { font-size: 1.05rem; }
+  }
+}
+
+@keyframes ng-conn-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.45; }
+}
+
+/* Optional row tint — `pending` rows surface in amber so admin
+   eye lands on them when scrolling; stale rows fade slightly so
+   they sink visually relative to recent activity. */
+.ng-row--pending td { background: #fffbeb; }
+.ng-row--stale   td { color: #94a3b8; }
+.ng-row--stale td.ng-td-mono { color: #94a3b8; }
+
+/* ── Inline banner — pending-devices triage signal ──────────── */
+.ng-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+
+  i.mdi { font-size: 1.15rem; flex-shrink: 0; }
+
+  &--warning {
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    i { color: #d97706; }
+  }
+}
+
+.ng-banner-action {
+  background: #ffffff;
+  border: 1px solid currentColor;
+  color: inherit;
+  padding: 0.25rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: auto;
+
+  &:hover { background: rgba(255, 255, 255, 0.7); }
+}
+
+/* ── Device show page hero (D-Show-A) ───────────────────────────
+   Three rows: breadcrumb + name, connection status + description,
+   and on the right an Approve/Revoke action surfaced from what
+   used to be a separate card lower down the page. */
+.ng-device-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ng-device-hero-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: wrap;
+}
+
+.ng-device-hero-title {
+  margin: 0;
+}
+
+.ng-device-hero-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.ng-device-hero-action {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+/* Two-column grid for Network + WireGuard cards on the show page.
+   Stacks below 1024px so each card retains its dense `dl` layout
+   without crushing values. */
+.ng-device-detail-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.25rem;
+  margin-bottom: 1.25rem;
+
+  @media (min-width: 1024px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* The inner `device_details` partial outputs two .ng-detail-card
+     blocks back-to-back; reset their margin so the grid gap is the
+     only spacing between them. */
+  .ng-detail-card { margin-bottom: 0; }
+}
+
+/* Admin-only "Network configuration" edit card — distinct visual
+   weight from the read-only Network panel above it (subtle blue
+   border so admin understands "this section mutates state"). */
+.ng-detail-card--admin {
+  border-color: #bfdbfe;
 }
