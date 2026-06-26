@@ -4095,6 +4095,141 @@ pre {
   &:hover { color: #1d4ed8; }
 }
 
+/* ── User show — hero + Overview card (Phase U-Show-A) ────────── */
+
+.ng-user-hero-title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+
+  /* The active/disabled dot sits flush with the email text rather
+     than absorbed into the badges row, so admins reading the hero
+     identify health immediately next to the entity name. */
+  .ng-user-dot {
+    margin-left: 0.25rem;
+  }
+}
+
+.ng-user-hero-badges {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+/* Two sub-lines below the title — line 1 = security, line 2 =
+   activity counts. Sub-line typography is small and tabular so
+   it scans like a status stripe rather than competing with the
+   email above. */
+.ng-user-hero-sub {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+
+  i.mdi { font-size: 0.95rem; vertical-align: -2px; }
+}
+
+.ng-user-hero-sub--muted { color: #64748b; }
+
+.ng-user-hero-sep {
+  color: #cbd5e1;
+  user-select: none;
+}
+
+.ng-user-hero-mfa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* MFA-state-driven hero colour. Calm green for :fresh (the
+   common case — recede); amber for stale/none so it draws the eye. */
+.ng-user-mfa--fresh      .ng-user-hero-mfa i.mdi { color: #16a34a; }
+.ng-user-mfa--fresh      .ng-user-hero-mfa      { color: #166534; }
+.ng-user-mfa--stale      .ng-user-hero-mfa i.mdi { color: #d97706; }
+.ng-user-mfa--stale      .ng-user-hero-mfa      { color: #92400e; }
+.ng-user-mfa--unverified .ng-user-hero-mfa i.mdi { color: #64748b; }
+.ng-user-mfa--unverified .ng-user-hero-mfa      { color: #475569; }
+.ng-user-mfa--none       .ng-user-hero-mfa i.mdi { color: #dc2626; }
+.ng-user-mfa--none       .ng-user-hero-mfa      { color: #991b1b; }
+
+/* Overview card 4-zone grid — replaces the old <dl> Profile partial
+   on the user show page. 2 cols at desktop, stacks at <= 768px. */
+.ng-user-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  border-top: 1px solid #f1f5f9;
+}
+
+@media (max-width: 768px) {
+  .ng-user-overview-grid { grid-template-columns: 1fr; }
+}
+
+.ng-user-overview-zone {
+  padding: 1rem 1.25rem;
+  border-right: 1px solid #f1f5f9;
+  border-bottom: 1px solid #f1f5f9;
+
+  &:nth-child(2n) { border-right: none; }
+  &:last-child,
+  &:nth-last-child(2):nth-child(odd) { border-bottom: none; }
+
+  @media (max-width: 768px) {
+    border-right: none;
+    &:last-child { border-bottom: none; }
+  }
+}
+
+.ng-user-overview-zone-title {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-bottom: 0.6rem;
+
+  i.mdi { font-size: 0.95rem; color: #94a3b8; }
+}
+
+/* Two-column dl inside each zone — label fixed width, value flexes.
+   Tabular-nums on values so counts and dates align across zones. */
+.ng-user-overview-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.85rem;
+  row-gap: 0.35rem;
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+
+  > div { display: contents; }
+
+  dt {
+    color: #64748b;
+    font-weight: 500;
+    align-self: center;
+  }
+
+  dd {
+    color: #0f172a;
+    margin: 0;
+    word-break: break-word;
+  }
+
+  i.mdi { font-size: 0.95rem; vertical-align: -2px; }
+}
+
 /* ── Topnav ops signals (UI-6) ──────────────────────────────── */
 
 /* Group wrapper — keeps the 3 service pills flush; only the LAST

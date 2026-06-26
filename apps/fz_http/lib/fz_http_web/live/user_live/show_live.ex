@@ -5,13 +5,17 @@ defmodule FzHttpWeb.UserLive.Show do
   """
   use FzHttpWeb, :live_view
 
-  alias FzHttp.{Devices, Auth.OIDC, Users, AccessGroups}
+  alias FzHttp.{Devices, Auth.OIDC, Users, AccessGroups, Repo}
+  alias FzHttp.Users.User.Query, as: UserQuery
   alias FzHttpWeb.ErrorHelpers
+
+  @mfa_stale_days 30
 
   @impl Phoenix.LiveView
 
   def mount(%{"id" => user_id} = _params, _session, socket) do
     {:ok, user} = Users.fetch_user_by_id(user_id, socket.assigns.subject)
+    user = hydrate_user(user)
     {:ok, devices} = Devices.list_devices_for_user(user, socket.assigns.subject)
     connections = OIDC.list_connections(user)
 
@@ -28,6 +32,19 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:remove_group_confirm, nil)
      |> assign(:scope_change_confirm, nil)
      |> load_l7_assigns(user)}
+  end
+
+  # Re-fetch with index aggregates (device_count + last_handshake +
+  # mfa_count + mfa_last_used) so the hero + Overview card can display
+  # security freshness without an N+1.
+  defp hydrate_user(user) do
+    UserQuery.by_id(user.id)
+    |> UserQuery.hydrate_index()
+    |> Repo.one()
+    |> case do
+      nil -> user
+      hydrated -> hydrated
+    end
   end
 
   # ── L7 group memberships + access_scope ──────────────────────────
@@ -247,4 +264,67 @@ defmodule FzHttpWeb.UserLive.Show do
   defp mote_message(%{role: role}), do: @action_and_message[role].message
   defp mote_icon(%{role: role}), do: @action_and_message[role].icon
   defp mote_target_role(%{role: role}), do: @action_and_message[role].target_role
+
+  # ── Template helpers (Phase U-Show-A) ───────────────────────────
+
+  @doc "Last activity = whichever is newer: portal sign-in or VPN handshake."
+  def last_activity(%{last_signed_in_at: sign_in, last_handshake: handshake}) do
+    [sign_in, handshake]
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      []   -> nil
+      list -> Enum.max(list, DateTime)
+    end
+  end
+
+  def last_activity(_), do: nil
+
+  def disabled?(%{disabled_at: %DateTime{}}), do: true
+  def disabled?(_), do: false
+
+  def mfa_state(%{mfa_count: 0}),               do: :none
+  def mfa_state(%{mfa_count: nil}),             do: :none
+  def mfa_state(%{mfa_last_used: nil}),          do: :unverified
+
+  def mfa_state(%{mfa_last_used: %DateTime{} = ts}) do
+    days = DateTime.diff(DateTime.utc_now(), ts, :day)
+    if days <= @mfa_stale_days, do: :fresh, else: :stale
+  end
+
+  def mfa_state(_), do: :none
+
+  def mfa_state_icon(:fresh),      do: "mdi-check-circle"
+  def mfa_state_icon(:stale),      do: "mdi-alert-circle-outline"
+  def mfa_state_icon(:unverified), do: "mdi-help-circle-outline"
+  def mfa_state_icon(:none),       do: "mdi-minus-circle-outline"
+
+  def mfa_state_class(:fresh),      do: "ng-user-mfa--fresh"
+  def mfa_state_class(:stale),      do: "ng-user-mfa--stale"
+  def mfa_state_class(:unverified), do: "ng-user-mfa--unverified"
+  def mfa_state_class(:none),       do: "ng-user-mfa--none"
+
+  def mfa_state_label(:fresh, ts),
+    do: "MFA verified " <> relative_label(ts)
+
+  def mfa_state_label(:stale, ts),
+    do: "MFA " <> relative_label(ts) <> " ago — stale"
+
+  def mfa_state_label(:unverified, _),
+    do: "MFA enrolled · never verified"
+
+  def mfa_state_label(:none, _),
+    do: "No MFA factor"
+
+  def relative_label(nil), do: "—"
+
+  def relative_label(%DateTime{} = ts) do
+    diff = DateTime.diff(DateTime.utc_now(), ts, :second)
+
+    cond do
+      diff < 60      -> "just now"
+      diff < 3600    -> "#{div(diff, 60)}m ago"
+      diff < 86_400  -> "#{div(diff, 3600)}h ago"
+      true            -> "#{div(diff, 86_400)}d ago"
+    end
+  end
 end

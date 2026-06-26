@@ -208,7 +208,16 @@
   </div>
 <% end %>
 
-<%# ── Page Header ──────────────────────────────────────────────────────────── %>
+<%# ── Page Header — enriched (Phase U-Show-A) ─────────────────────────────── %>
+<%# Hero answers "is this user OK?" in one glance. Line 1: identity
+%# (avatar + email + role + scope badges + active dot). Line 2:
+%# security signals (MFA state · auth source). Line 3: activity
+%# counts (devices · groups · last VPN). %>
+<%
+  dsbl?    = FzHttpWeb.UserLive.Show.disabled?(@user)
+  mfa_st   = FzHttpWeb.UserLive.Show.mfa_state(@user)
+  last_act = FzHttpWeb.UserLive.Show.last_activity(@user)
+%>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
     <div class="ng-user-cell">
@@ -216,17 +225,59 @@
         <%= @user.email |> String.first() |> String.upcase() %>
       </div>
       <div class="ng-user-info">
-        <div style="display:flex;align-items:center;gap:0.3rem;flex-wrap:wrap">
+        <div class="ng-user-hero-title">
           <.link navigate={~p"/users"} class="ng-breadcrumb">Users</.link>
           <span class="ng-breadcrumb-sep">/</span>
-          <h1 class="ng-page-title" style="margin:0"><%= @user.email %></h1>
+          <h1 class="ng-page-title" style="margin:0">
+            <%= @user.email %>
+          </h1>
+          <span class={["ng-user-dot",
+                        if(dsbl?, do: "ng-user-dot--disabled",
+                                  else: "ng-user-dot--active")]}
+                title={if(dsbl?, do: "Disabled", else: "Active")}></span>
         </div>
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.25rem">
+
+        <div class="ng-user-hero-badges">
           <span class={"ng-role-badge ng-role-badge--#{@user.role}"}><%= @user.role %></span>
-          <FzHttpWeb.UserLive.VPNStatusComponent.status
-            user={@user}
-            expired={vpn_expired?(@user)}
-          />
+          <%= if @user.access_scope == :all do %>
+            <span class="ng-user-scope-tag" title="Break-glass — bypasses L7 group gating">
+              break-glass
+            </span>
+          <% end %>
+          <%= if dsbl? do %>
+            <span class="ng-user-disabled-tag">Disabled</span>
+          <% end %>
+        </div>
+
+        <%# Sub-line 1 — Security signals %>
+        <div class={["ng-user-hero-sub",
+                     FzHttpWeb.UserLive.Show.mfa_state_class(mfa_st)]}>
+          <span class="ng-user-hero-mfa">
+            <i class={["mdi", FzHttpWeb.UserLive.Show.mfa_state_icon(mfa_st)]}></i>
+            <%= FzHttpWeb.UserLive.Show.mfa_state_label(mfa_st, @user.mfa_last_used) %>
+          </span>
+          <span class="ng-user-hero-sep">·</span>
+          <span>
+            via <%= @user.last_signed_in_method || "—" %>
+            <%= if @user.last_signed_in_at do %>
+              <span class="ng-td-muted">(<%= FzHttpWeb.UserLive.Show.relative_label(@user.last_signed_in_at) %>)</span>
+            <% end %>
+          </span>
+        </div>
+
+        <%# Sub-line 2 — Activity counts %>
+        <div class="ng-user-hero-sub ng-user-hero-sub--muted">
+          <span><%= @user.device_count || length(@devices) %> device<%= if (@user.device_count || length(@devices)) != 1, do: "s" %></span>
+          <span class="ng-user-hero-sep">·</span>
+          <span><%= length(@user_groups) %> group<%= if length(@user_groups) != 1, do: "s" %></span>
+          <span class="ng-user-hero-sep">·</span>
+          <span>
+            <%= if @user.last_handshake do %>
+              Last VPN <%= FzHttpWeb.UserLive.Show.relative_label(@user.last_handshake) %>
+            <% else %>
+              No VPN handshake yet
+            <% end %>
+          </span>
         </div>
       </div>
     </div>
@@ -239,18 +290,172 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Profile ─────────────────────────────────────────────────────────────── %>
+  <%# ── Overview — compact 4-zone summary (Phase U-Show-A) ──────────────────── %>
+  <%# Replaces the old `user_details.html.heex` partial (which still
+  %# lives in the codebase — Account pages reuse it). 4 zones: Identity
+  %# (who this user is) / Security (MFA, scope) / Activity (timestamps)
+  %# / Access (devices, groups). Dense scan instead of <dl> scroll. %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
       <span class="ng-section-header" style="margin:0">
-        <i class="mdi mdi-account-outline"></i> Profile
+        <i class="mdi mdi-account-outline"></i> Overview
       </span>
     </div>
-    <%= render(FzHttpWeb.SharedView, "user_details.html",
-      user: @user,
-      rules_path: @rules_path,
-      subject: @subject
-    ) %>
+
+    <div class="ng-user-overview-grid">
+      <%# Identity %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-card-account-details-outline"></i> Identity
+        </div>
+        <dl class="ng-user-overview-list">
+          <div>
+            <dt>Email</dt>
+            <dd><%= @user.email %></dd>
+          </div>
+          <div>
+            <dt>Role</dt>
+            <dd><span class={"ng-role-badge ng-role-badge--#{@user.role}"}><%= @user.role %></span></dd>
+          </div>
+          <div>
+            <dt>Source</dt>
+            <dd>
+              <%= if length(@connections) > 0 do %>
+                OIDC (<%= hd(@connections).provider %>)
+              <% else %>
+                Local
+              <% end %>
+            </dd>
+          </div>
+          <div>
+            <dt>Joined</dt>
+            <dd class="ng-td-muted">
+              <%= FzHttpWeb.UserLive.Show.relative_label(@user.inserted_at) %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <%# Security %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-shield-lock-outline"></i> Security
+        </div>
+        <dl class="ng-user-overview-list">
+          <div>
+            <dt>MFA</dt>
+            <dd class={FzHttpWeb.UserLive.Show.mfa_state_class(mfa_st)}>
+              <i class={["mdi", FzHttpWeb.UserLive.Show.mfa_state_icon(mfa_st)]}></i>
+              <%= case mfa_st do
+                    :none       -> "Not enrolled"
+                    :unverified -> "Enrolled, never verified"
+                    :fresh      -> "Fresh (#{FzHttpWeb.UserLive.Show.relative_label(@user.mfa_last_used)})"
+                    :stale      -> "Stale (#{FzHttpWeb.UserLive.Show.relative_label(@user.mfa_last_used)})"
+                  end %>
+              <%= if @user.mfa_count && @user.mfa_count > 0 do %>
+                <span class="ng-td-muted">· <%= @user.mfa_count %> method<%= if @user.mfa_count != 1, do: "s" %></span>
+              <% end %>
+            </dd>
+          </div>
+          <div>
+            <dt>L7 scope</dt>
+            <dd>
+              <span class={"ng-scope-badge ng-scope-badge--#{@user.access_scope}"}>
+                <%= @user.access_scope %>
+              </span>
+            </dd>
+          </div>
+          <div>
+            <dt>Status</dt>
+            <dd>
+              <%= if dsbl? do %>
+                <span class="ng-user-disabled-tag">Disabled</span>
+                <span class="ng-td-muted">
+                  <%= FzHttpWeb.UserLive.Show.relative_label(@user.disabled_at) %>
+                </span>
+              <% else %>
+                Active
+              <% end %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <%# Activity %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-pulse"></i> Activity
+        </div>
+        <dl class="ng-user-overview-list">
+          <div>
+            <dt>Last sign-in</dt>
+            <dd class="ng-td-muted">
+              <%= FzHttpWeb.UserLive.Show.relative_label(@user.last_signed_in_at) %>
+            </dd>
+          </div>
+          <div>
+            <dt>Auth method</dt>
+            <dd class="ng-td-muted"><%= @user.last_signed_in_method || "—" %></dd>
+          </div>
+          <div>
+            <dt>Last VPN</dt>
+            <dd class="ng-td-muted">
+              <%= FzHttpWeb.UserLive.Show.relative_label(@user.last_handshake) %>
+            </dd>
+          </div>
+          <div>
+            <dt>Last activity</dt>
+            <dd class="ng-td-muted">
+              <%= FzHttpWeb.UserLive.Show.relative_label(last_act) %>
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <%# Access %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-key-outline"></i> Access
+        </div>
+        <dl class="ng-user-overview-list">
+          <div>
+            <dt>Devices</dt>
+            <dd>
+              <%= length(@devices) %>
+              <%= if length(@devices) > 0 do %>
+                <span class="ng-td-muted">·
+                  <%= Enum.count(@devices, &(&1.status == "approved")) %> approved
+                </span>
+              <% end %>
+            </dd>
+          </div>
+          <div>
+            <dt>Groups</dt>
+            <dd>
+              <%= length(@user_groups) %>
+              <%= if length(@user_groups) > 0 do %>
+                <span class="ng-td-muted">·
+                  <%= @user_groups
+                      |> Enum.map(& &1.name)
+                      |> Enum.take(2)
+                      |> Enum.join(", ") %><%= if length(@user_groups) > 2, do: " +#{length(@user_groups) - 2}" %>
+                </span>
+              <% end %>
+            </dd>
+          </div>
+          <%= if @rules_path do %>
+            <%= with {:ok, rules_count} <- FzHttp.Rules.fetch_count_by_user_id(@user.id, @subject) do %>
+              <div>
+                <dt>L3/L4 rules</dt>
+                <dd>
+                  <a href={"#{@rules_path}"} class="ng-action-link"><%= rules_count %></a>
+                </dd>
+              </div>
+            <% end %>
+          <% end %>
+        </dl>
+      </div>
+    </div>
   </div>
 
   <%# ── L7 Group Memberships ────────────────────────────────────────────────── %>
