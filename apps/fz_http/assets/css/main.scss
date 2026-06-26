@@ -1627,7 +1627,11 @@ pre {
   display: grid;
   grid-template-columns: 2fr 1.5fr 1fr 1.2fr auto;
   gap: 0.75rem;
-  align-items: end;
+  /* `start` instead of `end` — every cell now has the same
+     label / control / error-row structure, so top-anchored items
+     line up the label row, input row, and error row cleanly
+     across all five cells. */
+  align-items: start;
 
   @media (max-width: 1024px) {
     grid-template-columns: 1fr 1fr;
@@ -1653,16 +1657,27 @@ pre {
   letter-spacing: 0.04em;
   color: #475569;
   margin-bottom: 0.3rem;
+  line-height: 1.2;
+
+  /* Invisible label used only by the submit cell to keep the same
+     vertical rhythm as the labelled input cells beside it. */
+  &--spacer { visibility: hidden; }
 }
 
 .ng-rule-form-actions {
   display: flex;
-  align-items: stretch;
+  flex-direction: column;
+  min-width: 0;
 
-  /* The submit button stretches to align with the inputs above. */
+  /* Button matches input height so the input row aligns across
+     all five grid cells. */
   .ng-primary-btn {
     height: 2.25rem;
+    padding: 0 1.1rem;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 
     @media (max-width: 640px) { width: 100%; }
   }
