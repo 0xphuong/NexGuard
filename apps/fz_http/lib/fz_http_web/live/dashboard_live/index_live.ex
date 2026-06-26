@@ -86,17 +86,29 @@ defmodule FzHttpWeb.DashboardLive.Index do
     health = safe_health_snapshot()
 
     # ── Aggregate hero status ──────────────────────────────────
+    # Auth config — read once, reused by both stat surfaces + the
+    # mixed-auth alert below.
+    require_mfa = Config.fetch_config!(:require_mfa)
+    local_auth  = Config.fetch_config!(:local_auth_enabled)
+    oidc_count  = length(Config.fetch_config!(:openid_connect_providers) || [])
+    saml_count  = length(Config.fetch_config!(:saml_identity_providers) || [])
+    vpn_session = Config.fetch_config!(:vpn_session_duration)
+
     alerts = build_alerts(%{
       pending_devices: pending_device_count,
       stale_devices: stale_count,
       cert_summary: cert_summary,
       mfa_pct: pct(users_with_mfa, user_count),
-      require_mfa: Config.fetch_config!(:require_mfa),
+      require_mfa: require_mfa,
       health: health,
       bundle: bundle,
       l7_enabled?: l7_enabled?,
       enabled_apps: enabled_apps,
-      orphan_enabled_apps: orphan_enabled_apps
+      orphan_enabled_apps: orphan_enabled_apps,
+      vpn_session_duration: vpn_session,
+      local_auth_enabled: local_auth,
+      oidc_count: oidc_count,
+      saml_count: saml_count
     })
 
     socket
@@ -175,6 +187,31 @@ defmodule FzHttpWeb.DashboardLive.Index do
       label: "L7 enforcement is ON but no apps are enabled — proxy idle",
       href: "/applications"
     })
+    # Session policy: 0 = never expire. A leaked credential or
+    # stolen-while-unlocked laptop keeps VPN access until the device
+    # is manually revoked. ZTNA practice: set a TTL (24h / 7d / 30d
+    # depending on threat model) and rely on re-auth to bound exposure.
+    |> maybe_alert(d.vpn_session_duration == 0, %{
+      severity: :info,
+      icon: "mdi-clock-alert-outline",
+      label: "VPN sessions never expire — consider setting an expiry policy",
+      href: "/settings/security"
+    })
+    # Mixed-auth bypass: local password form is alive AND an SSO
+    # provider is configured AND Force-MFA is off. SSO MFA enforced
+    # at the provider level is bypassed by anyone who can guess /
+    # leak a local NexGuard password — they just use /sign_in
+    # instead of the SSO flow. Fix is either disable local auth or
+    # enforce MFA at the NexGuard layer.
+    |> maybe_alert(
+      d.local_auth_enabled and (d.oidc_count > 0 or d.saml_count > 0) and not d.require_mfa,
+      %{
+        severity: :warn,
+        icon: "mdi-login-variant",
+        label: "Mixed auth (Local + SSO) without Force MFA — local password bypasses SSO MFA",
+        href: "/settings/security"
+      }
+    )
     |> maybe_alert(d.orphan_enabled_apps.count > 0, %{
       severity: :critical,
       icon: "mdi-shield-off-outline",
