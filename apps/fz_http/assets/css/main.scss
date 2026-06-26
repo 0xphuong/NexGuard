@@ -1495,14 +1495,6 @@ pre {
 
 /* ── Rules Page ───────────────────────────────────────────────── */
 
-.ng-rules-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.5rem;
-
-  @media (max-width: 768px) { grid-template-columns: 1fr; }
-}
-
 .ng-rule-panel {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -1531,8 +1523,11 @@ pre {
   color: #ffffff;
   flex-shrink: 0;
 
-  &--accept { background: linear-gradient(135deg, #065f46, #10b981); }
-  &--drop   { background: linear-gradient(135deg, #991b1b, #ef4444); }
+  /* Flat semantic colours — the previous gradient (135deg, ...)
+     was the "generated style" pattern the design-direction skill
+     calls out as an anti-pattern. */
+  &--accept { background: #16a34a; }
+  &--drop   { background: #dc2626; }
 }
 
 .ng-rule-panel-title {
@@ -1558,12 +1553,6 @@ pre {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-}
-
-.ng-rule-input-row td {
-  padding-top: 0.625rem;
-  padding-bottom: 0.625rem;
-  vertical-align: top;
 }
 
 .ng-rule-input,
@@ -1602,28 +1591,12 @@ pre {
   &:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
-.ng-rule-add-btn {
-  padding: 0.5rem 1.1rem;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  font-family: inherit;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background 0.15s;
-
-  &--accept { background: #10b981; color: #ffffff; &:hover { background: darken(#10b981, 8%); } }
-  &--drop   { background: #ef4444; color: #ffffff; &:hover { background: darken(#ef4444, 8%); } }
-}
-
 .ng-rule-error {
   font-size: 0.75rem;
   color: #dc2626;
   min-height: 1rem;
   margin: 0;
 }
-
 
 .ng-row-disabled {
   opacity: 0.5;
@@ -1639,16 +1612,114 @@ pre {
   &:hover { color: #ef4444; text-decoration: none; }
 }
 
+/* ── Rule list: extracted add-rule form + improved empty state ──
+   The form used to render as the FIRST row of the table; admin
+   eyes had to parse "is this a form or a rule?" every visit. Now
+   it lives in a dedicated input strip directly under the panel
+   header with proper field labels. */
+.ng-rule-form-strip {
+  padding: 1rem 1.25rem;
+  background: #f8fafc;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.ng-rule-form-row {
+  display: grid;
+  grid-template-columns: 2fr 1.5fr 1fr 1.2fr auto;
+  gap: 0.75rem;
+  align-items: end;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ng-rule-form-field {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  &--wide { /* destination field gets a hint of extra weight */ }
+}
+
+.ng-rule-form-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  margin-bottom: 0.3rem;
+}
+
+.ng-rule-form-actions {
+  display: flex;
+  align-items: stretch;
+
+  /* The submit button stretches to align with the inputs above. */
+  .ng-primary-btn {
+    height: 2.25rem;
+    white-space: nowrap;
+
+    @media (max-width: 640px) { width: 100%; }
+  }
+}
+
+/* Action-tinted variants of the primary button — used for
+   "Add rule" so the verb's destructive/permissive intent is visible
+   at a glance without re-introducing the gradient pattern. */
+.ng-primary-btn--accept {
+  background: #16a34a;
+  &:hover { background: #15803d; }
+}
+
+.ng-primary-btn--drop {
+  background: #dc2626;
+  &:hover { background: #b91c1c; }
+}
+
+/* Filter bar variant — tightens the user-filterbar a touch when
+   it sits inside a panel body (less margin than at top of page). */
+.ng-rule-filterbar {
+  margin: 1rem 1.25rem 0;
+}
+
+/* Empty-state block — used both for "no rules yet" and "no rules
+   match the filter". The icon sits left of a small block of copy
+   so admin gets context without breaking visual rhythm. */
 .ng-rule-empty {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 1.5rem;
-  color: #94a3b8;
-  font-size: 0.875rem;
+  gap: 0.75rem;
+  padding: 2rem 1.5rem;
+  color: #64748b;
+  font-size: 0.85rem;
 
-  .mdi { font-size: 1.25rem; }
+  .mdi { font-size: 1.5rem; color: #cbd5e1; }
+}
+
+.ng-rule-empty-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.ng-rule-empty-title {
+  margin: 0;
+  font-weight: 600;
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.ng-rule-empty-hint {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.82rem;
+  line-height: 1.5;
 }
 
 .ng-rule-warning {
@@ -1657,7 +1728,7 @@ pre {
   gap: 0.4rem;
   font-size: 0.8rem;
   color: #d97706;
-  margin-top: 0.5rem;
+  margin: 0.75rem 1.25rem 0;
 
   .mdi { font-size: 1rem; }
 }

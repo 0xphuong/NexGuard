@@ -2,7 +2,10 @@
   <div class="ng-page-header-inner">
     <div>
       <h1 class="ng-page-title">Egress Rules</h1>
-      <p class="ng-page-subtitle">Firewall rules applied to the kernel's forward chain</p>
+      <p class="ng-page-subtitle">
+        Layer 3/4 egress controls — packets routed through the VPN tunnel
+        are matched against these rules.
+      </p>
     </div>
   </div>
 </div>
@@ -10,31 +13,48 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# ── L3/L4 vs L7 distinction ──────────────────────────────── %>
   <div class="ng-info-banner">
     <i class="mdi mdi-information-outline"></i>
-    Rules apply to all devices by default. User-scoped rules apply only to devices belonging to that particular user.
+    <span>
+      L3/L4 packet filter — match by CIDR + port. For identity-based or
+      hostname rules, use
+      <.link navigate={~p"/access-groups"} class="ng-inline-link">Access Groups</.link>
+      and
+      <.link navigate={~p"/applications"} class="ng-inline-link">Applications</.link>.
+    </span>
   </div>
 
-  <div class="ng-rules-grid">
-    <div>
-      <%= live_component(
-        FzHttpWeb.RuleLive.RuleListComponent,
-        title: "Allowlist",
-        header_icon: "mdi mdi-check-circle-outline",
-        id: :allowlist,
-        subject: @subject,
-        remote_ip: @remote_ip
-      ) %>
-    </div>
-    <div>
-      <%= live_component(
-        FzHttpWeb.RuleLive.RuleListComponent,
-        title: "Denylist",
-        header_icon: "mdi mdi-cancel",
-        id: :denylist,
-        subject: @subject,
-        remote_ip: @remote_ip
-      ) %>
-    </div>
-  </div>
+  <%# ── Tab nav ──────────────────────────────────────────────── %>
+  <nav class="ng-tab-nav">
+    <.link
+      patch={~p"/rules"}
+      class={["ng-tab", @tab == :allow && "is-active"]}
+    >
+      <i class="mdi mdi-check-circle-outline"></i> Allowlist
+    </.link>
+    <.link
+      patch={~p"/rules/deny"}
+      class={["ng-tab", @tab == :deny && "is-active"]}
+    >
+      <i class="mdi mdi-cancel"></i> Denylist
+    </.link>
+  </nav>
+
+  <%# ── Active panel ─────────────────────────────────────────── %>
+  <%= if @tab == :allow do %>
+    <%= live_component(
+      FzHttpWeb.RuleLive.RuleListComponent,
+      id: :allowlist,
+      subject: @subject,
+      remote_ip: @remote_ip
+    ) %>
+  <% else %>
+    <%= live_component(
+      FzHttpWeb.RuleLive.RuleListComponent,
+      id: :denylist,
+      subject: @subject,
+      remote_ip: @remote_ip
+    ) %>
+  <% end %>
 </section>

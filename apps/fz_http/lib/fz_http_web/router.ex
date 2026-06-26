@@ -212,7 +212,8 @@ defmodule FzHttpWeb.Router do
       live "/users/:id", UserLive.Show, :show
       live "/users/:id/edit", UserLive.Show, :edit
       live "/users/:id/new_device", UserLive.Show, :new_device
-      live "/rules", RuleLive.Index, :index
+      live "/rules", RuleLive.Index, :allow
+      live "/rules/deny", RuleLive.Index, :deny
       live "/devices", DeviceLive.Admin.Index, :index
       live "/devices/:id", DeviceLive.Admin.Show, :show
 
