@@ -206,6 +206,37 @@ defmodule FzHttp.ApplicationsTest do
       app = ApplicationsFixtures.create_application_via_context()
       assert {:ok, ^app} = Applications.set_application_enabled(app, false, subject)
     end
+
+    test "enabling without an allowed group refused (ZTNA fail-closed)",
+         %{admin_subject: subject} do
+      # App created with an L7 rule but no allowed groups — pre-v3.0.x
+      # this would have been enabled and become reachable by every VPN
+      # user (the proxy's group gate skipped when `allowed_group_ids`
+      # was empty). Now both layers refuse: this context guard catches
+      # at toggle time, the proxy still rejects at runtime as a belt-
+      # and-suspenders.
+      app =
+        ApplicationsFixtures.create_application_via_context(%{
+          "l7_rules" => [%{"action" => "allow"}]
+        })
+
+      assert {:error, cs} = Applications.set_application_enabled(app, true, subject)
+      assert errors_on(cs)[:enabled] |> hd() =~ "allowed access group"
+    end
+
+    test "enabling works with at least one allowed group + rule",
+         %{admin_subject: subject} do
+      app =
+        ApplicationsFixtures.create_application_via_context(%{
+          "l7_rules" => [%{"action" => "allow"}]
+        })
+
+      group = AccessGroupsFixtures.create_group()
+      {:ok, _link} = Applications.add_allowed_group(app, group, subject)
+
+      assert {:ok, %{enabled: true}} =
+               Applications.set_application_enabled(app, true, subject)
+    end
   end
 
   describe "update_application/4 — enable-bypass guard" do

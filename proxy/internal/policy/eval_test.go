@@ -12,7 +12,32 @@ import (
 func intp(n int) *int { return &n }
 
 // helper to assemble a bundle with the group/app pair under test.
+//
+// Every fixture app needs at least one AllowedGroupIDs entry — without
+// it the ZTNA fail-closed gate trips before any rule logic runs.
+// Helper injects a default "g-default" group containing user "u-1"
+// when the caller didn't set AllowedGroupIDs explicitly, so the
+// existing tests stay focused on rule / method / path semantics.
 func newBundleFixture(app bundle.App, groups []bundle.Group) *bundle.Bundle {
+	if len(app.AllowedGroupIDs) == 0 {
+		app.AllowedGroupIDs = []string{"g-default"}
+	}
+
+	hasDefault := false
+	for _, g := range groups {
+		if g.ID == "g-default" {
+			hasDefault = true
+			break
+		}
+	}
+	if !hasDefault {
+		groups = append(groups, bundle.Group{
+			ID:      "g-default",
+			Name:    "default",
+			UserIDs: []string{"u-1"},
+		})
+	}
+
 	return &bundle.Bundle{
 		SchemaVersion: 1,
 		BundleVersion: 1,
@@ -91,6 +116,34 @@ func TestDecide_GroupGate_AllowsMember(t *testing.T) {
 	d := Decide(b, &b.Apps[0], id, req(t, "GET", "/"))
 	if !d.Allow {
 		t.Fatalf("expected allow, got %+v", d)
+	}
+}
+
+func TestDecide_EmptyAllowedGroups_FailClosed(t *testing.T) {
+	// ZTNA fail-closed: an app with `AllowedGroupIDs = []` denies
+	// EVERY non-break-glass user — even ones with an `allow` rule
+	// that would otherwise match. Empty list means "no one allowed",
+	// not "everyone allowed".
+	b := &bundle.Bundle{
+		SchemaVersion: 1,
+		BundleVersion: 1,
+		Apps: []bundle.App{{
+			ID:              "app-public-by-mistake",
+			AllowedGroupIDs: []string{},
+			L7Rules: []bundle.Rule{
+				{Action: "allow"}, // would normally allow everything
+			},
+		}},
+	}
+
+	id := &identity.Identity{UserID: "u-1", AccessScope: "limited"}
+
+	d := Decide(b, &b.Apps[0], id, req(t, "GET", "/"))
+	if d.Allow {
+		t.Fatalf("expected deny with empty allowed_group_ids, got %+v", d)
+	}
+	if d.Reason != reasonNoAllowedGroups {
+		t.Errorf("reason: want %q, got %q", reasonNoAllowedGroups, d.Reason)
 	}
 }
 

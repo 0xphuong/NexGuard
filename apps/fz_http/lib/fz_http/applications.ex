@@ -179,7 +179,8 @@ defmodule FzHttp.Applications do
                                ip_address \\ nil)
       when is_boolean(value) do
     with :ok <-
-           Auth.ensure_has_permissions(subject, Authorizer.manage_applications_permission()) do
+           Auth.ensure_has_permissions(subject, Authorizer.manage_applications_permission()),
+         :ok <- ensure_can_enable(app, value) do
       if app.enabled == value do
         {:ok, app}
       else
@@ -201,6 +202,38 @@ defmodule FzHttp.Applications do
         end
       end
     end
+  end
+
+  # ZTNA fail-closed: app cannot be enabled until at least one access
+  # group is allowed. Without this guard, an enabled app with empty
+  # `allowed_groups` was reachable by every authenticated VPN user
+  # (the proxy's group gate skipped on empty list pre-v3.0.x).
+  # The proxy now also rejects this at runtime, but catching it here
+  # gives admins a clear error at toggle time instead of silent
+  # "no one can reach my app" surprise.
+  defp ensure_can_enable(_app, false), do: :ok
+
+  defp ensure_can_enable(%Application{} = app, true) do
+    count = allowed_group_count(app.id)
+
+    if count > 0 do
+      :ok
+    else
+      cs =
+        app
+        |> Ecto.Changeset.change()
+        |> Ecto.Changeset.add_error(:enabled,
+          "cannot enable without at least one allowed access group — " <>
+            "add a group on the Groups tab so users can be authorised")
+
+      {:error, cs}
+    end
+  end
+
+  defp allowed_group_count(app_id) do
+    from(ag in AllowedGroup, where: ag.application_id == ^app_id, select: count(ag.application_id))
+    |> Repo.one()
+    |> Kernel.||(0)
   end
 
   def delete_application(%Application{} = app, %Auth.Subject{} = subject, ip_address \\ nil) do

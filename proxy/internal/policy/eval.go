@@ -8,10 +8,12 @@
 //      checks. The admin who flipped a user to :all accepts the
 //      audit trail and the org-wide consequences (ADR-008).
 //
-//   2. Group gating (app-wide): if app.allowed_group_ids is
-//      non-empty, the user must be a member of at least one of
-//      those groups. Membership is resolved via the bundle's
-//      groups[].user_ids list — no second round-trip to the server.
+//   2. Group gating (app-wide): app.allowed_group_ids MUST be
+//      non-empty AND the user MUST be a member of at least one of
+//      those groups. An empty allowed_group_ids list means "no one
+//      is allowed" (ZTNA fail-closed default). Membership is
+//      resolved via the bundle's groups[].user_ids list — no
+//      second round-trip to the server.
 //
 //   3. Rule eval: first-match wins. Each rule may pin a method, a
 //      path prefix, additional required groups, and a max MFA age.
@@ -43,11 +45,12 @@ type Decision struct {
 }
 
 const (
-	reasonBreakGlass        = "break-glass: access_scope=all"
-	reasonGroupGate         = "group gate: user not in any allowed group"
+	reasonBreakGlass         = "break-glass: access_scope=all"
+	reasonNoAllowedGroups    = "group gate: app has no allowed groups (fail-closed)"
+	reasonGroupGate          = "group gate: user not in any allowed group"
 	reasonNoMatchDefaultDeny = "no rule matched; default deny"
-	reasonRuleAllow         = "rule matched: allow"
-	reasonRuleDeny          = "rule matched: deny"
+	reasonRuleAllow          = "rule matched: allow"
+	reasonRuleDeny           = "rule matched: deny"
 )
 
 // Decide runs the (app, identity, request) triple through the
@@ -59,8 +62,14 @@ func Decide(b *bundle.Bundle, app *bundle.App, id *identity.Identity, req *http.
 		return Decision{Allow: true, Reason: reasonBreakGlass, MatchedRule: -1}
 	}
 
-	// 2. App-wide group gate.
-	if len(app.AllowedGroupIDs) > 0 && !userInAnyAllowedGroup(b, app, id.UserID) {
+	// 2. App-wide group gate — ZTNA fail-closed. An app with no
+	// allowed groups is "no one is allowed", not "everyone is
+	// allowed". Admin must explicitly add at least one group via the
+	// Allowed Groups card on /applications/<id>/groups.
+	if len(app.AllowedGroupIDs) == 0 {
+		return Decision{Allow: false, Reason: reasonNoAllowedGroups, MatchedRule: -1}
+	}
+	if !userInAnyAllowedGroup(b, app, id.UserID) {
 		return Decision{Allow: false, Reason: reasonGroupGate, MatchedRule: -1}
 	}
 
