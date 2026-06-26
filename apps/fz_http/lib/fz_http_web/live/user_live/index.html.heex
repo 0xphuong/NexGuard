@@ -17,7 +17,7 @@
   <div class="ng-page-header-inner">
     <div>
       <h1 class="ng-page-title">Users</h1>
-      <p class="ng-page-subtitle"><%= length(@users) %> user<%= if length(@users) != 1, do: "s" %></p>
+      <p class="ng-page-subtitle">Identity inventory and security posture.</p>
     </div>
     <.link replace={true} patch={~p"/users/new"} class="ng-primary-btn">
       <i class="mdi mdi-account-plus"></i> Add User
@@ -35,64 +35,123 @@
       <p class="ng-empty-state-hint">Add a user to get started.</p>
     </div>
   <% else %>
+    <%# ── Stats strip — Identity domain pulse ─────────────────── %>
+    <%# Mirrors the dashboard's domain-grouped tiles. Always 5
+    %# tiles; break-glass count hides when 0 (auto via conditional
+    %# render — break-glass should be rare and noteworthy when it
+    %# isn't zero). %>
+    <div class="ng-stat-strip">
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= @stats.total %></div>
+        <div class="ng-stat-tile-label">Total users</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= @stats.active_24h %></div>
+        <div class="ng-stat-tile-label">Active 24h</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= @stats.mfa_pct %>%</div>
+        <div class="ng-stat-tile-label">MFA enrolled</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= @stats.admin_count %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-shield-crown-outline"></i> Admin
+        </div>
+      </div>
+      <%= if @stats.break_glass > 0 do %>
+        <div class="ng-stat-tile" title="Users with access_scope = :all — bypass L7 group gating">
+          <div class="ng-stat-tile-value"><%= @stats.break_glass %></div>
+          <div class="ng-stat-tile-label">
+            <i class="mdi mdi-key-alert-outline"></i> Break-glass
+          </div>
+        </div>
+      <% end %>
+    </div>
+
+    <%# ── Users table ─────────────────────────────────────────── %>
     <div class="ng-table-wrap">
       <table class="ng-table">
         <thead>
           <tr>
             <th>User</th>
             <th class="ng-th-center">Devices</th>
-            <th class="ng-th-center">VPN Status</th>
-            <th>Last Sign In</th>
-            <th>Auth Method</th>
-            <th>Created</th>
+            <th class="ng-th-center">MFA</th>
+            <th>Last activity</th>
+            <th>Auth method</th>
           </tr>
         </thead>
         <tbody>
           <%= for user <- @users do %>
-            <tr>
+            <% mfa_st  = FzHttpWeb.UserLive.Index.mfa_state(user)
+               last   = FzHttpWeb.UserLive.Index.last_activity(user)
+               dsbl?  = FzHttpWeb.UserLive.Index.disabled?(user) %>
+            <tr class={dsbl? && "ng-user-row--disabled"}>
               <td>
                 <div class="ng-user-cell">
+                  <%# Status dot — green when active, gray ◌ when disabled. %>
+                  <span class={["ng-user-dot",
+                                if(dsbl?, do: "ng-user-dot--disabled",
+                                          else: "ng-user-dot--active")]}
+                        title={if(dsbl?, do: "Disabled", else: "Active")}></span>
                   <div class={"ng-avatar ng-avatar--#{user.role}"}>
                     <%= user.email |> String.first() |> String.upcase() %>
                   </div>
                   <div class="ng-user-info">
-                    <.link navigate={~p"/users/#{user}"} class="ng-user-email">
-                      <%= user.email %>
-                    </.link>
+                    <div class="ng-user-info-line">
+                      <.link navigate={~p"/users/#{user}"}
+                             class={["ng-user-email",
+                                     dsbl? && "ng-user-email--disabled"]}>
+                        <%= user.email %>
+                      </.link>
+                      <%= if dsbl? do %>
+                        <span class="ng-user-disabled-tag">Disabled</span>
+                      <% end %>
+                      <%= if user.access_scope == :all do %>
+                        <span class="ng-user-scope-tag" title="Break-glass — bypasses L7 group gating">
+                          break-glass
+                        </span>
+                      <% end %>
+                    </div>
                     <span class={"ng-role-badge ng-role-badge--#{user.role}"}>
                       <%= user.role %>
                     </span>
                   </div>
                 </div>
               </td>
+
               <td class="ng-td-center" id={"user-#{user.id}-device-count"}>
                 <span class="ng-device-count">
                   <i class="mdi mdi-laptop"></i> <%= user.device_count %>
                 </span>
               </td>
-              <td class="ng-td-center" id={"user-#{user.id}-vpn-status"}>
-                <FzHttpWeb.UserLive.VPNStatusComponent.status
-                  user={user}
-                  expired={vpn_expired?(user)}
-                />
+
+              <td class={["ng-td-center", "ng-mfa-cell",
+                          FzHttpWeb.UserLive.Index.mfa_state_class(mfa_st)]}
+                  title={case mfa_st do
+                           :fresh      -> "MFA factor used recently"
+                           :stale      -> "MFA enrolled but not verified in the last 30 days"
+                           :unverified -> "MFA enrolled but never verified"
+                           :none       -> "No MFA factor enrolled"
+                         end}>
+                <i class={["mdi", FzHttpWeb.UserLive.Index.mfa_state_icon(mfa_st)]}></i>
+                <%= case mfa_st do
+                      :none -> ""
+                      _     -> FzHttpWeb.UserLive.Index.relative_label(user.mfa_last_used)
+                    end %>
               </td>
-              <td
-                id={"user-#{user.id}-timestamp"}
-                data-timestamp={user.last_signed_in_at}
-                phx-hook="FormatTimestamp"
-                class="ng-td-muted"
-              >
-                …
+
+              <td class="ng-td-muted">
+                <%= if last do %>
+                  <span title={"Sign-in: #{user.last_signed_in_at || "—"} · VPN: #{user.last_handshake || "—"}"}>
+                    <%= FzHttpWeb.UserLive.Index.relative_label(last) %> ago
+                  </span>
+                <% else %>
+                  —
+                <% end %>
               </td>
-              <td class="ng-td-muted"><%= user.last_signed_in_method %></td>
-              <td
-                id={"user-#{user.id}-inserted-at"}
-                data-timestamp={user.inserted_at}
-                phx-hook="FormatTimestamp"
-                class="ng-td-muted"
-              >
-                …
-              </td>
+
+              <td class="ng-td-muted"><%= user.last_signed_in_method || "—" %></td>
             </tr>
           <% end %>
         </tbody>

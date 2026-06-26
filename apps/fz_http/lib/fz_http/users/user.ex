@@ -17,12 +17,16 @@ defmodule FzHttp.Users.User do
     field :password, :string, virtual: true, redact: true
     field :password_confirmation, :string, virtual: true, redact: true
 
-    # Virtual fields that can be hydrated
-    field :device_count, :integer, virtual: true
+    # Virtual fields that can be hydrated (see Users.User.Query.hydrate_*)
+    field :device_count,    :integer,           virtual: true
+    field :last_handshake,  :utc_datetime_usec, virtual: true
+    field :mfa_count,       :integer,           virtual: true
+    field :mfa_last_used,   :utc_datetime_usec, virtual: true
 
     has_many :devices, FzHttp.Devices.Device
     has_many :oidc_connections, FzHttp.Auth.OIDC.Connection
     has_many :api_tokens, FzHttp.ApiTokens.ApiToken
+    has_many :mfa_methods, FzHttp.Auth.MFA.Method
 
     # L7 access bypass marker (ADR-008, ADR-014). `:limited` (default)
     # subjects the user to the per-app group intersection check;

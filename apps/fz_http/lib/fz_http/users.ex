@@ -74,6 +74,17 @@ defmodule FzHttp.Users do
     |> hydrate_fields(rest)
   end
 
+  # `:index` bundles every aggregate the admin /users page needs in
+  # one query — device_count + last_handshake + mfa_count +
+  # mfa_last_used. Use this instead of `:device_count` from the
+  # index LiveView; LiveViews that only need device_count keep using
+  # the single-purpose hydrate token.
+  defp hydrate_fields(queryable, [:index | rest]) do
+    queryable
+    |> User.Query.hydrate_index()
+    |> hydrate_fields(rest)
+  end
+
   def request_sign_in_token(%User{} = user) do
     user
     |> User.Changeset.generate_sign_in_token()

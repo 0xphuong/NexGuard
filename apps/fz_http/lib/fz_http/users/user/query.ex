@@ -43,6 +43,26 @@ defmodule FzHttp.Users.User.Query do
     |> select_merge([users: users, devices: devices], %{device_count: count(devices.id)})
   end
 
+  # Combine: device count + max device handshake + MFA method count
+  # + max MFA last_used_at. Single query, two LEFT JOINs aggregated
+  # per user — feeds the /users index columns + stats strip without
+  # an N+1.
+  def hydrate_index(queryable \\ all()) do
+    queryable
+    |> with_assoc(:devices)
+    |> with_assoc(:mfa_methods)
+    |> group_by([users: users], users.id)
+    |> select_merge(
+      [users: users, devices: d, mfa_methods: m],
+      %{
+        device_count:    count(d.id, :distinct),
+        last_handshake:  max(d.latest_handshake),
+        mfa_count:       count(m.id, :distinct),
+        mfa_last_used:   max(m.last_used_at)
+      }
+    )
+  end
+
   def with_assoc(queryable \\ all(), assoc) do
     with_named_binding(queryable, assoc, fn query, binding ->
       join(query, :left, [users: users], a in assoc(users, ^binding), as: ^binding)
