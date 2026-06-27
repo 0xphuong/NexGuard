@@ -48,7 +48,10 @@ defmodule FzHttpWeb.SettingLive.Customization do
       Config.fetch_db_config!()
       |> Config.update_config(%{logo: nil}, socket.assigns.subject, socket.assigns.remote_ip)
 
-    {:noreply, assign(socket, :logo, config.logo)}
+    {:noreply,
+     socket
+     |> assign(:logo, config.logo)
+     |> put_flash(:info, "Portal logo restored to default.")}
   end
 
   @impl Phoenix.LiveView
@@ -57,7 +60,10 @@ defmodule FzHttpWeb.SettingLive.Customization do
       Config.fetch_db_config!()
       |> Config.update_config(%{logo: %{"url" => url}}, socket.assigns.subject, socket.assigns.remote_ip)
 
-    {:noreply, assign(socket, :logo, config.logo)}
+    {:noreply,
+     socket
+     |> assign(:logo, config.logo)
+     |> put_flash(:info, "Portal logo updated — pointing at #{url}.")}
   end
 
   @impl Phoenix.LiveView
@@ -82,7 +88,10 @@ defmodule FzHttpWeb.SettingLive.Customization do
         {:ok, config}
       end)
 
-    {:noreply, assign(socket, :logo, config.logo)}
+    {:noreply,
+     socket
+     |> assign(:logo, config.logo)
+     |> put_flash(:info, "Portal logo uploaded.")}
   end
 
   defp error_to_string(:too_large), do: "The file exceeds the maximum size of 1MB."

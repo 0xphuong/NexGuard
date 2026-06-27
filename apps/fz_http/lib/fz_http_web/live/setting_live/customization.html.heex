@@ -31,10 +31,14 @@
           Maximum file size: 1 MB.
         </p>
         <%= if has_override?(@logo_source) do %>
-          <p class="ng-setting-desc" style="margin-top: 0.5rem;">
-            <i class="mdi mdi-information-outline" style="color: #2563eb;"></i>
-            Logo is set via the <code>LOGO</code> environment variable and cannot be changed here.
-          </p>
+          <div class="ng-modal-callout">
+            <i class="mdi mdi-information-outline"></i>
+            <span>
+              Logo is set via the <code>LOGO</code> environment variable
+              and cannot be changed here. Comment out or remove that line
+              in <code>.env</code> to manage it from the UI.
+            </span>
+          </div>
         <% end %>
       </div>
 
@@ -73,7 +77,7 @@
           <%= if @logo_type == "Default" do %>
             <form id="default-form" phx-submit="save">
               <input type="hidden" name="default" value="true" />
-              <button class="ng-primary-btn" type="submit">
+              <button class="ng-primary-btn" type="submit" phx-disable-with="Saving…">
                 <i class="mdi mdi-content-save-outline"></i> Save Default
               </button>
             </form>
@@ -88,7 +92,7 @@
                 placeholder="https://example.com/logo.png"
                 required
               />
-              <button class="ng-primary-btn" type="submit">
+              <button class="ng-primary-btn" type="submit" phx-disable-with="Saving…">
                 <i class="mdi mdi-content-save-outline"></i> Save URL
               </button>
             </form>
@@ -106,7 +110,7 @@
               <% end %>
               <div class="ng-upload-row">
                 <%= live_file_input(@uploads.logo, class: "ng-file-input", required: true) %>
-                <button class="ng-primary-btn" type="submit">
+                <button class="ng-primary-btn" type="submit" phx-disable-with="Uploading…">
                   <i class="mdi mdi-upload-outline"></i> Upload
                 </button>
               </div>
