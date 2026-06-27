@@ -1625,11 +1625,25 @@ pre {
 }
 
 .ng-rule-select {
-  appearance: auto;
+  /* Custom chevron — same SVG data-URI pattern as `select.ng-input`
+     and `.ng-user-filterbar-select` so all selects across the app
+     look the same regardless of OS. */
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   cursor: pointer;
+  padding-right: 1.85rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.65rem center;
+  background-size: 10px 6px;
 
   &:focus { outline: none; border-color: #2563eb; }
-  &:disabled { opacity: 0.5; cursor: not-allowed; }
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23cbd5e1' d='M0 0l5 6 5-6z'/></svg>");
+  }
 }
 
 .ng-rule-error {
@@ -2654,6 +2668,35 @@ pre {
 .ng-textarea {
   resize: vertical;
   min-height: 80px;
+}
+
+/* `<select>` elements that share the `.ng-input` chrome were
+   leaking the OS-native dropdown arrow + browser-native option
+   panel (Mac, Windows, GTK all rendered differently). The closed
+   state can be normalised here: hide the native arrow with
+   `appearance: none` and paint a custom SVG chevron via
+   background-image, matching the `.ng-user-filterbar-select`
+   pattern that the filter bars already use.
+
+   The OPEN dropdown panel stays OS-native — that's a JS combobox
+   problem and not worth a dependency for an internal ops tool. */
+select.ng-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  cursor: pointer;
+  padding-right: 2.2rem;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%2364748b' d='M0 0l5 6 5-6z'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.85rem center;
+  background-size: 10px 6px;
+
+  &:disabled {
+    cursor: not-allowed;
+    /* Lighter chevron when disabled — visually demotes the control
+       alongside the existing `opacity: 0.6` from `.ng-input:disabled`. */
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='%23cbd5e1' d='M0 0l5 6 5-6z'/></svg>");
+  }
 }
 
 .ng-field-error {
