@@ -64,8 +64,18 @@ defmodule FzHttpWeb.SettingLive.ClientDefaultsFormComponent do
     {:noreply, socket}
   end
 
-  defp binary_to_list(binary) when is_binary(binary),
-    do: binary |> String.trim() |> String.split(",")
+  # Parse a comma-separated string into a clean list. Each item is
+  # trimmed individually — without this, `String.split("a, b", ",")`
+  # leaves `[" b"]` with a leading space, and the
+  # binary_to_list ↔ list_value round-trip (triggered by every
+  # phx-change validate) widened the value by one extra space per
+  # keystroke. Pretty visible on the multi-line Allowed IPs textarea.
+  defp binary_to_list(binary) when is_binary(binary) do
+    binary
+    |> String.split(",")
+    |> Enum.map(&String.trim/1)
+    |> Enum.reject(&(&1 == ""))
+  end
 
   defp binary_to_list(list) when is_list(list),
     do: list
