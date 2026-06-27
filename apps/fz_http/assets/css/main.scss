@@ -1743,6 +1743,15 @@ pre {
   margin: 1rem 1.25rem 0;
 }
 
+/* Inline notice above the add-rule form grid — used to surface
+   kernel-level constraints (port-based rules need >=5.6.9). The
+   default `.ng-modal-callout` carries a `margin: 0.5rem 0 1rem`
+   that's tuned for modal bodies; inside the form-strip we want it
+   flush against the strip's top padding. */
+.ng-rule-form-notice {
+  margin: 0 0 0.85rem;
+}
+
 /* Empty-state block — used both for "no rules yet" and "no rules
    match the filter". The icon sits left of a small block of copy
    so admin gets context without breaking visual rhythm. */

@@ -20,6 +20,23 @@
       phx-submit="add_rule"
     >
       <%= hidden_input(f, :action, value: @action) %>
+
+      <%= if !@port_rules_supported do %>
+        <%# Upfront kernel-constraint disclosure. Sits ABOVE the form
+        %# grid so it doesn't break the field row's vertical rhythm,
+        %# and renders unconditionally on unsupported kernels (vs the
+        %# old `title=` tooltip which only fired on hover over a
+        %# disabled control). %>
+        <div class="ng-modal-callout ng-modal-callout--warning ng-rule-form-notice">
+          <i class="mdi mdi-alert-outline"></i>
+          <span>
+            <strong>Linux Kernel ≥ 5.6.9 required.</strong>
+            Protocol + Port range fields are disabled on this host —
+            you can still add destination-only rules below.
+          </span>
+        </div>
+      <% end %>
+
       <div class="ng-rule-form-row">
         <div class="ng-rule-form-field ng-rule-form-field--wide">
           <label class="ng-rule-form-label">Destination</label>
@@ -42,7 +59,6 @@
           <%= select(f, :port_type, port_type_options(),
             prompt: "All",
             class: "ng-rule-select",
-            title: if(!@port_rules_supported, do: "Kernel 5.6.9 required for port-based rules."),
             disabled: !@port_rules_supported
           ) %>
           <p class="ng-rule-error"><%= error_tag(f, :port_type) %></p>
@@ -182,7 +198,9 @@
     <%= if !@port_rules_supported && Enum.any?(@all_rules, fn rule -> rule.port_range != nil end) do %>
       <p class="ng-rule-warning">
         <i class="mdi mdi-alert-outline"></i>
-        Port-based rules require Linux Kernel 5.6.9 or greater.
+        Some rules below carry a port_range constraint that won't
+        enforce on this host — kernel ≥ 5.6.9 is required for
+        port-based filtering.
       </p>
     <% end %>
   </div>
