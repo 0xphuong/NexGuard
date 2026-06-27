@@ -10,18 +10,17 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# Upfront disclosure — these defaults seed the .conf file generated
-  %# when a new device is added; existing connected devices keep their
-  %# current settings until the user regenerates from the portal. Admin
-  %# who expects "save = roll out everywhere" gets corrected before
-  %# touching the form. %>
+  <%# Upfront disclosure — NexGuard Connect re-fetches the device
+  %# config via /api/v1/devices/me/config on every sign-in, so any
+  %# change here propagates automatically the next time each client
+  %# connects. Sets admin expectation: not immediate, but no manual
+  %# regeneration step either. %>
   <div class="ng-modal-callout">
     <i class="mdi mdi-information-outline"></i>
     <span>
-      These defaults apply only to <strong>newly-generated</strong> device
-      configurations. Existing connected devices keep their current
-      settings until the user regenerates the config from their devices
-      page.
+      <strong>NexGuard Connect</strong> refreshes the device config on
+      every sign-in. Existing clients pick up these defaults the next
+      time they connect — no manual regeneration needed.
     </span>
   </div>
 
