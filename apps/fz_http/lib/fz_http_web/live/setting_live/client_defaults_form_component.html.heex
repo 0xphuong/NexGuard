@@ -1,5 +1,6 @@
 <div>
-<.form :let={f} for={@changeset} id={@id} phx-target={@myself} phx-submit="save">
+<.form :let={f} for={@changeset} id={@id} phx-target={@myself}
+       phx-change="validate" phx-submit="save">
   <div class="ng-settings-card">
 
     <%# Allowed IPs %>
@@ -177,7 +178,8 @@
   <div class="ng-settings-footer">
     <%= submit "Save Changes",
       class: "ng-primary-btn",
-      phx_disable_with: "Saving…" %>
+      phx_disable_with: "Saving…",
+      disabled: map_size(@changeset.changes) == 0 %>
   </div>
 </.form>
 </div>

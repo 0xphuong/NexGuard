@@ -10,6 +10,21 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# Upfront disclosure — these defaults seed the .conf file generated
+  %# when a new device is added; existing connected devices keep their
+  %# current settings until the user regenerates from the portal. Admin
+  %# who expects "save = roll out everywhere" gets corrected before
+  %# touching the form. %>
+  <div class="ng-modal-callout">
+    <i class="mdi mdi-information-outline"></i>
+    <span>
+      These defaults apply only to <strong>newly-generated</strong> device
+      configurations. Existing connected devices keep their current
+      settings until the user regenerates the config from their devices
+      page.
+    </span>
+  </div>
+
   <%= live_component(
     FzHttpWeb.SettingLive.ClientDefaultsFormComponent,
     subject: @subject,

@@ -23,6 +23,24 @@ defmodule FzHttpWeb.SettingLive.ClientDefaultsFormComponent do
     {:ok, socket}
   end
 
+  # Live validation — fires on every form change so the admin sees
+  # bad CIDRs / IPs / MTU errors as they type instead of finding out
+  # on submit. Mirrors the apps/cert form patterns.
+  @impl Phoenix.LiveComponent
+  def handle_event("validate", %{"configuration" => params}, socket) do
+    params =
+      params
+      |> Map.update("default_client_dns", nil, &binary_to_list/1)
+      |> Map.update("default_client_allowed_ips", nil, &binary_to_list/1)
+
+    changeset =
+      socket.assigns.changeset.data
+      |> Config.change_config(params)
+      |> Map.put(:action, :validate)
+
+    {:noreply, assign(socket, :changeset, changeset)}
+  end
+
   @impl Phoenix.LiveComponent
   def handle_event("save", %{"configuration" => configuration_params}, socket) do
     configuration_params =
