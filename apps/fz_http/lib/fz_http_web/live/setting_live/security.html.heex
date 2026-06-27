@@ -1,7 +1,60 @@
 <% openid_connect_providers = Map.fetch!(@configs, :openid_connect_providers) %>
 <% saml_identity_providers = Map.fetch!(@configs, :saml_identity_providers) %>
 
-<%# ── Provider Delete Confirmation Modal ─────────────────────────────────── %>
+<%# ── Sensitive-toggle confirm modal ─────────────────────────── %>
+<%# Force MFA / Local Auth / Auto-disable VPN on OIDC error each %>
+<%# route through this modal before the change commits. Copy comes %>
+<%# from `toggle_copy/1` keyed on (key, new_value) so admin sees   %>
+<%# the impact specific to the direction. %>
+<%= if @pending_toggle do %>
+  <% copy = FzHttpWeb.SettingLive.Security.toggle_copy(@pending_toggle) %>
+  <div class="modal is-active" phx-window-keydown="cancel_toggle" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_toggle"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class={[
+            "mdi", "ng-modal-title-icon",
+            copy.tone == :danger && "",
+            copy.tone == :warning && "ng-modal-title-icon--warn",
+            copy.tone == :info && "ng-modal-title-icon--ok",
+            (copy.tone == :danger and "mdi-alert-octagon") ||
+              (copy.tone == :warning and "mdi-alert-outline") ||
+              "mdi-shield-check-outline"
+          ]}></i>
+          <%= copy.title %>
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_toggle">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro"><%= copy.intro %></p>
+        <p class="ng-modal-cons">Impact:</p>
+        <ul class="ng-modal-list">
+          <%= for line <- copy.impact do %>
+            <li><%= line %></li>
+          <% end %>
+        </ul>
+        <p class="ng-modal-warn"><%= copy.warn %></p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_toggle">Cancel</button>
+        <%= if copy.tone == :danger do %>
+          <button class="ng-danger-btn ng-danger-btn--filled" phx-click="apply_toggle">
+            <i class="mdi mdi-check"></i> <%= copy.title %>
+          </button>
+        <% else %>
+          <button class="ng-primary-btn" phx-click="apply_toggle">
+            <i class="mdi mdi-check"></i> <%= copy.title %>
+          </button>
+        <% end %>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Provider Delete Confirmation Modal ───────────────────── %>
 <%= if @pending_delete do %>
   <div class="modal is-active"
        phx-window-keydown="cancel_provider_delete"
@@ -20,6 +73,21 @@
       <section class="modal-card-body">
         <p class="ng-modal-intro">You are about to delete the following provider:</p>
         <div class="ng-modal-entity"><%= @pending_delete.label %></div>
+
+        <%# Lock-out guard: if deleting this provider would leave
+        %# zero sign-in methods, surface a CRITICAL callout. %>
+        <%= if @pending_delete.lockout? do %>
+          <div class="ng-modal-callout ng-modal-callout--danger">
+            <i class="mdi mdi-alert-octagon"></i>
+            <span>
+              <strong>This is the only remaining sign-in method.</strong>
+              Deleting it will lock every user out of the portal. Either
+              enable Local Authentication or configure another SSO
+              provider before removing this one.
+            </span>
+          </div>
+        <% end %>
+
         <p class="ng-modal-cons">This will also:</p>
         <ul class="ng-modal-list">
           <li>Remove this provider from the login page immediately</li>
@@ -34,6 +102,7 @@
           phx-click="delete"
           phx-value-key={@pending_delete.key}
           phx-value-type={@pending_delete.type}
+          disabled={@pending_delete.lockout?}
         >
           <i class="mdi mdi-trash-can-outline"></i> Delete Provider
         </button>
@@ -80,26 +149,94 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# ── Stats strip — security posture pulse ───────────────── %>
+  <% require_mfa_cfg = Map.fetch!(@configs, :require_mfa) %>
+  <% local_auth_cfg = Map.fetch!(@configs, :local_auth_enabled) %>
+  <% vpn_duration_cfg = Map.fetch!(@configs, :vpn_session_duration) %>
+  <% sso_count = length(config_value(openid_connect_providers)) +
+                 length(config_value(saml_identity_providers)) %>
+  <% mfa_on? = config_value(require_mfa_cfg) %>
+  <% local_on? = config_value(local_auth_cfg) %>
+  <% duration_zero? = config_value(vpn_duration_cfg) == 0 %>
+
+  <div class="ng-stat-strip">
+    <div class={["ng-stat-tile",
+                  mfa_on? && "ng-stat-tile--ok",
+                  not mfa_on? && "ng-stat-tile--danger"]}>
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= if mfa_on?, do: "Forced", else: "Optional" %>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class={["mdi",
+                   if(mfa_on?, do: "mdi-shield-check-outline", else: "mdi-shield-alert-outline")]}></i>
+        MFA
+      </div>
+    </div>
+    <div class={["ng-stat-tile",
+                  not local_on? && "ng-stat-tile--ok",
+                  local_on? && not mfa_on? && "ng-stat-tile--warn"]}>
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= if local_on?, do: "On", else: "Off" %>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-form-textbox-password"></i> Local auth
+      </div>
+    </div>
+    <div class={["ng-stat-tile", duration_zero? && "ng-stat-tile--warn"]}>
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= FzHttpWeb.SettingLive.Security.session_duration_label(vpn_duration_cfg) %>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-clock-outline"></i> VPN re-auth
+      </div>
+    </div>
+    <div class={["ng-stat-tile", sso_count == 0 && "ng-stat-tile--muted"]}>
+      <div class="ng-stat-tile-value"><%= sso_count %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-shield-account-outline"></i> SSO providers
+      </div>
+    </div>
+  </div>
+
+  <%# ── Posture warning callout — only when state is risky ── %>
+  <%= case FzHttpWeb.SettingLive.Security.posture_warning(@configs) do %>
+    <% nil -> %>
+    <% {tone, headline, detail} -> %>
+      <div class={["ng-modal-callout",
+                    tone == :critical && "ng-modal-callout--danger",
+                    tone == :warning && "ng-modal-callout--warning"]}>
+        <i class={[
+          "mdi",
+          (tone == :critical and "mdi-alert-octagon") ||
+            (tone == :warning and "mdi-alert-outline") ||
+            "mdi-information-outline"
+        ]}></i>
+        <span>
+          <strong><%= headline %></strong>
+          <%= detail %>
+        </span>
+      </div>
+  <% end %>
+
   <%# ── Authentication ─────────────────────────────────────── %>
   <div class="ng-section-header">Authentication</div>
 
   <div class="ng-settings-card">
 
     <%# VPN Session Duration %>
-    <% vpn_session_duration = Map.fetch!(@configs, :vpn_session_duration) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
           <span class="ng-setting-label">Require Auth for VPN Sessions</span>
-          <%= if config_has_override?(vpn_session_duration) do %>
+          <%= if config_has_override?(vpn_duration_cfg) do %>
             <span class="ng-override-badge">
               <i class="mdi mdi-lock-outline"></i>
-              <%= config_override_source(vpn_session_duration) %>
+              <%= config_override_source(vpn_duration_cfg) %>
             </span>
           <% end %>
         </div>
         <p class="ng-setting-desc">
-          <%= if config_has_override?(vpn_session_duration) do %>
+          <%= if config_has_override?(vpn_duration_cfg) do %>
             This field is overridden and cannot be changed here.
           <% else %>
             Require users to periodically re-authenticate to keep VPN sessions active.
@@ -115,13 +252,13 @@
           class="ng-inline-form"
         >
           <%= select(f, :vpn_session_duration,
-            session_duration_options(vpn_session_duration),
+            session_duration_options(vpn_duration_cfg),
             class: "ng-setting-input",
-            disabled: config_has_override?(vpn_session_duration),
-            selected: config_value(vpn_session_duration)
+            disabled: config_has_override?(vpn_duration_cfg),
+            selected: config_value(vpn_duration_cfg)
           ) %>
           <%= submit "Save",
-            disabled: !(@form_changed and !config_has_override?(vpn_session_duration)),
+            disabled: !(@form_changed and !config_has_override?(vpn_duration_cfg)),
             phx_disable_with: "Saving…",
             class: "ng-save-inline-btn" %>
         </.form>
@@ -129,15 +266,14 @@
     </div>
 
     <%# Force MFA toggle %>
-    <% require_mfa = Map.fetch!(@configs, :require_mfa) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
           <span class="ng-setting-label">Force MFA for All Users</span>
-          <%= if config_has_override?(require_mfa) do %>
+          <%= if config_has_override?(require_mfa_cfg) do %>
             <span class="ng-override-badge">
               <i class="mdi mdi-lock-outline"></i>
-              <%= config_override_source(require_mfa) %>
+              <%= config_override_source(require_mfa_cfg) %>
             </span>
           <% end %>
         </div>
@@ -147,15 +283,18 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state", mfa_on? && "ng-toggle-state--on"]}>
+          <%= if mfa_on?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
             phx-click="toggle"
             name="require_mfa"
             phx-value-config="require_mfa"
-            disabled={config_has_override?(require_mfa)}
-            checked={config_value(require_mfa)}
-            value={config_toggle_status(require_mfa)}
+            disabled={config_has_override?(require_mfa_cfg)}
+            checked={mfa_on?}
+            value={config_toggle_status(require_mfa_cfg)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
         </label>
@@ -163,15 +302,14 @@
     </div>
 
     <%# Local Auth toggle %>
-    <% local_auth_enabled = Map.fetch!(@configs, :local_auth_enabled) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
           <span class="ng-setting-label">Local Authentication</span>
-          <%= if config_has_override?(local_auth_enabled) do %>
+          <%= if config_has_override?(local_auth_cfg) do %>
             <span class="ng-override-badge">
               <i class="mdi mdi-lock-outline"></i>
-              <%= config_override_source(local_auth_enabled) %>
+              <%= config_override_source(local_auth_cfg) %>
             </span>
           <% end %>
         </div>
@@ -180,15 +318,18 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state", local_on? && "ng-toggle-state--on"]}>
+          <%= if local_on?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
             phx-click="toggle"
             name="local_auth_enabled"
             phx-value-config="local_auth_enabled"
-            disabled={config_has_override?(local_auth_enabled)}
-            checked={config_value(local_auth_enabled)}
-            value={config_toggle_status(local_auth_enabled)}
+            disabled={config_has_override?(local_auth_cfg)}
+            checked={local_on?}
+            value={config_toggle_status(local_auth_cfg)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
         </label>
@@ -198,6 +339,7 @@
     <%# Unprivileged device management %>
     <% allow_unprivileged_device_management =
       Map.fetch!(@configs, :allow_unprivileged_device_management) %>
+    <% unpriv_mgmt? = config_value(allow_unprivileged_device_management) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
@@ -214,6 +356,9 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state", unpriv_mgmt? && "ng-toggle-state--on"]}>
+          <%= if unpriv_mgmt?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
@@ -221,7 +366,7 @@
             name="allow_unprivileged_device_management"
             phx-value-config="allow_unprivileged_device_management"
             disabled={config_has_override?(allow_unprivileged_device_management)}
-            checked={config_value(allow_unprivileged_device_management)}
+            checked={unpriv_mgmt?}
             value={config_toggle_status(allow_unprivileged_device_management)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
@@ -232,6 +377,7 @@
     <%# Unprivileged device configuration %>
     <% allow_unprivileged_device_configuration =
       Map.fetch!(@configs, :allow_unprivileged_device_configuration) %>
+    <% unpriv_cfg? = config_value(allow_unprivileged_device_configuration) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
@@ -248,6 +394,9 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state", unpriv_cfg? && "ng-toggle-state--on"]}>
+          <%= if unpriv_cfg?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
@@ -255,7 +404,7 @@
             name="allow_unprivileged_device_configuration"
             phx-value-config="allow_unprivileged_device_configuration"
             disabled={config_has_override?(allow_unprivileged_device_configuration)}
-            checked={config_value(allow_unprivileged_device_configuration)}
+            checked={unpriv_cfg?}
             value={config_toggle_status(allow_unprivileged_device_configuration)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
@@ -268,8 +417,9 @@
   <%# ── Single Sign-On ─────────────────────────────────────── %>
   <div class="ng-section-header ng-section-header--spaced">Single Sign-On</div>
 
-  <div class="ng-settings-card" style="margin-bottom: 1.5rem;">
+  <div class="ng-settings-card">
     <% disable_vpn_on_oidc_error = Map.fetch!(@configs, :disable_vpn_on_oidc_error) %>
+    <% auto_disable? = config_value(disable_vpn_on_oidc_error) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
@@ -286,6 +436,9 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state", auto_disable? && "ng-toggle-state--on"]}>
+          <%= if auto_disable?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
@@ -293,7 +446,7 @@
             name="disable_vpn_on_oidc_error"
             phx-value-config="disable_vpn_on_oidc_error"
             disabled={config_has_override?(disable_vpn_on_oidc_error)}
-            checked={config_value(disable_vpn_on_oidc_error)}
+            checked={auto_disable?}
             value={config_toggle_status(disable_vpn_on_oidc_error)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
@@ -310,6 +463,7 @@
           <i class="mdi mdi-shield-account-outline"></i>
         </span>
         <span class="ng-provider-section-title">OpenID Connect Providers</span>
+        <span class="ng-section-badge"><%= length(config_value(openid_connect_providers)) %></span>
         <%= if config_has_override?(openid_connect_providers) do %>
           <span class="ng-override-badge">
             <i class="mdi mdi-lock-outline"></i>
@@ -327,19 +481,29 @@
 
     <%= if Enum.empty?(config_value(openid_connect_providers)) do %>
       <div class="ng-provider-empty">
-        <i class="mdi mdi-shield-off-outline"></i>
-        No OIDC providers configured
+        <i class="mdi mdi-shield-off-outline ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No OIDC providers configured</p>
+        <p class="ng-empty-state-hint">
+          Wire up an OpenID Connect IdP (Okta, Google Workspace, Azure AD,
+          Keycloak, …) to let users sign in with their org identity instead
+          of a NexGuard-local password.
+        </p>
+        <%= unless config_has_override?(openid_connect_providers) do %>
+          <%= live_patch to: ~p"/settings/security/oidc/#{rand_string(8)}/edit",
+            class: "ng-primary-btn ng-empty-state-cta" do %>
+            <i class="mdi mdi-plus"></i> Add OIDC provider
+          <% end %>
+        <% end %>
       </div>
     <% else %>
       <div class="ng-table-wrap">
         <table class="ng-table">
           <thead>
             <tr>
-              <th>Config ID</th>
               <th>Label</th>
-              <th>Client ID</th>
               <th>Discovery URI</th>
               <th>Scope</th>
+              <th>Client ID</th>
               <%= unless config_has_override?(openid_connect_providers) do %>
                 <th></th>
               <% end %>
@@ -348,11 +512,17 @@
           <tbody>
             <%= for provider <- config_value(openid_connect_providers) do %>
               <tr>
-                <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
-                <td class="ng-td-label"><%= provider.label %></td>
-                <td class="ng-td-mono ng-td-muted"><%= provider.client_id %></td>
+                <td>
+                  <div class="ng-user-info">
+                    <span class="ng-user-email"><%= provider.label %></span>
+                    <span class="ng-td-muted ng-td-meta">
+                      <code><%= provider.id %></code>
+                    </span>
+                  </div>
+                </td>
                 <td class="ng-td-muted"><%= provider.discovery_document_uri %></td>
                 <td class="ng-td-muted"><%= provider.scope %></td>
+                <td class="ng-td-mono ng-td-muted"><%= provider.client_id %></td>
                 <%= unless config_has_override?(openid_connect_providers) do %>
                   <td>
                     <div class="ng-row-actions">
@@ -388,6 +558,7 @@
           <i class="mdi mdi-card-account-details-outline"></i>
         </span>
         <span class="ng-provider-section-title">SAML Identity Providers</span>
+        <span class="ng-section-badge"><%= length(config_value(saml_identity_providers)) %></span>
         <%= if config_has_override?(saml_identity_providers) do %>
           <span class="ng-override-badge">
             <i class="mdi mdi-lock-outline"></i>
@@ -405,15 +576,25 @@
 
     <%= if Enum.empty?(config_value(saml_identity_providers)) do %>
       <div class="ng-provider-empty">
-        <i class="mdi mdi-shield-off-outline"></i>
-        No SAML providers configured
+        <i class="mdi mdi-shield-off-outline ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No SAML providers configured</p>
+        <p class="ng-empty-state-hint">
+          Paste IdP metadata XML to let users sign in via SAML 2.0
+          (ADFS, Okta SAML, OneLogin, …). Prefer OIDC where the IdP
+          supports both — simpler to operate.
+        </p>
+        <%= unless config_has_override?(saml_identity_providers) do %>
+          <%= live_patch to: ~p"/settings/security/saml/#{rand_string(8)}/edit",
+            class: "ng-primary-btn ng-empty-state-cta" do %>
+            <i class="mdi mdi-plus"></i> Add SAML provider
+          <% end %>
+        <% end %>
       </div>
     <% else %>
       <div class="ng-table-wrap">
         <table class="ng-table">
           <thead>
             <tr>
-              <th>Config ID</th>
               <th>Label</th>
               <th>Metadata</th>
               <%= unless config_has_override?(saml_identity_providers) do %>
@@ -424,8 +605,14 @@
           <tbody>
             <%= for provider <- config_value(saml_identity_providers) do %>
               <tr>
-                <td class="ng-td-mono ng-td-muted"><%= provider.id %></td>
-                <td class="ng-td-label"><%= provider.label %></td>
+                <td>
+                  <div class="ng-user-info">
+                    <span class="ng-user-email"><%= provider.label %></span>
+                    <span class="ng-td-muted ng-td-meta">
+                      <code><%= provider.id %></code>
+                    </span>
+                  </div>
+                </td>
                 <td class="ng-td-muted">
                   <div class="ng-metadata-preview"><%= provider.metadata %></div>
                 </td>

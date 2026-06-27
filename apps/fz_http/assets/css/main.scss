@@ -3426,13 +3426,22 @@ pre {
   color: #1e293b;
 }
 
+/* Provider empty state — column flex so the redesigned pane stacks
+   icon + title + hint + CTA cleanly (instead of running them in a
+   single horizontal line). Matches the `.ng-empty-state` baseline. */
 .ng-provider-empty {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 2rem 1.5rem;
+  text-align: center;
+  gap: 0.15rem;
+  padding: 2.5rem 1.5rem;
   color: #94a3b8;
   font-size: 0.9rem;
+  background: #f8fafc;
+  border: 1px dashed #e2e8f0;
+  border-radius: 8px;
+  margin: 0 1.5rem 1rem;
 
   .mdi { font-size: 1.25rem; }
 }
@@ -5148,6 +5157,18 @@ pre {
     color: #166534;
 
     i { color: #16a34a; }
+  }
+
+  /* Danger variant — warmer than `--warning`, reserved for "this
+     action will lock out users" / "Force MFA OFF + Local Auth ON =
+     local users bypass MFA" — the most critical security posture
+     warnings on /settings/security. */
+  &--danger {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
+
+    i { color: #dc2626; }
   }
 }
 
