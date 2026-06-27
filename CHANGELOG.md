@@ -9,6 +9,301 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.9] - 2026-06-28
+
+**Admin portal UX sweep — `frontend-design-direction` applied to
+every major surface.** 24 commits across the whole admin section.
+No schema changes — purely UI plus a handful of safety / correctness
+fixes the redesign work surfaced.
+
+The theme across every page: stats strip + status callout at top
+(answers "is this surface healthy?" before scrolling), filter bars
+on indexes, 4-zone Overview cards on show pages, confirm modals
+for any toggle whose blast radius reaches users, lock-out guards
+on delete flows, computed warnings instead of conditional-in-prose
+disclosures, aria-label everywhere `title=` was hover-only, and
+~150 inline `style="..."` declarations replaced with utility
+classes across the suite.
+
+### Redesigned surfaces
+
+#### `/devices` and `/devices/:id`
+
+  * Index stats strip (Total / Pending approval / Connected now /
+    Stale) with `--warn/--ok/--muted` tile tints.
+  * Status + Last Handshake columns collapsed into one Connection
+    badge with six states (pending / connected / recent / idle /
+    stale / never). Public Key + Created columns dropped from the
+    shared partial — moved to the show page where they're
+    forensically useful.
+  * Filter bar — search by device name OR user email, plus Status
+    and Connection chips.
+  * Pending banner above the table when devices need triage;
+    default sort = pending first, then handshake desc.
+  * Show page: hero refresh, neutral stat-strip icons (replaces
+    the colored-icon tiles dashboard v3.0.6 already dropped),
+    consolidated approval/connection state, 2-column Network +
+    WireGuard grid on desktop.
+  * Pure-function helpers in `FzHttp.Devices` —
+    `connection_state/1`, `connection_class/1`, `connection_label/1`,
+    `connection_icon/1`, `relative_handshake/1` — used across admin
+    index + show + user-detail Devices tab + unprivileged.
+
+#### `/rules`
+
+  * Side-by-side Allow/Deny grid → URL-addressable tabs
+    (`/rules` → Allow, `/rules/deny` → Deny). Full table width
+    per tab; mobile-clean.
+  * Add-rule form lifted OUT of the table-first-row (was visually
+    mixing input vs data row). Now a dedicated form-strip card
+    above with explicit field labels.
+  * Search by destination + user email; status / connection chips;
+    Reset + `N of M` counter.
+  * `.ng-form-actions--spaced` form-action spacing, dropped
+    Bulma-era `gradient(135deg, ...)` panel icons + add button in
+    favour of flat semantic colours.
+  * Live CIDR validation hooked at the right layer so live
+    feedback (kernel ≥ 5.6.9 requirement disclosure inline,
+    not hover-only).
+
+#### `/applications` and `/applications/:id`
+
+  * Hero rebuilt via `.ng-app-hero` family. The show page lost 28
+    inline `style="..."` declarations — most went to
+    `.ng-detail-card-body`, `.ng-th-narrow`, `.ng-table-wrap--flush`,
+    `.ng-section-meta`.
+  * 4-zone Overview card (Routing · Policy · Access · Cert/TLS)
+    replacing the stub 5-row `<dl>`.
+  * `.ng-rule-action-badge--allow/--deny` family for L7 rule
+    action pills (replaces two hardcoded `#fee2e2 / #b91c1c`
+    inline styles on the deny badge).
+  * Index search/filter (name OR hostname + status chip).
+  * Cert-source picker demotes step_ca behind a `Pending` badge —
+    library + upload remain the canonical paths until the step-ca
+    pipeline lands.
+
+#### `/access-groups` and `/access-groups/:id`
+
+  * **Critical safety fix**: source-driven write guard. `:idp_sync`
+    and `:system` groups now hide manual add/remove and the edit
+    form — manual edits were silently overwritten on the next IdP
+    sync. Member-row Remove buttons omitted from the table when
+    not writable; the Overview Source zone shows an "Editable
+    yes/no" pill.
+  * URL-addressable tabs (Overview / Members / Danger).
+  * 4-zone Overview (Identity · Source · Membership · L7 gate).
+  * Index search/filter (name + description + source chip).
+  * Hero matches `.ng-app-hero` shape; `title=` → `aria-label`.
+
+#### `/settings/certificates`
+
+  * Dedicated `.ng-cert-status-badge` family with `--healthy/
+    --warning/--critical/--expired` variants. The old code
+    repurposed `.ng-source-badge--manual` (slate) for expired
+    and `.ng-source-badge--idp_sync` (green) for healthy —
+    conflated the provenance palette with operational urgency.
+  * Stats strip tints `.ng-stat-tile--danger` when
+    critical/expired count > 0, `--warn` for expiring soon.
+  * "Used by" hover tooltip → `<details>` disclosure with
+    Pinned / Auto-matched hostname groups.
+  * Replace modal now lists affected apps in an amber
+    `.ng-modal-callout--warning` BEFORE the admin pastes new
+    material — so a narrower-SAN replacement can be aborted
+    before TLS breaks for auto-matched apps.
+  * Filter bar (search label / SAN + expiry chip).
+
+#### `/settings/l7`
+
+  * Stats strip (Enforcement · Enabled apps · DNS forwarders ·
+    Last update). Enabled-apps tile turns amber when L7 is on
+    but zero apps are published (misconfig signal).
+  * `.ng-cert-preview` misuse → `.ng-modal-callout--success` for
+    the L7-active banner (the cert-preview class belongs to the
+    TLS library, not org-wide status).
+  * DNS save confirm modal — the previous plain submit could
+    typo a primary IP and break in-flight name resolution for
+    every VPN client within ~1s.
+  * Hero badge switched from `.ng-scope-badge--all/--limited`
+    (access-scope semantics) to `.ng-source-badge--idp_sync/
+    --manual`.
+
+#### `/settings/security`
+
+  * Stats strip (Forced MFA / Local auth / VPN re-auth /
+    SSO providers) plus a posture callout when the org is in a
+    risky state (`:critical` — Force MFA OFF + Local Auth ON;
+    `:warning` — Force MFA OFF, or Local Auth ON with zero SSO,
+    or VPN sessions never expire).
+  * **Sensitive toggles route through confirm modals**:
+    `require_mfa`, `local_auth_enabled`, `disable_vpn_on_oidc_error`.
+    Per-(key, direction) modal copy spells out the user impact —
+    Force MFA OFF lands a danger-tone modal, Local Auth ON with
+    no SSO lands a warning, etc.
+  * **Lock-out guard on provider delete**: removing an SSO
+    provider that would leave the org with zero sign-in methods
+    triggers a `.ng-modal-callout--danger` and disables the Delete
+    button until another sign-in path is armed.
+  * Toggle ON/OFF labels via `.ng-toggle-state`.
+  * SSO empty states with embedded "Add provider" CTA and
+    provider-type-specific reasoning copy.
+  * Provider tables: label + Config ID as primary + meta (was a
+    full mono column).
+
+#### `/settings/account`
+
+  * Stats strip (MFA methods / API tokens N/25 / Active sessions /
+    Role).
+  * Active-sessions table — "this device" badge on rows whose
+    `remote_ip` matches the current LV (best-effort heuristic).
+  * MFA delete modal: computes `is_last` + `force_mfa` and shows
+    a `.ng-modal-callout--danger` when both hold ("you will be
+    forced to re-enroll on next sign-in") instead of the previous
+    conditional-in-prose warning.
+  * Account edit form harmonised with the user-form fix from
+    v3.0.8 — `phx-change="validate"`, inline password inputs with
+    the `.ng-field` family, email-change warning callout, "leave
+    blank to keep" hint.
+  * `.ng-provider-empty` empty states upgraded with title + hint +
+    embedded CTA buttons.
+
+#### `/settings/network`
+
+  * **Confirm modal for Preserve Client IP** (no-MASQUERADE) on
+    enable. The toggle silently rewrote nftables — clicking ON
+    without a return route on destination servers broke traffic
+    to internal subnets. Confirm modal now lists the affected
+    CIDRs + spells out the return-route requirement.
+  * Live CIDR list validation via new
+    `FzHttp.Validator.validate_cidr_list/3`. Save button stays
+    disabled until the changeset is valid (was just "has changes").
+  * Toggle ON/OFF state label.
+  * `FzWall.CLI.Live.reload_postrouting/0` — the helper was
+    imported into the module but never re-exported, so every
+    `:reload_masquerade` GenServer call had been crashing with
+    `UndefinedFunctionError`. Now `defdelegate`d properly.
+
+#### `/settings/audit_log`
+
+  * **Free-text search** across actor_email / target_label /
+    target_id / IP — the primary forensic affordance the page
+    was missing.
+  * Time-range chip (24h / 7d / 30d / 90d / all) — maps to the
+    existing `:from` filter via `DateTime.add`.
+  * Reset-filters button + empty-state variants (zero-ever vs
+    zero-match vs page-beyond-data).
+  * Result icon `title=` → `aria-label`.
+  * Retention input uses `Integer.parse/1` with explicit
+    range check — previously crashed the LV on empty / non-
+    numeric input.
+
+#### `/settings/client_defaults`
+
+  * **DNS Servers field now forced to the gateway CoreDNS IP
+    when L7 enforcement is on.** Backend `Devices.get_dns/2`
+    overrides at read time so device configs always serve the
+    right resolver — clients pointed at upstream DNS would
+    NXDOMAIN every declared application hostname. UI disables
+    the input + shows the override badge + explains the
+    redirection in plain language.
+  * Live validate, disabled-save until valid changes, info
+    callout reframed around NexGuard Connect's auto-refresh
+    behaviour (sign-in re-fetches config; no manual regeneration
+    needed).
+  * `binary_to_list/1` trims each CSV item — the
+    binary_to_list ↔ list_value round-trip used to widen the
+    Allowed-IPs textarea by one extra space per keystroke once
+    live-validate landed.
+
+#### `/settings/customization`
+
+  * Override notice replaced with `.ng-modal-callout` info
+    banner (drops two inline styles + a hardcoded `#2563eb`).
+  * Success flash on Default/URL/Upload save handlers — they
+    were silent.
+  * `phx-disable-with` on all three submit buttons.
+
+#### `/diagnostics/connectivity_checks`
+
+  * Current-state callout at top — WAN online/offline + public
+    IP + last-checked relative + failure count in last 20.
+  * Failed-check rows now tinted red via `.ng-row--failure`.
+  * `nil` fallbacks for HTTP code / resolved IP.
+
+#### `/notifications`
+
+  * "Clear all" button when count > 1 (the
+    `Notifications.clear_all/1` context fn already existed).
+  * Per-row severity tint (error red / warning amber / info
+    neutral).
+  * Dismiss button `title=` → `aria-label`.
+  * Inline styles class-ified (5 → 0 across page + topbar badge).
+
+### Cross-cutting
+
+#### Safety + correctness fixes
+
+  * `FzHttp.Validator.validate_cidr_list/3` — new helper.
+    `Configuration.Changeset` now validates
+    `gateway_no_masquerade_cidrs` per item; `"10.0.0.0"` without
+    `/N` no longer slips through.
+  * `FzWall.CLI.Live.reload_postrouting/0` — delegate fix (was
+    crashing the network settings page).
+  * `Devices.get_dns/2` — L7-aware override (force CoreDNS).
+  * `Devices.connection_state/1` family — extracted helpers so
+    every device-rendering surface shares the same logic.
+  * `AuditLogs.apply_filters/2` — new `:search` clause with ILIKE
+    across four columns.
+
+#### Observability
+
+  * Network settings: info logs on toggle commit + nftables
+    reload (with state + CIDR count). The path was silent on
+    success before — admin had no `docker compose logs -f` trail
+    for masquerade flips.
+
+#### Design tokens added
+
+  * `.ng-modal-callout--danger` — warmer than `--warning`, for
+    lock-out / Force-MFA-OFF / critical security-posture banners.
+  * `.ng-cert-status-badge` family.
+  * `.ng-rule-action-badge--allow/--deny`.
+  * `.ng-conn-cell` family for device connection states.
+  * `.ng-stat-tile--danger` / `--warn` / `--ok` / `--muted`
+    modifiers.
+  * `.ng-toggle-state` + `--on`.
+  * `.ng-section-header { margin: 0 }` scoped inside
+    `.ng-detail-card-header` — kills the
+    `style="margin: 0"` inline override across 20+ usages.
+  * `.ng-form-footer` (split form-footer hint + button).
+  * `.ng-section-meta` (right-aligned card-header meta).
+  * `.ng-row--pending` / `--stale` / `--failure` row tints.
+  * `.ng-th-narrow` / `.ng-th-actions` / `.ng-td-nowrap`.
+
+### Memory + ADR-adjacent
+
+`Devices.get_dns/2` change is the first surface-level enforcement
+of the NexGuard Connect auto-refresh behaviour (Connect re-fetches
+device config on every sign-in via
+`/api/v1/devices/me/config`) — when L7 is on, clients will
+self-correct to the gateway CoreDNS without admin touching each
+device.
+
+### Deferred
+
+  * Form-modal harmonisation for OIDC / SAML providers — bigger
+    refactor, lower ROI now that the rest of `/settings/security`
+    communicates state clearly.
+  * Audit log CSV/JSON export, PubSub live tailing, severity-tag
+    classifier — Pass 2 work.
+  * "Sign out everywhere" affordance on `/settings/account` —
+    needs session-store enumeration.
+  * MFA freshness window (`require_mfa_age_seconds`) org-wide UI
+    surface.
+  * DRY refactor of repeated toggle rows + 3-clone confirm
+    modals — pattern is consistent across the codebase.
+
+---
+
 ## [3.0.8] - 2026-06-26
 
 **Users domain redesign — full refresh of `/users`, `/users/:id`,
