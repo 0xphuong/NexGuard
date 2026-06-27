@@ -308,7 +308,7 @@
           </div>
 
           <div class="ng-field">
-            <label class="ng-label">Methods <span class="ng-td-muted">(empty = any)</span></label>
+            <label class="ng-label">Methods <span class="ng-label-meta">(empty = any)</span></label>
             <div class="ng-method-pills">
               <%= for m <- ~w[GET POST PUT DELETE PATCH] do %>
                 <label class="ng-method-pill">
@@ -320,13 +320,13 @@
           </div>
 
           <div class="ng-field">
-            <label class="ng-label">Path prefix <span class="ng-td-muted">(optional)</span></label>
+            <label class="ng-label">Path prefix <span class="ng-label-meta">(optional)</span></label>
             <input type="text" name="path_prefix" class="ng-input"
                    placeholder="/api/ or /admin/" autocomplete="off" />
           </div>
 
           <div class="ng-field">
-            <label class="ng-label">Require groups <span class="ng-td-muted">(any of)</span></label>
+            <label class="ng-label">Require groups <span class="ng-label-meta">(any of)</span></label>
             <%= if @allowed_groups == [] do %>
               <p class="ng-form-hint">Add allowed groups first to pick from.</p>
             <% else %>
@@ -342,7 +342,7 @@
           </div>
 
           <div class="ng-field">
-            <label class="ng-label">MFA fresh-within (seconds) <span class="ng-td-muted">(optional)</span></label>
+            <label class="ng-label">MFA fresh-within (seconds) <span class="ng-label-meta">(optional)</span></label>
             <input type="number" name="require_mfa_age_seconds" class="ng-input"
                    min="1" placeholder="300" />
           </div>

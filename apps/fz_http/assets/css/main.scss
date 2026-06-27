@@ -894,8 +894,31 @@ pre {
     vertical-align: middle;
 
     &.ng-td-center { text-align: center; }
-    &.ng-td-muted { color: #64748b; font-size: 0.8125rem; }
+    /* Table-scoped size; the colour comes from the global rule
+       below so free-standing `<span class="ng-td-muted">` in the
+       rest of the codebase (hero copy, form hints, badge gaps)
+       also renders muted. */
+    &.ng-td-muted { font-size: 0.8125rem; }
   }
+}
+
+/* Global muted utility — `.ng-td-muted` was originally
+   `.ng-table td.ng-td-muted` only, but the class name reads as a
+   colour modifier and 25+ free-standing spans across the codebase
+   already use it expecting the muted slate-500 colour. Promote the
+   colour to a global rule; the table-scoped rule above still adds
+   the smaller font-size where it matters. */
+.ng-td-muted { color: #64748b; }
+
+/* Inline label hint — the "(empty = any)" / "(optional)" / "(any
+   of)" copy beside a form label. Smaller + lighter than the label
+   itself so the eye reads "label · meta" not "label label". */
+.ng-label-meta {
+  font-weight: 400;
+  color: #94a3b8;
+  font-size: 0.72rem;
+  letter-spacing: 0;
+  margin-left: 0.25rem;
 }
 
 // User cell: avatar + email + role
