@@ -5476,6 +5476,27 @@ pre {
    spacing consistent with the L3/L4 rules form-strip. */
 .ng-form-actions--spaced { margin-top: 0.5rem; }
 
+/* Split form footer — hint on the left, action button on the right.
+   Used by the L7 DNS-forward upstreams form where the save row also
+   carries a "CoreDNS picks up the new Corefile within ~1s" hint. */
+.ng-form-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 1rem;
+}
+
+/* Right-aligned muted meta in a detail-card-header (e.g. "last
+   edited 3h ago" next to a section title). Smaller than form-hint
+   so it doesn't crowd the section title. */
+.ng-section-meta {
+  font-size: 0.78rem;
+  color: #64748b;
+  font-weight: 400;
+}
+
 /* ── Table column helpers (App-Show-C) ──────────────────────────
    The application show tables used to set widths inline via
    `style="width: 3rem"` and `style="width: 7rem"`. Move to

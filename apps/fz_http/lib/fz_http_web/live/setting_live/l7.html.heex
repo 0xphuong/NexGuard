@@ -1,4 +1,4 @@
-<%# ── Confirmation modal ──────────────────────────────────────────── %>
+<%# ── Enable/Disable confirm modal ─────────────────────────────── %>
 <%= if @confirm do %>
   <div class="modal is-active" phx-window-keydown="cancel" phx-key="escape">
     <div class="modal-background" phx-click="cancel"></div>
@@ -7,7 +7,7 @@
         <p class="modal-card-title">
           <%= case @confirm do %>
             <% :enable -> %>
-              <i class="mdi mdi-power-plug ng-modal-title-icon"></i>
+              <i class="mdi mdi-power-plug ng-modal-title-icon ng-modal-title-icon--ok"></i>
               Enable L7 Enforcement
             <% :disable -> %>
               <i class="mdi mdi-power-plug-off ng-modal-title-icon"></i>
@@ -63,6 +63,63 @@
   </div>
 <% end %>
 
+<%# ── DNS save confirm modal ──────────────────────────────────── %>
+<%# CoreDNS reloads `/etc/nexguard/Corefile.generated` within ~1s, %>
+<%# which interrupts in-flight DNS resolution for every VPN client. %>
+<%# Capture the new values + surface them before applying. %>
+<%= if @pending_dns do %>
+  <div class="modal is-active" phx-window-keydown="cancel_save_dns" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_save_dns"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-dns-outline ng-modal-title-icon ng-modal-title-icon--warn"></i>
+          Update DNS Upstreams
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_save_dns">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">CoreDNS will switch to the following upstreams:</p>
+        <ul class="ng-modal-list">
+          <li>
+            <strong>Primary:</strong>
+            <%= if @pending_dns.primary == [] do %>
+              <span class="ng-td-muted">(empty)</span>
+            <% else %>
+              <%= for ip <- @pending_dns.primary do %>
+                <code><%= ip %></code>
+              <% end %>
+            <% end %>
+          </li>
+          <li>
+            <strong>Fallback:</strong>
+            <%= if @pending_dns.fallback == [] do %>
+              <span class="ng-td-muted">none</span>
+            <% else %>
+              <%= for ip <- @pending_dns.fallback do %>
+                <code><%= ip %></code>
+              <% end %>
+            <% end %>
+          </li>
+        </ul>
+        <p class="ng-modal-warn">
+          CoreDNS reloads within ~1s — in-flight DNS resolution may
+          briefly interrupt for connected VPN clients. Save during a
+          maintenance window if possible.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_save_dns">Cancel</button>
+        <button class="ng-primary-btn" phx-click="apply_dns">
+          <i class="mdi mdi-content-save-outline"></i> Save upstreams
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <%# ── Hero ──────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
@@ -73,9 +130,11 @@
         live under <.link navigate={~p"/applications"}>Applications</.link>.
       </p>
     </div>
-    <span class={"ng-scope-badge #{if @settings.l7_enabled, do: "ng-scope-badge--all", else: "ng-scope-badge--limited"}"}
-          style="font-size:0.8rem;padding:0.3rem 0.8rem">
-      <%= if @settings.l7_enabled, do: "ENABLED", else: "DISABLED" %>
+    <span class={["ng-source-badge",
+                  if(@settings.l7_enabled, do: "ng-source-badge--idp_sync", else: "ng-source-badge--manual")]}>
+      <i class={["mdi",
+                 if(@settings.l7_enabled, do: "mdi-check-circle-outline", else: "mdi-pause-circle-outline")]}></i>
+      <%= if @settings.l7_enabled, do: "Enabled", else: "Disabled" %>
     </span>
   </div>
 </div>
@@ -83,75 +142,105 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Status banner ─────────────────────────────────────────────── %>
-  <%= if @settings.l7_enabled do %>
-    <div class="ng-cert-preview" style="background:#ecfdf5;border-color:#a7f3d0">
-      <div class="ng-cert-preview-title" style="color:#065f46">
-        <i class="mdi mdi-check-circle-outline"></i> L7 is active
+  <%# ── Stats strip — L7 control-plane pulse ───────────────────
+  %# Reuses `@settings` + `@enabled_apps_count` available from mount;
+  %# no new context queries. Status tile picks up green/amber from
+  %# enforcement state at a glance. %>
+  <div class="ng-stat-strip">
+    <div class={["ng-stat-tile",
+                  @settings.l7_enabled && "ng-stat-tile--ok",
+                  not @settings.l7_enabled && "ng-stat-tile--muted"]}>
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= if @settings.l7_enabled, do: "Active", else: "Off" %>
       </div>
-      <dl class="ng-cert-preview-body">
-        <div>
-          <dt>Enabled apps</dt>
-          <dd>
-            <code><%= @enabled_apps_count %></code>
-            <%= if @enabled_apps_count == 0 do %>
-              <span class="ng-td-muted">
-                — no apps published yet, the proxy is idle.
-                <.link navigate={~p"/applications"}>Declare one</.link>
-              </span>
-            <% end %>
-          </dd>
-        </div>
-        <div>
-          <dt>VIP subnet</dt>
-          <dd><code>10.99.0.0/16</code></dd>
-        </div>
-        <div>
-          <dt>TPROXY port</dt>
-          <dd><code>:8443</code></dd>
-        </div>
-      </dl>
+      <div class="ng-stat-tile-label">
+        <i class={["mdi",
+                   if(@settings.l7_enabled, do: "mdi-check-circle-outline", else: "mdi-pause-circle-outline")]}></i>
+        Enforcement
+      </div>
+    </div>
+    <div class={["ng-stat-tile",
+                  @settings.l7_enabled && @enabled_apps_count == 0 && "ng-stat-tile--warn"]}>
+      <div class="ng-stat-tile-value"><%= @enabled_apps_count %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-application-cog-outline"></i> Enabled apps
+      </div>
+    </div>
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value"><%= FzHttpWeb.SettingLive.L7.dns_count(@settings) %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-dns-outline"></i> DNS forwarders
+      </div>
+    </div>
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= FzHttpWeb.SettingLive.L7.updated_at_str(@settings.updated_at) %>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-clock-outline"></i> Last config update
+      </div>
+    </div>
+  </div>
+
+  <%# ── L7-active info callout — only when enabled ─────────────
+  %# Previously rendered as `.ng-cert-preview` with hardcoded green
+  %# hex overrides. Now uses the proper `.ng-modal-callout--success`
+  %# token defined for the certs IP-update flow. %>
+  <%= if @settings.l7_enabled do %>
+    <div class="ng-modal-callout ng-modal-callout--success">
+      <i class="mdi mdi-check-circle-outline"></i>
+      <span>
+        <strong>L7 stack active.</strong>
+        Routing VIP traffic via <code>10.99.0.0/16</code> through the
+        proxy on <code>:8443</code>.
+        <%= if @enabled_apps_count == 0 do %>
+          No apps published yet — the proxy is idle until you
+          <.link navigate={~p"/applications"} class="ng-inline-link">declare one</.link>.
+        <% end %>
+      </span>
     </div>
   <% end %>
 
   <%# ── Master toggle ────────────────────────────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
+      <span class="ng-section-header">
         <i class="mdi mdi-power"></i> Master toggle
       </span>
     </div>
-    <div class="ng-danger-zone-item" style="padding:1.25rem 1.5rem">
-      <div>
-        <div class="ng-danger-zone-label">
-          <%= if @settings.l7_enabled do %>
-            Disable L7 enforcement
-          <% else %>
-            Enable L7 enforcement
-          <% end %>
+    <div class="ng-detail-card-body">
+      <div class="ng-danger-zone-item">
+        <div>
+          <div class="ng-danger-zone-label">
+            <%= if @settings.l7_enabled do %>
+              Disable L7 enforcement
+            <% else %>
+              Enable L7 enforcement
+            <% end %>
+          </div>
+          <p class="ng-danger-zone-desc">
+            <%= if @settings.l7_enabled do %>
+              Flips off the entire L7 subsystem in one click. Per-app
+              declarations are preserved; flip back on any time to
+              re-arm them. Use as an incident-response kill switch.
+            <% else %>
+              Activates the nftables TPROXY chain + CoreDNS overrides +
+              L7 proxy for every <code>enabled</code> app. The bundle
+              recompiles immediately on flip; clients see the new state
+              on their next request.
+            <% end %>
+          </p>
         </div>
-        <p class="ng-danger-zone-desc">
-          <%= if @settings.l7_enabled do %>
-            Flips off the entire L7 subsystem in one click. Per-app
-            declarations are preserved; flip back on any time to
-            re-arm them. Use as an incident-response kill switch.
-          <% else %>
-            Activates the nftables TPROXY chain + CoreDNS overrides +
-            L7 proxy for every <code>enabled</code> app. The bundle
-            recompiles immediately on flip; clients see the new state
-            on their next request.
-          <% end %>
-        </p>
+        <%= if @settings.l7_enabled do %>
+          <button class="ng-danger-btn" phx-click="request_disable">
+            <i class="mdi mdi-power-plug-off"></i> Disable L7
+          </button>
+        <% else %>
+          <button class="ng-primary-btn" phx-click="request_enable">
+            <i class="mdi mdi-power-plug"></i> Enable L7
+          </button>
+        <% end %>
       </div>
-      <%= if @settings.l7_enabled do %>
-        <button class="ng-danger-btn" phx-click="request_disable">
-          <i class="mdi mdi-power-plug-off"></i> Disable L7
-        </button>
-      <% else %>
-        <button class="ng-primary-btn" phx-click="request_enable">
-          <i class="mdi mdi-power-plug"></i> Enable L7
-        </button>
-      <% end %>
     </div>
   </div>
 
@@ -162,71 +251,76 @@
   %# file up — no container restart. %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
+      <span class="ng-section-header">
         <i class="mdi mdi-dns-outline"></i> DNS forward upstreams
       </span>
-      <span class="ng-td-muted" style="font-size:0.78rem">
+      <span class="ng-section-meta">
         last edited <%= FzHttpWeb.SettingLive.L7.updated_at_str(@settings.updated_at) %>
       </span>
     </div>
-    <form phx-submit="save_dns" autocomplete="off" style="padding: 1.25rem 1.5rem;">
-      <div class="ng-field" style="margin-bottom: 1rem;">
-        <label class="ng-label" for="dns_primary">Primary upstream(s)</label>
-        <input
-          type="text"
-          id="dns_primary"
-          name="dns[primary]"
-          class="ng-input ng-input--mono"
-          value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to)}
-          placeholder="10.0.235.250, 10.0.235.252"
-          autocomplete="off"
-          required
-        />
-        <p class="ng-field-hint">
-          Comma-separated IPs or hostnames. CoreDNS uses
-          <code>policy sequential</code> — sticks to the first healthy
-          upstream, fails over only on health-check failure.
-        </p>
-      </div>
+    <div class="ng-detail-card-body">
+      <form phx-submit="request_save_dns" autocomplete="off">
+        <div class="ng-field">
+          <label class="ng-label" for="dns_primary">Primary upstream(s)</label>
+          <input
+            type="text"
+            id="dns_primary"
+            name="dns[primary]"
+            class="ng-input ng-input--mono"
+            value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to)}
+            placeholder="10.0.235.250, 10.0.235.252"
+            autocomplete="off"
+            required
+          />
+          <p class="ng-field-hint">
+            Comma-separated IPs or hostnames. CoreDNS uses
+            <code>policy sequential</code> — sticks to the first healthy
+            upstream, fails over only on health-check failure.
+          </p>
+        </div>
 
-      <div class="ng-field" style="margin-bottom: 1rem;">
-        <label class="ng-label" for="dns_fallback">Fallback upstream(s) — optional</label>
-        <input
-          type="text"
-          id="dns_fallback"
-          name="dns[fallback]"
-          class="ng-input ng-input--mono"
-          value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to_fallback)}
-          placeholder="10.0.250.250"
-          autocomplete="off"
-        />
-        <p class="ng-field-hint">
-          Tried only after the entire primary list fails health checks.
-          Leave empty if you have no secondary DNS.
-        </p>
-      </div>
+        <div class="ng-field">
+          <label class="ng-label" for="dns_fallback">
+            Fallback upstream(s)
+            <span class="ng-label-meta">(optional)</span>
+          </label>
+          <input
+            type="text"
+            id="dns_fallback"
+            name="dns[fallback]"
+            class="ng-input ng-input--mono"
+            value={FzHttpWeb.SettingLive.L7.to_csv_str(@settings.coredns_forward_to_fallback)}
+            placeholder="10.0.250.250"
+            autocomplete="off"
+          />
+          <p class="ng-field-hint">
+            Tried only after the entire primary list fails health checks.
+            Leave empty if you have no secondary DNS.
+          </p>
+        </div>
 
-      <div style="display:flex; justify-content: space-between; align-items: center;">
-        <p class="ng-td-muted" style="font-size:0.78rem; margin:0;">
-          <i class="mdi mdi-information-outline"></i>
-          CoreDNS picks up the new Corefile within ~1s. No container restart.
-        </p>
-        <button type="submit" class="ng-primary-btn">
-          <i class="mdi mdi-content-save-outline"></i> Save DNS upstreams
-        </button>
-      </div>
-    </form>
+        <div class="ng-form-footer">
+          <p class="ng-form-hint">
+            <i class="mdi mdi-information-outline"></i>
+            CoreDNS picks up the new Corefile within ~1s. No container restart.
+          </p>
+          <button type="submit" class="ng-primary-btn">
+            <i class="mdi mdi-content-save-outline"></i> Save DNS upstreams
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <%# ── How it works (always-visible hint) ────────────────────── %>
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span class="ng-section-header" style="margin:0">
+      <span class="ng-section-header">
         <i class="mdi mdi-information-outline"></i> How the kill switch behaves
       </span>
     </div>
-    <div style="padding: 1.25rem 1.5rem;">
-      <p class="ng-form-hint" style="margin-top:0">
+    <div class="ng-detail-card-body">
+      <p class="ng-form-hint ng-form-hint--lead">
         L7 enforcement is opt-in at <strong>two</strong> levels (ADR-014):
       </p>
       <ol class="ng-modal-list">

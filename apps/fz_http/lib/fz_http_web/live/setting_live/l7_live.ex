@@ -1,11 +1,18 @@
 defmodule FzHttpWeb.SettingLive.L7 do
   @moduledoc """
-  Org-level L7 enforcement toggle (ADR-014).
+  Org-level L7 enforcement settings (ADR-014).
 
-  Surface for the single `org_settings.l7_enabled` boolean — the kill
-  switch that controls whether nftables TPROXY chain is installed and
-  whether CoreDNS + the L7 proxy actively route requests for declared
-  applications. Per-app `enabled` is layered on top of this.
+  Two operator decisions live here, both audited + both behind a
+  confirm modal:
+    * `org_settings.l7_enabled` — the kill switch that controls
+      whether nftables TPROXY + CoreDNS + L7 proxy are active.
+    * `coredns_forward_to[_fallback]` — upstream DNS list CoreDNS
+      uses for everything not in the L7 hosts file. Saving these
+      rewrites `/etc/nexguard/Corefile.generated` and is effectively
+      destructive to in-flight DNS resolution.
+
+  Per-app `enabled` toggles live on each app's Show page; the
+  applications surface is the canonical "what's running" view.
   """
   use FzHttpWeb, :live_view
 
@@ -35,6 +42,13 @@ defmodule FzHttpWeb.SettingLive.L7 do
 
   def updated_at_str(_), do: "—"
 
+  @doc "DNS forwarder count surfaced on the stats strip."
+  def dns_count(%{coredns_forward_to: primary, coredns_forward_to_fallback: fallback}) do
+    length(primary || []) + length(fallback || [])
+  end
+
+  def dns_count(_), do: 0
+
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     {:ok,
@@ -42,6 +56,7 @@ defmodule FzHttpWeb.SettingLive.L7 do
      |> assign(:page_title, @page_title)
      |> assign(:page_subtitle, @page_subtitle)
      |> assign(:confirm, nil)
+     |> assign(:pending_dns, nil)
      |> reload_assigns()}
   end
 
@@ -105,17 +120,33 @@ defmodule FzHttpWeb.SettingLive.L7 do
     end
   end
 
-  # ── DNS forward upstreams ──────────────────────────────────────
+  # ── DNS forward upstreams (confirm before save) ───────────────
 
-  def handle_event("save_dns", %{"dns" => params}, socket) do
-    primary  = split_csv(params["primary"]  || "")
-    fallback = split_csv(params["fallback"] || "")
+  # Form submit → capture the parsed values in :pending_dns and open
+  # the confirm modal. Save only fires on explicit confirm because
+  # CoreDNS reload interrupts in-flight resolution.
+  def handle_event("request_save_dns", %{"dns" => params}, socket) do
+    pending = %{
+      primary:  split_csv(params["primary"]  || ""),
+      fallback: split_csv(params["fallback"] || "")
+    }
 
-    case OrgSettings.set_dns_forward(primary, fallback, socket.assigns.subject,
-                                     socket.assigns[:remote_ip]) do
+    {:noreply, assign(socket, :pending_dns, pending)}
+  end
+
+  def handle_event("cancel_save_dns", _, socket),
+    do: {:noreply, assign(socket, :pending_dns, nil)}
+
+  def handle_event("apply_dns", _, %{assigns: %{pending_dns: nil}} = socket),
+    do: {:noreply, socket}
+
+  def handle_event("apply_dns", _, %{assigns: %{pending_dns: pending}} = socket) do
+    case OrgSettings.set_dns_forward(pending.primary, pending.fallback,
+                                     socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:ok, _} ->
         {:noreply,
          socket
+         |> assign(:pending_dns, nil)
          |> reload_assigns()
          |> put_flash(:info, "DNS upstreams updated — CoreDNS picks up within 1s.")}
 
@@ -125,10 +156,16 @@ defmodule FzHttpWeb.SettingLive.L7 do
           |> Enum.map(fn {field, {m, _}} -> "#{field}: #{m}" end)
           |> Enum.join("; ")
 
-        {:noreply, put_flash(socket, :error, "Invalid: #{msg}")}
+        {:noreply,
+         socket
+         |> assign(:pending_dns, nil)
+         |> put_flash(:error, "Invalid: #{msg}")}
 
       _ ->
-        {:noreply, put_flash(socket, :error, "Could not update DNS forwarders.")}
+        {:noreply,
+         socket
+         |> assign(:pending_dns, nil)
+         |> put_flash(:error, "Could not update DNS forwarders.")}
     end
   end
 
