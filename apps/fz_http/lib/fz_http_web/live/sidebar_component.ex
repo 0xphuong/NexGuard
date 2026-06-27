@@ -31,10 +31,12 @@ defmodule FzHttpWeb.SidebarComponent do
           </li>
         </ul>
 
-        <%# Configuration = identity / endpoint inventory only. WHO
-        %# is allowed on the VPN. WHAT they can reach lives under
-        %# Access Control below. %>
-        <p class="menu-label ng-sidebar-label">Configuration</p>
+        <%# Identity = WHO (users) + WHAT-ENDPOINT (devices) is allowed
+        %# on the VPN. Renamed from the generic "Configuration" label
+        %# — every admin page is "configuration", whereas "Identity"
+        %# names the ZTNA dimension this group covers. WHAT users can
+        %# reach lives under Access Control below. %>
+        <p class="menu-label ng-sidebar-label">Identity</p>
         <ul class="menu-list ng-sidebar-list">
           <li>
             <%= live_redirect(to: ~p"/users", class: nav_class(@path, "/users")) do %>
@@ -61,13 +63,17 @@ defmodule FzHttpWeb.SidebarComponent do
         %# Ordered top-down by network layer: L3/L4 first, L7 below,
         %# enforcement switch last. Matches the admin's mental model
         %# of "coarse policy → fine policy → flip it on".
+        %#
+        %# "Firewall Rules" (vs the page's "Egress Rules" title) so
+        %# the sidebar doesn't collide with the per-app "L7 rules"
+        %# editor under Applications → Policy.
         %# %>
         <p class="menu-label ng-sidebar-label">Access Control</p>
         <ul class="menu-list ng-sidebar-list">
           <li>
             <%= live_redirect(to: ~p"/rules", class: nav_class(@path, "/rules")) do %>
               <span class="icon"><i class="mdi mdi-filter-outline"></i></span>
-              <span class="menu-item-label">Rules</span>
+              <span class="menu-item-label">Firewall Rules</span>
             <% end %>
           </li>
           <li>
@@ -133,9 +139,12 @@ defmodule FzHttpWeb.SidebarComponent do
             <% end %>
           </li>
           <li>
+            <%# "My Account" (vs the bare "Account") so admin scanning
+            %# distinguishes this surface (own profile + MFA + tokens
+            %# + sessions) from /users where they manage everyone else. %>
             <%= live_redirect(to: ~p"/settings/account", class: nav_class(@path, "/settings/account")) do %>
               <span class="icon"><i class="mdi mdi-account-circle-outline"></i></span>
-              <span class="menu-item-label">Account</span>
+              <span class="menu-item-label">My Account</span>
             <% end %>
           </li>
           <li>
