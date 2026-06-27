@@ -49,11 +49,15 @@
         <div class="ng-modal-entity"><%= @delete_confirm.cert.label %></div>
 
         <%= if @delete_confirm.affected.pinned != [] do %>
-          <p class="ng-modal-cons">
-            ⚠ This certificate is <strong>explicitly pinned</strong> by
-            <%= length(@delete_confirm.affected.pinned) %> app(s). Delete is
-            blocked — reassign these first:
-          </p>
+          <div class="ng-modal-callout ng-modal-callout--warning">
+            <i class="mdi mdi-alert-outline"></i>
+            <span>
+              <strong>Delete blocked.</strong>
+              This certificate is explicitly pinned by
+              <%= length(@delete_confirm.affected.pinned) %> app(s).
+              Reassign or unpin these apps first:
+            </span>
+          </div>
           <ul class="ng-modal-list">
             <%= for app <- @delete_confirm.affected.pinned do %>
               <li><code><%= app.hostname %></code></li>
@@ -104,15 +108,16 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%= if @certificates == [] do %>
+  <%= if @all_certificates == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-certificate-outline ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No certificates uploaded yet</p>
       <p class="ng-empty-state-hint">
-        Upload a wildcard or multi-SAN certificate once and every L7 application
-        whose hostname falls under its coverage can reference it. When the cert
-        renews, replace it here — apps roll over automatically without per-app
-        touches.
+        L7 applications terminate TLS using a cert from this library —
+        without at least one cert here, no app can serve HTTPS on its
+        hostname. Upload a wildcard or multi-SAN cert once and every
+        matching app picks it up automatically; renewals replace in place
+        with no per-app touches.
       </p>
       <.link replace={true} patch={~p"/settings/certificates/new"}
              class="ng-primary-btn ng-empty-state-cta">
@@ -120,41 +125,83 @@
       </.link>
     </div>
   <% else %>
+    <%# ── Stats strip — org-wide pulse, derived from `@all_certificates`
+    %# (unfiltered) so the strip stays accurate when the filter narrows
+    %# the table. Danger / warn tiles only tint when their count is > 0
+    %# so the strip stays quiet for a healthy library. %>
     <div class="ng-stat-strip">
       <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value"><%= length(@certificates) %></div>
+        <div class="ng-stat-tile-value"><%= @stats.total %></div>
         <div class="ng-stat-tile-label">Total certs</div>
       </div>
-      <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value">
-          <%=
-            Enum.count(@certificates, fn c ->
-              {status, _} = FzHttpWeb.SettingLive.Certificates.expiry_status(c.not_after)
-              status in [:critical, :expired]
-            end)
-          %>
+      <div class={["ng-stat-tile",
+                    (@stats.critical + @stats.expired) > 0 && "ng-stat-tile--danger"]}>
+        <div class="ng-stat-tile-value"><%= @stats.critical + @stats.expired %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-alert-octagon"></i> Critical / expired
         </div>
-        <div class="ng-stat-tile-label">Critical / expired</div>
+      </div>
+      <div class={["ng-stat-tile", @stats.warning > 0 && "ng-stat-tile--warn"]}>
+        <div class="ng-stat-tile-value"><%= @stats.warning %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-clock-alert-outline"></i> Expiring soon
+        </div>
       </div>
       <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value">
-          <%=
-            Enum.count(@certificates, fn c ->
-              {status, _} = FzHttpWeb.SettingLive.Certificates.expiry_status(c.not_after)
-              status == :warning
-            end)
-          %>
+        <div class="ng-stat-tile-value"><%= @stats.apps %></div>
+        <div class="ng-stat-tile-label">
+          <i class="mdi mdi-application-cog-outline"></i> Apps covered
         </div>
-        <div class="ng-stat-tile-label">Expiring soon</div>
-      </div>
-      <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value">
-          <%= Enum.sum(Enum.map(@certificates, & &1.pinned_count + &1.auto_matched_count)) %>
-        </div>
-        <div class="ng-stat-tile-label">Apps covered</div>
       </div>
     </div>
 
+    <%# ── Filter bar — search + expiry chip ──────────────────── %>
+    <.form
+      :let={_f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by label or SAN…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="filters[expiry]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @expiry_options do %>
+          <option value={value} selected={value == @filters["expiry"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <%= if FzHttpWeb.SettingLive.Certificates.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@certificates) %> of <%= length(@all_certificates) %>
+      </span>
+    </.form>
+
+    <%# ── Library table ─────────────────────────────────────── %>
+    <%= if @certificates == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No certificates match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
     <div class="ng-table-wrap">
       <table class="ng-table">
         <thead>
@@ -164,7 +211,7 @@
             <th>Issuer</th>
             <th>Expires</th>
             <th class="ng-th-center">Used by</th>
-            <th class="ng-th-center" style="width: 8rem;"></th>
+            <th class="ng-th-center ng-th-actions"></th>
           </tr>
         </thead>
         <tbody>
@@ -172,6 +219,7 @@
             <%
               {status, status_label} =
                 FzHttpWeb.SettingLive.Certificates.expiry_status(cert.not_after)
+              total_apps = cert.pinned_count + cert.auto_matched_count
             %>
             <tr id={"certificate-#{cert.id}"}>
               <td>
@@ -198,30 +246,54 @@
                 <%= cert.issuer || "—" %>
               </td>
               <td>
-                <span class={"ng-source-badge ng-source-badge--#{FzHttpWeb.SettingLive.Certificates.status_badge_class(status)}"}>
+                <span class={"ng-cert-status-badge ng-cert-status-badge--#{FzHttpWeb.SettingLive.Certificates.status_badge_class(status)}"}>
                   <i class={"mdi #{FzHttpWeb.SettingLive.Certificates.status_icon(status)}"}></i>
                   <%= FzHttpWeb.SettingLive.Certificates.format_datetime(cert.not_after) %>
                   · <%= status_label %>
                 </span>
               </td>
               <td class="ng-td-center">
-                <span class="ng-device-count" title={FzHttpWeb.SettingLive.Certificates.usage_tooltip(cert)}>
-                  <i class="mdi mdi-application-cog-outline"></i>
-                  <%= cert.pinned_count + cert.auto_matched_count %>
-                </span>
+                <%= if total_apps == 0 do %>
+                  <span class="ng-td-muted">—</span>
+                <% else %>
+                  <details class="ng-usage-disclosure">
+                    <summary>
+                      <i class="mdi mdi-application-cog-outline"></i>
+                      <%= total_apps %> app<%= if total_apps != 1, do: "s" %>
+                    </summary>
+                    <div class="ng-usage-list">
+                      <%= if cert.pinned_hostnames != [] do %>
+                        <div class="ng-usage-group">
+                          <span class="ng-usage-group-label">Pinned</span>
+                          <%= for host <- cert.pinned_hostnames do %>
+                            <code><%= host %></code>
+                          <% end %>
+                        </div>
+                      <% end %>
+                      <%= if cert.auto_matched_hostnames != [] do %>
+                        <div class="ng-usage-group">
+                          <span class="ng-usage-group-label">Auto-matched</span>
+                          <%= for host <- cert.auto_matched_hostnames do %>
+                            <code><%= host %></code>
+                          <% end %>
+                        </div>
+                      <% end %>
+                    </div>
+                  </details>
+                <% end %>
               </td>
               <td class="ng-td-center">
                 <.link
                   replace={true}
                   patch={~p"/settings/certificates/#{cert.id}/replace"}
                   class="ng-dismiss-btn"
-                  title="Replace cert material (same id, new PEM/key)"
+                  aria-label={"Replace certificate #{cert.label}"}
                 >
                   <i class="mdi mdi-swap-horizontal"></i>
                 </.link>
                 <button
                   class="ng-dismiss-btn"
-                  title="Delete certificate"
+                  aria-label={"Delete certificate #{cert.label}"}
                   phx-click="confirm_delete"
                   phx-value-id={cert.id}
                 >
@@ -233,6 +305,6 @@
         </tbody>
       </table>
     </div>
+    <% end %>
   <% end %>
 </section>
-

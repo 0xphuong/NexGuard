@@ -21,6 +21,10 @@
   </div>
 
   <%= if @action == :replace do %>
+    <% pinned_count = length(@affected.pinned) %>
+    <% auto_count = length(@affected.auto_matched) %>
+    <% total_affected = pinned_count + auto_count %>
+
     <div class="ng-modal-callout">
       <i class="mdi mdi-information-outline"></i>
       <div>
@@ -31,6 +35,40 @@
         next bundle compile.
       </div>
     </div>
+
+    <%= if total_affected > 0 do %>
+      <%# Surface the blast radius upfront so admin verifies the new
+      %# cert covers these hostnames BEFORE pasting. Pinned apps will
+      %# stay with the new material regardless of coverage; auto-matched
+      %# apps may re-resolve to a different cert if the new SANs no
+      %# longer cover their hostname. %>
+      <div class="ng-modal-callout ng-modal-callout--warning">
+        <i class="mdi mdi-alert-outline"></i>
+        <div>
+          <strong>
+            <%= total_affected %> app<%= if total_affected != 1, do: "s" %>
+            currently use<%= if total_affected == 1, do: "s" %> this cert.
+          </strong>
+          Make sure the new material covers the hostnames below — auto-matched
+          apps will silently fail TLS if the new SAN set no longer covers them.
+        </div>
+      </div>
+
+      <ul class="ng-modal-list">
+        <%= for app <- @affected.pinned do %>
+          <li>
+            <code><%= app.hostname %></code>
+            <span class="ng-label-meta">pinned</span>
+          </li>
+        <% end %>
+        <%= for app <- @affected.auto_matched do %>
+          <li>
+            <code><%= app.hostname %></code>
+            <span class="ng-label-meta">auto-matched</span>
+          </li>
+        <% end %>
+      </ul>
+    <% end %>
   <% end %>
 
   <div class="ng-modal-field">

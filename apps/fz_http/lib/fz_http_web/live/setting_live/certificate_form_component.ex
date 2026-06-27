@@ -30,6 +30,8 @@ defmodule FzHttpWeb.SettingLive.CertificateFormComponent do
   def update(%{action: :replace, certificate: cert} = assigns, socket) do
     # Pre-fill label only — pem/key blank so admin can't save the old
     # bytes. The changeset still requires both, so empty save fails.
+    # Surface the affected app list so admin sees the blast radius
+    # of the replace BEFORE pasting new material.
     {:ok,
      socket
      |> assign(assigns)
@@ -38,7 +40,8 @@ defmodule FzHttpWeb.SettingLive.CertificateFormComponent do
        TlsCertificates.change_replacement(cert, %{"label" => cert.label})
      )
      |> assign(:cert_preview, nil)
-     |> assign(:current, cert)}
+     |> assign(:current, cert)
+     |> assign(:affected, TlsCertificates.affected_apps(cert))}
   end
 
   @impl Phoenix.LiveComponent

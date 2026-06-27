@@ -1016,6 +1016,16 @@ pre {
   .ng-stat-tile-label i.mdi { color: #94a3b8; }
 }
 
+/* Danger variant — warmer than `--warn`, reserved for "something
+   is broken right now" (critical / expired counts). */
+.ng-stat-tile--danger {
+  background: #fef2f2;
+  border-color: #fecaca;
+  .ng-stat-tile-value { color: #991b1b; }
+  .ng-stat-tile-label { color: #b91c1c;
+    i.mdi { color: #dc2626; } }
+}
+
 /* Smaller tile value — for timestamps that don't fit the default
    1.5rem heading size (e.g. "30 seconds ago"). */
 .ng-stat-tile-value--sm {
@@ -1339,6 +1349,114 @@ pre {
 
   &--allow { background: #dcfce7; color: #166534; }
   &--deny  { background: #fee2e2; color: #b91c1c; }
+}
+
+/* TLS cert status badge — operational urgency expressed via colour,
+   distinct from `.ng-source-badge` (which encodes provenance like
+   manual/idp_sync/system). Used by /settings/certificates row
+   expiry column. The previous implementation piggybacked on
+   source-badge classes (`"manual"` for expired/critical/warning,
+   `"idp_sync"` for healthy), conflating "IdP-synced" with "healthy
+   cert" across pages — cross-page colour memory was broken. */
+.ng-cert-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+
+  i.mdi { font-size: 0.85rem; }
+
+  &--healthy  { background: #dcfce7; color: #166534;
+                i { color: #16a34a; } }
+  &--warning  { background: #fef3c7; color: #92400e;
+                i { color: #d97706; } }
+  &--critical { background: #fee2e2; color: #b91c1c;
+                i { color: #dc2626; } }
+  &--expired  { background: #f1f5f9; color: #64748b;
+                text-decoration: line-through;
+                i { color: #94a3b8; text-decoration: none; } }
+  &--unknown  { background: #f1f5f9; color: #64748b;
+                i { color: #94a3b8; } }
+}
+
+/* "Used by" disclosure — replaces hover-only `title=` tooltips on
+   the certs table's Used-by cell. `<details>` is keyboard-,
+   screen-reader-, and touch-accessible; clicking the count expands
+   the affected hostnames inline below it. */
+.ng-usage-disclosure {
+  display: inline-block;
+  text-align: left;
+
+  summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+    color: #475569;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+
+    &::-webkit-details-marker { display: none; }
+    &::marker { display: none; }
+
+    i.mdi { color: #64748b; font-size: 0.85rem; }
+
+    &::after {
+      content: "▾";
+      color: #94a3b8;
+      font-size: 0.6rem;
+      margin-left: 0.1rem;
+    }
+
+    &:hover { background: #e2e8f0; }
+  }
+
+  &[open] summary::after { content: "▴"; }
+
+  .ng-usage-list {
+    margin-top: 0.4rem;
+    padding: 0.55rem 0.7rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    min-width: 200px;
+    max-width: 320px;
+  }
+}
+
+.ng-usage-group-label {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+  margin-right: 0.35rem;
+  vertical-align: 0.1rem;
+}
+
+.ng-usage-group code {
+  font-size: 0.75rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 4px;
+  padding: 0.05rem 0.35rem;
+  color: #1e293b;
+  margin: 0.05rem 0.2rem 0.05rem 0;
+  display: inline-block;
+  word-break: break-all;
 }
 
 /* L7 access_scope badge — quiet for normal (limited), warm red for

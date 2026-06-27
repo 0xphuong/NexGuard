@@ -14,6 +14,11 @@ defmodule FzHttpWeb.SettingLive.Certificates do
 
   Delete is a confirm-modal flow rendered inline (no route param) —
   same shape as `ApplicationsLive.Index.delete_confirm`.
+
+  Filter bar narrows the list by label/SAN substring or by expiry
+  bucket (healthy / warning / critical / expired). Stats strip
+  always reflects the WHOLE library so the org-wide pulse stays
+  accurate regardless of filter.
   """
   use FzHttpWeb, :live_view
 
@@ -25,9 +30,16 @@ defmodule FzHttpWeb.SettingLive.Certificates do
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     with {:ok, certs} <- TlsCertificates.list_certificates(socket.assigns.subject) do
+      hydrated = hydrate_usage(certs)
+      filters = default_filters()
+
       {:ok,
        socket
-       |> assign(:certificates, hydrate_usage(certs))
+       |> assign(:all_certificates, hydrated)
+       |> assign(:certificates, apply_filters(hydrated, filters))
+       |> assign(:stats, compute_stats(hydrated))
+       |> assign(:filters, filters)
+       |> assign(:expiry_options, expiry_options())
        |> assign(:delete_confirm, nil)
        |> assign(:replace_target, nil)
        |> assign(:page_title, @page_title)
@@ -58,9 +70,29 @@ defmodule FzHttpWeb.SettingLive.Certificates do
     end
   end
 
-  # ── Delete confirm modal ────────────────────────────────────────
+  # ── Filters ─────────────────────────────────────────────────────
 
   @impl Phoenix.LiveView
+  def handle_event("filter", %{"filters" => params}, socket) do
+    filters = Map.merge(socket.assigns.filters, params)
+
+    {:noreply,
+     socket
+     |> assign(:filters, filters)
+     |> assign(:certificates, apply_filters(socket.assigns.all_certificates, filters))}
+  end
+
+  def handle_event("reset_filters", _params, socket) do
+    filters = default_filters()
+
+    {:noreply,
+     socket
+     |> assign(:filters, filters)
+     |> assign(:certificates, apply_filters(socket.assigns.all_certificates, filters))}
+  end
+
+  # ── Delete confirm modal ────────────────────────────────────────
+
   def handle_event("confirm_delete", %{"id" => id}, socket) do
     case TlsCertificates.fetch_certificate_by_id(id, socket.assigns.subject) do
       {:ok, cert} ->
@@ -82,10 +114,13 @@ defmodule FzHttpWeb.SettingLive.Certificates do
                                              socket.assigns[:remote_ip]) do
       {:ok, _} ->
         {:ok, certs} = TlsCertificates.list_certificates(socket.assigns.subject)
+        hydrated = hydrate_usage(certs)
 
         {:noreply,
          socket
-         |> assign(:certificates, hydrate_usage(certs))
+         |> assign(:all_certificates, hydrated)
+         |> assign(:certificates, apply_filters(hydrated, socket.assigns.filters))
+         |> assign(:stats, compute_stats(hydrated))
          |> assign(:delete_confirm, nil)
          |> put_flash(:info, "Certificate \"#{cert.label}\" deleted.")}
 
@@ -111,10 +146,13 @@ defmodule FzHttpWeb.SettingLive.Certificates do
   @impl Phoenix.LiveView
   def handle_info({:certificates_refresh, flash}, socket) do
     {:ok, certs} = TlsCertificates.list_certificates(socket.assigns.subject)
+    hydrated = hydrate_usage(certs)
 
     {:noreply,
      socket
-     |> assign(:certificates, hydrate_usage(certs))
+     |> assign(:all_certificates, hydrated)
+     |> assign(:certificates, apply_filters(hydrated, socket.assigns.filters))
+     |> assign(:stats, compute_stats(hydrated))
      |> put_flash(flash.kind, flash.message)}
   end
 
@@ -144,12 +182,17 @@ defmodule FzHttpWeb.SettingLive.Certificates do
   defp pad(n) when n < 10, do: "0#{n}"
   defp pad(n),             do: "#{n}"
 
-  @doc false
-  def status_badge_class(:expired),  do: "manual"
-  def status_badge_class(:critical), do: "manual"
-  def status_badge_class(:warning),  do: "manual"
-  def status_badge_class(:healthy),  do: "idp_sync"
-  def status_badge_class(_),         do: "manual"
+  @doc """
+  Modifier for the dedicated `.ng-cert-status-badge` class. Earlier
+  versions returned source-badge variants (`"manual"` / `"idp_sync"`)
+  which collided with the provenance palette used by access-groups
+  and members. Now an axis of its own.
+  """
+  def status_badge_class(:expired),  do: "expired"
+  def status_badge_class(:critical), do: "critical"
+  def status_badge_class(:warning),  do: "warning"
+  def status_badge_class(:healthy),  do: "healthy"
+  def status_badge_class(_),         do: "unknown"
 
   @doc false
   def status_icon(:expired),  do: "mdi-alert-octagon"
@@ -158,17 +201,71 @@ defmodule FzHttpWeb.SettingLive.Certificates do
   def status_icon(:healthy),  do: "mdi-check-circle-outline"
   def status_icon(_),         do: "mdi-help-circle-outline"
 
-  @doc false
-  def usage_tooltip(cert) do
-    pinned = cert.pinned_hostnames
-    auto   = cert.auto_matched_hostnames
+  def filters_active?(%{"search" => s, "expiry" => e}) do
+    s != "" or e != "all"
+  end
 
+  # ── Internal ────────────────────────────────────────────────────
+
+  defp default_filters do
+    %{"search" => "", "expiry" => "all"}
+  end
+
+  defp expiry_options do
     [
-      if(pinned != [], do: "Pinned: #{Enum.join(pinned, ", ")}", else: nil),
-      if(auto != [],   do: "Auto-matched: #{Enum.join(auto, ", ")}", else: nil)
+      {"Expiry: All",  "all"},
+      {"Healthy",      "healthy"},
+      {"Expiring",     "warning"},
+      {"Critical",     "critical"},
+      {"Expired",      "expired"}
     ]
-    |> Enum.reject(&is_nil/1)
-    |> Enum.join(" — ")
+  end
+
+  defp apply_filters(certs, %{"search" => search, "expiry" => expiry}) do
+    certs
+    |> Enum.filter(&match_search?(&1, search))
+    |> Enum.filter(&match_expiry?(&1, expiry))
+  end
+
+  defp match_search?(_cert, ""), do: true
+
+  defp match_search?(cert, query) do
+    q = String.downcase(query)
+    label = String.downcase(cert.label || "")
+    primary = String.downcase(cert.primary_san || "")
+
+    in_label = String.contains?(label, q)
+    in_primary = String.contains?(primary, q)
+
+    in_sans =
+      cert.sans
+      |> List.wrap()
+      |> Enum.any?(fn s -> String.contains?(String.downcase(s || ""), q) end)
+
+    in_label or in_primary or in_sans
+  end
+
+  defp match_expiry?(_cert, "all"), do: true
+
+  defp match_expiry?(cert, expiry) do
+    {status, _} = expiry_status(cert.not_after)
+    Atom.to_string(status) == expiry
+  end
+
+  defp compute_stats(certs) do
+    by_status =
+      Enum.frequencies_by(certs, fn c ->
+        {status, _} = expiry_status(c.not_after)
+        status
+      end)
+
+    %{
+      total:     length(certs),
+      expired:   Map.get(by_status, :expired, 0),
+      critical:  Map.get(by_status, :critical, 0),
+      warning:   Map.get(by_status, :warning, 0),
+      apps:      Enum.sum(Enum.map(certs, &(&1.pinned_count + &1.auto_matched_count)))
+    }
   end
 
   # Decorate each cert with usage counts so the table can render
