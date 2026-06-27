@@ -3426,6 +3426,22 @@ pre {
   color: #1e293b;
 }
 
+/* Active-sessions row highlight — the row whose `remote_ip` matches
+   the LV's remote_ip is "your device" (best-effort — multiple tabs
+   from the same IP all match). Subtle background tint + small
+   "this device" badge in the IP column. */
+.ng-session-row--current td {
+  background: #eff6ff;
+}
+
+.ng-session-current-tag {
+  margin-left: 0.4rem;
+  font-size: 0.62rem;
+  padding: 0.05rem 0.4rem;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+}
+
 /* Provider empty state — column flex so the redesigned pane stacks
    icon + title + hint + CTA cleanly (instead of running them in a
    single horizontal line). Matches the `.ng-empty-state` baseline. */

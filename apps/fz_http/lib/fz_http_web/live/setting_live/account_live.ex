@@ -7,6 +7,7 @@ defmodule FzHttpWeb.SettingLive.Account do
   alias FzHttp.{
     ApiTokens,
     Auth.MFA,
+    Config,
     Users
   }
 
@@ -78,7 +79,20 @@ defmodule FzHttpWeb.SettingLive.Account do
   end
 
   def handle_event("open_mfa_delete", %{"id" => id, "name" => name}, socket) do
-    {:noreply, assign(socket, :pending_mfa_delete, %{id: id, name: name})}
+    # Compute lock-out risk upfront: deleting the last MFA method
+    # while Force MFA is on means the user will be required to
+    # re-enroll on next sign-in. Surface this in the modal copy
+    # instead of leaving the warning conditional in prose.
+    is_last = length(socket.assigns.methods) <= 1
+    force_mfa = Config.fetch_config!(:require_mfa)
+
+    {:noreply,
+     assign(socket, :pending_mfa_delete, %{
+       id: id,
+       name: name,
+       is_last: is_last,
+       force_mfa: force_mfa
+     })}
   end
 
   def handle_event("cancel_mfa_delete", _params, socket) do

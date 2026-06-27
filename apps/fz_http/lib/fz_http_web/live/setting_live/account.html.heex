@@ -17,9 +17,38 @@
       <section class="modal-card-body">
         <p class="ng-modal-intro">You are about to delete:</p>
         <div class="ng-modal-entity"><%= @pending_mfa_delete.name %></div>
-        <p class="ng-modal-desc">
-          If this is your only MFA method and Force MFA is enabled, you will be required to re-enroll on next login.
-        </p>
+
+        <%# Computed lock-out warning — replaces the previous
+        %# conditional-in-prose "if this is your only MFA method
+        %# and Force MFA is enabled". When both conditions hold we
+        %# upgrade to a danger callout the admin can't miss. %>
+        <%= cond do %>
+          <% @pending_mfa_delete.is_last and @pending_mfa_delete.force_mfa -> %>
+            <div class="ng-modal-callout ng-modal-callout--danger">
+              <i class="mdi mdi-alert-octagon"></i>
+              <span>
+                <strong>This is your only MFA method and Force MFA is enabled.</strong>
+                Deleting it will force you to re-enroll on next sign-in
+                before you can reach the portal.
+              </span>
+            </div>
+
+          <% @pending_mfa_delete.is_last -> %>
+            <div class="ng-modal-callout ng-modal-callout--warning">
+              <i class="mdi mdi-alert-outline"></i>
+              <span>
+                This is your only MFA method. You can still sign in
+                without one, but the account drops to single-factor
+                until you enroll another.
+              </span>
+            </div>
+
+          <% true -> %>
+            <p class="ng-modal-desc">
+              You will still have <%= length(@methods) - 1 %> other MFA
+              method(s) after this is removed.
+            </p>
+        <% end %>
       </section>
       <footer class="modal-card-foot">
         <button class="ng-secondary-btn" phx-click="cancel_mfa_delete">Cancel</button>
@@ -121,7 +150,8 @@
     user: @current_user,
     subject: @subject,
     action: @live_action,
-    form: "account-edit"
+    form: "account-edit",
+    button_text: "Save changes"
   ) %>
 <% end %>
 
@@ -176,6 +206,51 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# ── Stats strip — own-account security pulse ───────────── %>
+  <% mfa_count = length(@methods) %>
+  <% token_count = length(@api_tokens) %>
+  <% token_max = FzHttp.ApiTokens.ApiToken.Changeset.max_per_user() %>
+  <% session_count = length(@metas) %>
+  <% admin? = @current_user.role == :admin %>
+
+  <div class="ng-stat-strip">
+    <div class={["ng-stat-tile",
+                  mfa_count > 0 && "ng-stat-tile--ok",
+                  mfa_count == 0 && "ng-stat-tile--danger"]}>
+      <div class="ng-stat-tile-value"><%= mfa_count %></div>
+      <div class="ng-stat-tile-label">
+        <i class={["mdi",
+                   if(mfa_count > 0, do: "mdi-shield-check-outline", else: "mdi-shield-alert-outline")]}></i>
+        MFA methods
+      </div>
+    </div>
+    <div class={["ng-stat-tile",
+                  token_count >= token_max && "ng-stat-tile--warn"]}>
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= token_count %><span class="ng-td-muted">/<%= token_max %></span>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-key-outline"></i> API tokens
+      </div>
+    </div>
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value"><%= session_count %></div>
+      <div class="ng-stat-tile-label">
+        <i class="mdi mdi-monitor-cellphone"></i> Active sessions
+      </div>
+    </div>
+    <div class="ng-stat-tile">
+      <div class="ng-stat-tile-value ng-stat-tile-value--sm">
+        <%= if admin?, do: "Admin", else: "Unprivileged" %>
+      </div>
+      <div class="ng-stat-tile-label">
+        <i class={["mdi",
+                   if(admin?, do: "mdi-shield-crown-outline", else: "mdi-account-outline")]}></i>
+        Role
+      </div>
+    </div>
+  </div>
+
   <%# ── Profile ─────────────────────────────────────────────────── %>
   <div class="ng-section-header">Profile</div>
   <div class="ng-settings-card ng-account-profile">
@@ -190,6 +265,7 @@
   <div class="ng-section-header ng-section-header--spaced">Active Sessions</div>
   <p class="ng-section-desc">
     Your active NexGuard web sessions. Each row corresponds to an open browser tab.
+    Rows from your current IP are highlighted.
   </p>
   <div class="ng-table-wrap ng-section-table">
     <table class="ng-table">
@@ -203,7 +279,8 @@
       </thead>
       <tbody>
         <%= for {meta, index} <- Enum.with_index(@metas) do %>
-          <tr>
+          <% from_my_ip? = meta.remote_ip && meta.remote_ip == assigns[:remote_ip] %>
+          <tr class={[from_my_ip? && "ng-session-row--current"]}>
             <td
               data-timestamp={meta.online_at}
               phx-hook="FormatTimestamp"
@@ -214,7 +291,14 @@
               phx-hook="FormatTimestamp"
               id={"meta-#{index}-last-signed-in-at"}
             >…</td>
-            <td class="ng-td-mono ng-td-muted"><%= meta.remote_ip || "—" %></td>
+            <td class="ng-td-mono ng-td-muted">
+              <%= meta.remote_ip || "—" %>
+              <%= if from_my_ip? do %>
+                <span class="ng-source-badge ng-source-badge--idp_sync ng-session-current-tag">
+                  this device
+                </span>
+              <% end %>
+            </td>
             <td class="ng-td-muted"><%= meta.user_agent %></td>
           </tr>
         <% end %>
@@ -230,8 +314,9 @@
           <i class="mdi mdi-key-outline"></i>
         </span>
         <span class="ng-provider-section-title">API Tokens</span>
+        <span class="ng-section-badge"><%= token_count %>/<%= token_max %></span>
       </div>
-      <%= if length(@api_tokens) < FzHttp.ApiTokens.ApiToken.Changeset.max_per_user() do %>
+      <%= if token_count < token_max do %>
         <.link patch={~p"/settings/account/api_token"} class="ng-primary-btn">
           <i class="mdi mdi-plus"></i> Add Token
         </.link>
@@ -240,8 +325,17 @@
 
     <%= if Enum.empty?(@api_tokens) do %>
       <div class="ng-provider-empty">
-        <i class="mdi mdi-key-off-outline"></i>
-        No API tokens yet
+        <i class="mdi mdi-key-off-outline ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No API tokens yet</p>
+        <p class="ng-empty-state-hint">
+          API tokens grant programmatic access to NexGuard's REST API
+          for scripts and CI. Each token gets its own expiry; the
+          secret is shown ONCE at creation.
+        </p>
+        <.link patch={~p"/settings/account/api_token"}
+               class="ng-primary-btn ng-empty-state-cta">
+          <i class="mdi mdi-plus"></i> Create your first token
+        </.link>
       </div>
     <% else %>
       <div class="ng-table-wrap">
@@ -264,7 +358,11 @@
                   id={"inserted_at-#{api_token.id}"}
                 >…</td>
                 <td>
-                  <.link patch={~p"/settings/account/api_token/#{api_token}"} class="ng-action-link">
+                  <.link
+                    patch={~p"/settings/account/api_token/#{api_token}"}
+                    class="ng-action-link"
+                    aria-label={"View API token #{api_token.id}"}
+                  >
                     <i class="mdi mdi-key-variant"></i>
                     <code class="ng-td-mono"><%= api_token.id %></code>
                   </.link>
@@ -291,6 +389,7 @@
                     class="ng-danger-link"
                     phx-click="open_token_delete"
                     phx-value-id={api_token.id}
+                    aria-label={"Delete API token #{api_token.id}"}
                   >
                     <i class="mdi mdi-trash-can-outline"></i> Delete
                   </button>
@@ -311,6 +410,7 @@
           <i class="mdi mdi-shield-lock-outline"></i>
         </span>
         <span class="ng-provider-section-title">Multi-Factor Authentication</span>
+        <span class="ng-section-badge"><%= mfa_count %></span>
       </div>
       <.link replace={true} patch={~p"/settings/account/register_mfa"} class="ng-primary-btn">
         <i class="mdi mdi-plus"></i> Add Method
@@ -321,8 +421,17 @@
       <%= render(FzHttpWeb.SharedView, "mfa_methods_table.html", methods: @methods) %>
     <% else %>
       <div class="ng-provider-empty">
-        <i class="mdi mdi-shield-off-outline"></i>
-        No MFA methods configured
+        <i class="mdi mdi-shield-off-outline ng-empty-state-icon"></i>
+        <p class="ng-empty-state-title">No MFA methods configured</p>
+        <p class="ng-empty-state-hint">
+          Add a TOTP authenticator (Google Authenticator, 1Password,
+          Authy, …) to require a second factor at sign-in. Strongly
+          recommended for admin accounts.
+        </p>
+        <.link replace={true} patch={~p"/settings/account/register_mfa"}
+               class="ng-primary-btn ng-empty-state-cta">
+          <i class="mdi mdi-plus"></i> Enroll MFA
+        </.link>
       </div>
     <% end %>
   </div>
