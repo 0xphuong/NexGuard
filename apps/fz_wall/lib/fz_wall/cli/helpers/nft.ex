@@ -148,6 +148,23 @@ defmodule FzWall.CLI.Helpers.Nft do
   def reload_postrouting do
     exec!("#{nft()} flush chain inet #{@table_name} postrouting")
     setup_masquerade()
+
+    # Observability — the masquerade reload was silent on success
+    # before, so an admin who flipped Preserve Client IP had no log
+    # trail confirming nftables actually picked up the change.
+    enabled = FzHttp.Config.fetch_config!(:gateway_no_masquerade_enabled)
+    cidr_count =
+      FzHttp.Config.fetch_config!(:gateway_no_masquerade_cidrs)
+      |> parse_cidrs()
+      |> length()
+
+    Logger.info(
+      "[fz_wall] postrouting reloaded — " <>
+        if(enabled,
+          do: "no-MASQUERADE active for #{cidr_count} subnet(s)",
+          else: "MASQUERADE restored (default mode)"
+        )
+    )
   end
 
   defp setup_no_masquerade_rules do

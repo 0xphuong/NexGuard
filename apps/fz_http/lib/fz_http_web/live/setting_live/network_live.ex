@@ -73,6 +73,11 @@ defmodule FzHttpWeb.SettingLive.Network do
          |> Config.update_config(%{"gateway_no_masquerade_enabled" => enabled},
                                   socket.assigns.subject, socket.assigns.remote_ip) do
       {:ok, _} ->
+        Logger.info(
+          "[network] Preserve Client IP toggled #{if enabled, do: "ON", else: "OFF"} " <>
+            "by subject=#{inspect(socket.assigns.subject.actor)}"
+        )
+
         reload_masquerade()
 
         msg =
@@ -126,6 +131,11 @@ defmodule FzHttpWeb.SettingLive.Network do
     socket =
       case Config.update_config(configuration, attrs, socket.assigns.subject, socket.assigns.remote_ip) do
         {:ok, configuration} ->
+          Logger.info(
+            "[network] no-MASQUERADE CIDR list updated by " <>
+              "subject=#{inspect(socket.assigns.subject.actor)}"
+          )
+
           reload_masquerade()
 
           socket
