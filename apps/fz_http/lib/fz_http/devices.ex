@@ -368,7 +368,43 @@ defmodule FzHttp.Devices do
 
   def get_allowed_ips(device, defaults \\ defaults()), do: config(device, defaults, :allowed_ips)
   def get_endpoint(device, defaults \\ defaults()), do: config(device, defaults, :endpoint)
-  def get_dns(device, defaults \\ defaults()), do: config(device, defaults, :dns)
+
+  @doc """
+  DNS server list for a device's generated `.conf`.
+
+  When L7 enforcement is enabled, the device MUST resolve declared
+  application hostnames against the gateway's CoreDNS (which
+  answers per-app VIPs). We override the admin-configured value
+  with the WireGuard gateway IP regardless of `default_client_dns`
+  so device configs always serve the right resolver — clients
+  pointed at upstream DNS would get NXDOMAIN for every app
+  hostname.
+
+  When L7 is off, fall back to the admin's configured default
+  (env override or DB value, whichever is in effect).
+  """
+  def get_dns(device, defaults \\ defaults()) do
+    if FzHttp.OrgSettings.l7_enabled?() do
+      [gateway_dns_ip()]
+    else
+      config(device, defaults, :dns)
+    end
+  end
+
+  @doc """
+  Gateway's WireGuard-side IPv4 — where CoreDNS listens for VPN
+  clients. Exposed so the /settings/client_defaults UI can name
+  the address admin can't override while L7 is on.
+  """
+  def gateway_dns_ip do
+    FzHttp.Config.fetch_env!(:fz_http, :wireguard_ipv4_address)
+    |> FzHttp.Types.IP.cast()
+    |> case do
+      {:ok, inet} -> FzHttp.Types.INET.to_string(inet)
+      _ -> ""
+    end
+  end
+
   def get_mtu(device, defaults \\ defaults()), do: config(device, defaults, :mtu)
 
   def get_persistent_keepalive(device, defaults \\ defaults()),

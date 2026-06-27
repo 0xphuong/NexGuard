@@ -38,33 +38,58 @@
     </div>
 
     <%# DNS Servers %>
+    <%# When L7 enforcement is on, device configs MUST point at the
+    %# gateway's CoreDNS — admin-configured upstream DNS would
+    %# NXDOMAIN every declared application hostname. Disable the
+    %# input + show a notice explaining the override; the actual
+    %# served DNS comes from `Devices.get_dns/2`. %>
     <% cfg_dns = Map.fetch!(@configs, :default_client_dns) %>
+    <% l7_forced? = @l7_enabled %>
+    <% dns_locked? = config_has_override?(cfg_dns) or l7_forced? %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
           <span class="ng-setting-label">DNS Servers</span>
-          <%= if config_has_override?(cfg_dns) do %>
-            <span class="ng-override-badge">
-              <i class="mdi mdi-lock-outline"></i>
-              <%= config_override_source(cfg_dns) %>
-            </span>
+          <%= cond do %>
+            <% l7_forced? -> %>
+              <span class="ng-override-badge">
+                <i class="mdi mdi-shield-account-outline"></i>
+                L7 enforcement
+              </span>
+            <% config_has_override?(cfg_dns) -> %>
+              <span class="ng-override-badge">
+                <i class="mdi mdi-lock-outline"></i>
+                <%= config_override_source(cfg_dns) %>
+              </span>
+            <% true -> %>
           <% end %>
         </div>
-        <p class="ng-setting-desc">
-          Comma-separated list of DNS servers for devices. Leave blank to omit
-          the <code>DNS</code> field from generated configs.
-        </p>
+        <%= if l7_forced? do %>
+          <p class="ng-setting-desc">
+            L7 enforcement is on — clients are forced to resolve through
+            the gateway's CoreDNS at <code><%= @gateway_dns_ip %></code> so
+            declared application hostnames resolve to their VIPs.
+            Disable L7 from
+            <a href={~p"/settings/l7"} class="ng-inline-link">Settings → L7 Enforcement</a>
+            to manage this field manually.
+          </p>
+        <% else %>
+          <p class="ng-setting-desc">
+            Comma-separated list of DNS servers for devices. Leave blank to omit
+            the <code>DNS</code> field from generated configs.
+          </p>
+        <% end %>
       </div>
       <div class="ng-setting-control">
         <%= text_input(f, :default_client_dns,
           placeholder: "1.1.1.1, 1.0.0.1",
           class: "ng-setting-input #{input_error_class(f, :default_client_dns)}",
-          disabled: config_has_override?(cfg_dns),
+          disabled: dns_locked?,
           value:
-            if config_has_override?(cfg_dns) do
-              Enum.join(config_value(cfg_dns), ", ")
-            else
-              list_value(f, :default_client_dns)
+            cond do
+              l7_forced? -> @gateway_dns_ip
+              config_has_override?(cfg_dns) -> Enum.join(config_value(cfg_dns), ", ")
+              true -> list_value(f, :default_client_dns)
             end
         ) %>
         <p class="ng-setting-error"><%= error_tag(f, :default_client_dns) %></p>

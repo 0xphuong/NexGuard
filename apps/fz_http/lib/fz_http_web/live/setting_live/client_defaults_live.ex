@@ -13,6 +13,8 @@ defmodule FzHttpWeb.SettingLive.ClientDefaults do
     socket =
       socket
       |> assign(:changeset, Config.change_config())
+      |> assign(:l7_enabled, FzHttp.OrgSettings.l7_enabled?())
+      |> assign(:gateway_dns_ip, FzHttp.Devices.gateway_dns_ip())
       |> assign(:page_subtitle, @page_subtitle)
       |> assign(:page_title, @page_title)
 
