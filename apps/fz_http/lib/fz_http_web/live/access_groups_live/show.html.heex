@@ -1,3 +1,5 @@
+<% writable? = FzHttpWeb.AccessGroupsLive.Show.writable?(@group) %>
+
 <%# ── Delete Confirmation Modal ────────────────────────────────────────── %>
 <%= if @show_delete_confirm do %>
   <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
@@ -65,129 +67,293 @@
   </div>
 <% end %>
 
-<%# ── Hero / page header ───────────────────────────────────────────────── %>
+<%# ── Hero ──────────────────────────────────────────────────────────────── %>
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
-    <div class="ng-user-cell">
+    <div class="ng-app-hero">
       <div class="ng-avatar ng-avatar--lg ng-avatar--group">
         <i class="mdi mdi-account-group-outline"></i>
       </div>
-      <div class="ng-user-info">
-        <h1 class="ng-page-title"><%= @group.name %></h1>
-        <p class="ng-page-subtitle">
+      <div class="ng-app-hero-meta">
+        <div class="ng-app-hero-breadcrumb">
+          <.link navigate={~p"/access-groups"} class="ng-breadcrumb">Access Groups</.link>
+          <span class="ng-breadcrumb-sep">/</span>
+          <h1 class="ng-page-title"><%= @group.name %></h1>
+        </div>
+        <div class="ng-app-hero-status">
           <span class={"ng-source-badge ng-source-badge--#{@group.source}"}>
             <%= @group.source %>
           </span>
-          ·
+          <span class="ng-td-muted">·</span>
           <span class="ng-device-count">
-            <i class="mdi mdi-account"></i> <%= length(@members) %>
-            member<%= if length(@members) != 1, do: "s" %>
+            <i class="mdi mdi-account"></i>
+            <%= length(@members) %> member<%= if length(@members) != 1, do: "s" %>
           </span>
-        </p>
+        </div>
       </div>
     </div>
-    <.link navigate={~p"/access-groups"} class="ng-secondary-btn">
-      <i class="mdi mdi-arrow-left"></i> All groups
-    </.link>
   </div>
 </div>
+
+<%# ── Tab navigation ───────────────────────────────────────────────────── %>
+<nav class="ng-tab-nav">
+  <.link patch={~p"/access-groups/#{@group}"}
+         replace={true}
+         class={["ng-tab", @tab == :overview && "is-active"]}>
+    <i class="mdi mdi-information-outline"></i>
+    <span>Overview</span>
+  </.link>
+  <.link patch={~p"/access-groups/#{@group}/members"}
+         replace={true}
+         class={["ng-tab", @tab == :members && "is-active"]}>
+    <i class="mdi mdi-account-multiple"></i>
+    <span>Members</span>
+    <span class="ng-tab-count"><%= length(@members) %></span>
+  </.link>
+  <.link patch={~p"/access-groups/#{@group}/danger"}
+         replace={true}
+         class={["ng-tab ng-tab--danger", @tab == :danger && "is-active"]}>
+    <i class="mdi mdi-alert-octagon-outline"></i>
+    <span>Danger zone</span>
+  </.link>
+</nav>
 
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Details card ────────────────────────────────────────────────────── %>
+<%= if @tab == :overview do %>
+  <%# ── 4-zone Overview card ─────────────────────────────────────
+  %# Matches the pattern shipped for /users/:id and /applications/:id.
+  %# Read-only summary; edit form sits below for manual groups. %>
+  <% admin_count = Enum.count(@members, &(&1.user.role == :admin)) %>
+  <% unpriv_count = length(@members) - admin_count %>
+
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span><i class="mdi mdi-information-outline"></i> Details</span>
+      <span class="ng-section-header">
+        <i class="mdi mdi-account-group-outline"></i> Group overview
+      </span>
     </div>
-    <div style="padding: 1.25rem 1.5rem;">
-      <.form
-        :let={f}
-        for={@changeset}
-        as={:group}
-        id="group-edit-form"
-        phx-change="validate"
-        phx-submit="update"
-      >
-        <div class="ng-field">
-          <%= label(f, :name, "Name", class: "ng-label") %>
-          <%= text_input(f, :name,
-                class: "ng-input #{input_error_class(f, :name)}",
-                phx_debounce: "300",
-                required: true) %>
-          <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+    <div class="ng-user-overview-grid">
+      <%# ── Identity zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-account-group-outline"></i> Identity
         </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>Name</dt><dd><%= @group.name %></dd></div>
+          <div><dt>Description</dt>
+            <dd>
+              <%= if @group.description && @group.description != "" do %>
+                <%= @group.description %>
+              <% else %>
+                <span class="ng-td-muted">—</span>
+              <% end %>
+            </dd></div>
+          <div><dt>Created</dt>
+            <dd
+              id={"group-#{@group.id}-inserted-at"}
+              data-timestamp={@group.inserted_at}
+              phx-hook="FormatTimestamp"
+            >…</dd></div>
+        </dl>
+      </div>
 
-        <div class="ng-field">
-          <%= label(f, :description, "Description", class: "ng-label") %>
-          <%= textarea(f, :description,
-                class: "ng-input #{input_error_class(f, :description)}",
-                rows: 3,
-                placeholder: "Optional context — what this group is for, who owns it.") %>
-          <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+      <%# ── Source zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-source-branch"></i> Source
         </div>
+        <dl class="ng-user-overview-list">
+          <div><dt>Type</dt>
+            <dd>
+              <span class={"ng-source-badge ng-source-badge--#{@group.source}"}>
+                <%= @group.source %>
+              </span>
+            </dd></div>
+          <div><dt>Editable</dt>
+            <dd>
+              <%= if writable? do %>
+                <span class="ng-rule-action-badge ng-rule-action-badge--allow">yes</span>
+              <% else %>
+                <span class="ng-rule-action-badge ng-rule-action-badge--deny">no</span>
+              <% end %>
+            </dd></div>
+        </dl>
+        <p class="ng-form-hint">
+          <%= FzHttpWeb.AccessGroupsLive.Show.source_explanation(@group.source) %>
+        </p>
+      </div>
 
-        <div class="ng-form-actions" style="margin-top: 1rem;">
-          <%= submit("Save changes",
-                class: "ng-primary-btn",
-                phx_disable_with: "Saving…",
-                disabled: map_size(@changeset.changes) == 0) %>
+      <%# ── Membership zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-account-multiple"></i> Membership
         </div>
-      </.form>
+        <dl class="ng-user-overview-list">
+          <div><dt>Total</dt>
+            <dd>
+              <%= length(@members) %>
+              <.link patch={~p"/access-groups/#{@group}/members"}
+                     replace={true}
+                     class="ng-overview-link">View →</.link>
+            </dd></div>
+          <div><dt>Admin</dt>
+            <dd><%= admin_count %></dd></div>
+          <div><dt>Unprivileged</dt>
+            <dd><%= unpriv_count %></dd></div>
+        </dl>
+      </div>
+
+      <%# ── Visibility / L7 gate zone ── %>
+      <div class="ng-user-overview-zone">
+        <div class="ng-user-overview-zone-title">
+          <i class="mdi mdi-shield-account-outline"></i> L7 gate
+        </div>
+        <p class="ng-form-hint">
+          Applications that list this group in their <strong>Allowed groups</strong>
+          tab will accept signed-in members of this group. The L7 proxy
+          enforces the gate per request — no VPN traffic is granted by group
+          membership alone.
+        </p>
+      </div>
     </div>
   </div>
 
-  <%# ── Members roster ──────────────────────────────────────────────────── %>
+  <%# ── Inline edit form — manual groups only ──────────────────── %>
+  <%= if writable? do %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-pencil-outline"></i> Edit
+        </span>
+      </div>
+      <div class="ng-detail-card-body">
+        <.form
+          :let={f}
+          for={@changeset}
+          as={:group}
+          id="group-edit-form"
+          phx-change="validate"
+          phx-submit="update"
+        >
+          <div class="ng-field">
+            <%= label(f, :name, "Name", class: "ng-label") %>
+            <%= text_input(f, :name,
+                  class: "ng-input #{input_error_class(f, :name)}",
+                  phx_debounce: "300",
+                  required: true) %>
+            <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :description, "Description", class: "ng-label") %>
+            <%= textarea(f, :description,
+                  class: "ng-input #{input_error_class(f, :description)}",
+                  rows: 3,
+                  placeholder: "Optional context — what this group is for, who owns it.") %>
+            <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+          </div>
+
+          <div class="ng-form-actions">
+            <%= submit("Save changes",
+                  class: "ng-primary-btn",
+                  phx_disable_with: "Saving…",
+                  disabled: map_size(@changeset.changes) == 0) %>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% else %>
+    <div class="ng-modal-callout ng-modal-callout--warning">
+      <i class="mdi mdi-lock-outline"></i>
+      <span>
+        <strong>Name and description managed externally.</strong>
+        This group's metadata is owned by the
+        <code><%= @group.source %></code> source — changes here would be
+        overwritten on the next sync. Update at the source instead.
+      </span>
+    </div>
+  <% end %>
+<% end %>
+
+<%= if @tab == :members do %>
+  <%# ── IdP-sync constraint disclosure (App-Show-C precedent) ───
+  %# Surface upfront for non-manual groups so admin doesn't try to
+  %# add/remove and have it fail (or silently get overwritten on
+  %# next sync). Mirror of the kernel-5.6.9 inline notice pattern. %>
+  <%= if not writable? do %>
+    <div class="ng-modal-callout ng-modal-callout--warning">
+      <i class="mdi mdi-lock-outline"></i>
+      <span>
+        <strong>Members managed externally.</strong>
+        <%= FzHttpWeb.AccessGroupsLive.Show.source_explanation(@group.source) %>
+      </span>
+    </div>
+  <% end %>
+
   <div class="ng-detail-card">
     <div class="ng-detail-card-header">
-      <span><i class="mdi mdi-account-multiple"></i> Members</span>
-      <span class="ng-td-muted"><%= length(@members) %> total</span>
+      <span class="ng-section-header">
+        <i class="mdi mdi-account-multiple"></i> Members
+        <span class="ng-section-badge"><%= length(@members) %></span>
+      </span>
     </div>
 
-    <div style="padding: 1.25rem 1.5rem;">
-      <%= if @available_users == [] do %>
-        <p class="ng-td-muted" style="margin: 0;">
-          <i class="mdi mdi-information-outline"></i>
-          <%= if @members == [] do %>
-            No users in the system yet. <.link navigate={~p"/users"}>Create a user</.link> first to add as a member.
-          <% else %>
-            Every existing user is already a member of this group.
-          <% end %>
-        </p>
-      <% else %>
-        <form id="add-member-form" phx-submit="add_member" class="ng-form-inline" autocomplete="off">
-          <div class="ng-field" style="flex: 1; margin: 0;">
-            <label class="ng-label">Add member</label>
-            <select name="user_id" class="ng-input" required>
-              <option value="">Select a user…</option>
-              <%= for user <- @available_users do %>
-                <option value={user.id}>
-                  <%= user.email %><%= if user.role && user.role != :unprivileged, do: " · #{user.role}" %>
-                </option>
-              <% end %>
-            </select>
-          </div>
-          <button type="submit" class="ng-primary-btn" style="align-self: flex-end;">
-            <i class="mdi mdi-account-plus"></i> Add
-          </button>
-        </form>
-        <p class="ng-field-hint" style="margin-top: 0.4rem;">
-          <%= length(@available_users) %> user<%= if length(@available_users) != 1, do: "s" %> available (not yet a member).
-        </p>
-      <% end %>
-    </div>
+    <%# ── Add-member form — only for manual groups ──────────── %>
+    <%= if writable? do %>
+      <div class="ng-detail-card-body">
+        <%= if @available_users == [] do %>
+          <p class="ng-form-hint">
+            <i class="mdi mdi-information-outline"></i>
+            <%= if @members == [] do %>
+              No users in the system yet. <.link navigate={~p"/users"} class="ng-inline-link">Create a user</.link> first to add as a member.
+            <% else %>
+              Every existing user is already a member of this group.
+            <% end %>
+          </p>
+        <% else %>
+          <form id="add-member-form" phx-submit="add_member" class="ng-form-inline" autocomplete="off">
+            <div class="ng-field ng-field--grow">
+              <label class="ng-label">Add member</label>
+              <select name="user_id" class="ng-input" required>
+                <option value="">Select a user…</option>
+                <%= for user <- @available_users do %>
+                  <option value={user.id}>
+                    <%= user.email %><%= if user.role && user.role != :unprivileged, do: " · #{user.role}" %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+            <button type="submit" class="ng-primary-btn ng-form-inline-btn">
+              <i class="mdi mdi-account-plus"></i> Add
+            </button>
+          </form>
+          <p class="ng-field-hint">
+            <%= length(@available_users) %> user<%= if length(@available_users) != 1, do: "s" %> available (not yet a member).
+          </p>
+        <% end %>
+      </div>
+    <% end %>
 
+    <%# ── Members table ──────────────────────────────────────── %>
     <%= if @members == [] do %>
-      <div style="padding: 0 1.5rem 1.5rem;">
+      <div class="ng-detail-card-body--bottom">
         <div class="ng-empty-state ng-empty-state--inline">
           <p class="ng-empty-state-hint">
-            No members yet. Add one by email above. They'll keep their VPN
-            access unchanged — group membership only affects L7-managed apps.
+            <%= if writable? do %>
+              No members yet. Add one via the picker above. They'll keep
+              their VPN access unchanged — group membership only affects
+              L7-managed apps.
+            <% else %>
+              No members synced yet from the upstream
+              <code><%= @group.source %></code> source.
+            <% end %>
           </p>
         </div>
       </div>
     <% else %>
-      <div class="ng-table-wrap" style="border-top: 1px solid #e2e8f0;">
+      <div class="ng-table-wrap ng-table-wrap--flush">
         <table class="ng-table">
           <thead>
             <tr>
@@ -195,7 +361,9 @@
               <th>Source</th>
               <th>Added by</th>
               <th>Added</th>
-              <th class="ng-th-center" style="width: 3rem;"></th>
+              <%= if writable? do %>
+                <th class="ng-th-center ng-th-narrow"></th>
+              <% end %>
             </tr>
           </thead>
           <tbody>
@@ -232,16 +400,18 @@
                 >
                   …
                 </td>
-                <td class="ng-td-center">
-                  <button
-                    class="ng-dismiss-btn"
-                    title="Remove from group"
-                    phx-click="confirm_remove_member"
-                    phx-value-user-id={m.user_id}
-                  >
-                    <i class="mdi mdi-account-minus-outline"></i>
-                  </button>
-                </td>
+                <%= if writable? do %>
+                  <td class="ng-td-center">
+                    <button
+                      class="ng-dismiss-btn"
+                      aria-label={"Remove #{m.user.email} from group"}
+                      phx-click="confirm_remove_member"
+                      phx-value-user-id={m.user_id}
+                    >
+                      <i class="mdi mdi-account-minus-outline"></i>
+                    </button>
+                  </td>
+                <% end %>
               </tr>
             <% end %>
           </tbody>
@@ -249,8 +419,10 @@
       </div>
     <% end %>
   </div>
+<% end %>
 
-  <%# ── Danger zone ─────────────────────────────────────────────────────── %>
+<%= if @tab == :danger do %>
+  <%# ── Danger zone (works for all sources) ─────────────────────── %>
   <div class="ng-danger-zone">
     <div class="ng-danger-zone-header">
       <i class="mdi mdi-alert-octagon"></i>
@@ -263,6 +435,12 @@
           <p class="ng-danger-zone-desc">
             Removes every member assignment and detaches this group from any
             application that requires it. Member accounts are not affected.
+            <%= if not writable? do %>
+              <br />
+              <strong>Note:</strong> If the upstream
+              <code><%= @group.source %></code> source still references this
+              group, it may be re-created on the next sync round.
+            <% end %>
           </p>
         </div>
         <button class="ng-danger-btn" phx-click="show_delete_confirm">
@@ -271,4 +449,5 @@
       </div>
     </div>
   </div>
+<% end %>
 </section>

@@ -1,9 +1,17 @@
 defmodule FzHttpWeb.AccessGroupsLive.Show do
   @moduledoc """
-  Detail page for one access group:
-    * inline edit name + description
-    * member roster with add (by email) and remove
-    * delete the entire group (with confirm)
+  Detail page for one access group, split across three
+  URL-addressable tabs (`:overview`, `:members`, `:danger`):
+    * Overview — read-only summary + inline edit (manual groups only)
+    * Members — add/remove roster (manual groups only; IdP-synced
+      and system groups render a lock callout instead)
+    * Danger — delete the entire group (works for all sources)
+
+  Source-driven write guard: `:idp_sync` and `:system` groups have
+  their name, description, and membership managed externally —
+  manual edits would be wiped on the next sync round. The template
+  hides the edit forms and the Remove buttons for those sources;
+  context functions also enforce the rule server-side.
   """
   use FzHttpWeb, :live_view
 
@@ -16,6 +24,7 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
        socket
        |> assign(:show_delete_confirm, false)
        |> assign(:remove_member_confirm, nil)
+       |> assign(:tab, tab_for_action(socket.assigns[:live_action]))
        |> load_group_assigns(group)}
     else
       {:error, :not_found} ->
@@ -33,7 +42,36 @@ defmodule FzHttpWeb.AccessGroupsLive.Show do
     do: {:noreply, assign(socket, :show_delete_confirm, false)}
 
   @impl Phoenix.LiveView
-  def handle_params(_params, _url, socket), do: {:noreply, socket}
+  def handle_params(_params, _url, socket) do
+    {:noreply, assign(socket, :tab, tab_for_action(socket.assigns.live_action))}
+  end
+
+  defp tab_for_action(:members),  do: :members
+  defp tab_for_action(:danger),   do: :danger
+  defp tab_for_action(:show),     do: :overview
+  defp tab_for_action(:overview), do: :overview
+  defp tab_for_action(_),         do: :overview
+
+  # ── Template helpers ───────────────────────────────────────────
+
+  @doc """
+  True when the admin can edit name/description and add/remove
+  members. Manual groups only — IdP-synced and system groups are
+  authoritative-read-only.
+  """
+  def writable?(%{source: :manual}), do: true
+  def writable?(_),                  do: false
+
+  def source_explanation(:manual),
+    do: "Members are added and removed manually by admins."
+
+  def source_explanation(:idp_sync),
+    do: "Membership is synced from the IdP. Manual add/remove is disabled — adjust at the IdP."
+
+  def source_explanation(:system),
+    do: "System-managed group. Membership is computed automatically and can't be edited."
+
+  def source_explanation(_), do: ""
 
   # ── Edit name / description ───────────────────────────────────
 

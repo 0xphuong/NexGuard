@@ -30,7 +30,7 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%= if @groups == [] do %>
+  <%= if @all_groups == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-account-group ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No access groups yet</p>
@@ -42,33 +42,79 @@
       </.link>
     </div>
   <% else %>
-    <%# ── Stats strip (org-wide pulse) ─────────────────────────── %>
+    <%# ── Stats strip (org-wide pulse, derived from unfiltered list) %>
     <div class="ng-stat-strip">
       <div class="ng-stat-tile">
-        <div class="ng-stat-tile-value"><%= length(@groups) %></div>
+        <div class="ng-stat-tile-value"><%= length(@all_groups) %></div>
         <div class="ng-stat-tile-label">Groups</div>
       </div>
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value">
-          <%= Enum.sum(Enum.map(@groups, & &1.member_count || 0)) %>
+          <%= Enum.sum(Enum.map(@all_groups, & &1.member_count || 0)) %>
         </div>
         <div class="ng-stat-tile-label">Memberships</div>
       </div>
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value">
-          <%= Enum.count(@groups, & &1.source == :manual) %>
+          <%= Enum.count(@all_groups, & &1.source == :manual) %>
         </div>
         <div class="ng-stat-tile-label">Manual</div>
       </div>
       <div class="ng-stat-tile">
         <div class="ng-stat-tile-value">
-          <%= Enum.count(@groups, & &1.source == :idp_sync) %>
+          <%= Enum.count(@all_groups, & &1.source == :idp_sync) %>
         </div>
         <div class="ng-stat-tile-label">IdP-synced</div>
       </div>
     </div>
 
+    <%# ── Filter bar — search + source chip ─────────────────────── %>
+    <.form
+      :let={_f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by name or description…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="filters[source]" class="ng-user-filterbar-select">
+        <%= for {label, value} <- @source_options do %>
+          <option value={value} selected={value == @filters["source"]}><%= label %></option>
+        <% end %>
+      </select>
+
+      <%= if FzHttpWeb.AccessGroupsLive.Index.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@groups) %> of <%= length(@all_groups) %>
+      </span>
+    </.form>
+
     <%# ── Groups list ──────────────────────────────────────────── %>
+    <%= if @groups == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No groups match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
     <div class="ng-table-wrap">
       <table class="ng-table">
         <thead>
@@ -77,7 +123,7 @@
             <th class="ng-th-center">Members</th>
             <th>Source</th>
             <th>Created</th>
-            <th class="ng-th-center" style="width: 3rem;"></th>
+            <th class="ng-th-center ng-th-narrow"></th>
           </tr>
         </thead>
         <tbody>
@@ -119,7 +165,7 @@
               <td class="ng-td-center">
                 <button
                   class="ng-dismiss-btn"
-                  title="Delete group"
+                  aria-label={"Delete group #{group.name}"}
                   phx-click="delete"
                   phx-value-id={group.id}
                   data-confirm={"Delete \"#{group.name}\"? Member assignments and any application reference to this group will also be removed."}
@@ -132,5 +178,6 @@
         </tbody>
       </table>
     </div>
+    <% end %>
   <% end %>
 </section>
