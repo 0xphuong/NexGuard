@@ -3182,6 +3182,30 @@ pre {
   .mdi { font-size: 0.9rem; }
 }
 
+/* Hosts the page-count badge + "Clear all" button on the right of
+   the page header so they sit side-by-side without a wrapper-
+   level inline `display:flex`. */
+.ng-notif-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Per-row severity tint — error rows blush red, warning rows
+   amber, info rows stay neutral. Lets admins scan a list of
+   notifications and clock the urgent ones without parsing the
+   icon column. */
+.ng-notif-row--error td   { background: #fef2f2; }
+.ng-notif-row--warning td { background: #fffbeb; }
+.ng-notif-row--info td    { /* default — no tint */ }
+
+/* Notifications badge in the topbar — anchor fills the navbar
+   height, icon wrapper carries `position: relative` so the count
+   pill can be absolutely positioned inside it. Replaces two
+   inline styles in `badge.html.heex`. */
+.ng-navbar-link-fill { height: 100%; }
+.ng-badge-icon-wrap  { position: relative; }
+
 .ng-notif-icon {
   display: inline-flex;
   align-items: center;
@@ -5622,6 +5646,10 @@ pre {
    classes so adjustment lives in one place. */
 .ng-th-narrow { width: 3rem; }
 .ng-th-actions { width: 7rem; }
+
+/* Prevent line-wrap on small fixed-width cells (timestamps,
+   compact IDs). Replaces inline `style="white-space: nowrap"`. */
+.ng-td-nowrap { white-space: nowrap; }
 
 /* When a table sits flush against a card body above (no gap), the
    default 1px top border looks like a duplicate divider on top of

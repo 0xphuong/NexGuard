@@ -11,7 +11,6 @@ defmodule FzHttpWeb.NotificationsLive.Index do
 
   @topic "notifications_live"
   @page_title "Notifications"
-  @page_subtitle "Persisted notifications will appear below."
 
   @impl Phoenix.LiveView
   def mount(_params, session, socket) do
@@ -22,7 +21,6 @@ defmodule FzHttpWeb.NotificationsLive.Index do
      socket
      |> assign(:notifications_pid, pid)
      |> assign(:notifications, Notifications.current(pid))
-     |> assign(:page_subtitle, @page_subtitle)
      |> assign(:page_title, @page_title)}
   end
 
@@ -36,6 +34,11 @@ defmodule FzHttpWeb.NotificationsLive.Index do
   @impl Phoenix.LiveView
   def handle_event("clear_notification", %{"index" => index}, socket) do
     Notifications.clear_at(socket.assigns.notifications_pid, String.to_integer(index))
+    {:noreply, socket}
+  end
+
+  def handle_event("clear_all", _params, socket) do
+    Notifications.clear_all(socket.assigns.notifications_pid)
     {:noreply, socket}
   end
 

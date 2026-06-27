@@ -1,10 +1,9 @@
 <%= live_redirect(
   to: ~p"/notifications",
   title: @title,
-  class: "navbar-item has-divider is-desktop-icon-only",
-  style: "height: 100%"
+  class: "navbar-item has-divider is-desktop-icon-only ng-navbar-link-fill"
 ) do %>
-  <span class="icon" style="position: relative;">
+  <span class="icon ng-badge-icon-wrap">
     <%= if @count == 0 do %>
       <i class="mdi mdi-bell-outline ng-bell-icon"></i>
     <% else %>

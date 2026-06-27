@@ -4,12 +4,23 @@
       <h1 class="ng-page-title">Notifications</h1>
       <p class="ng-page-subtitle">System events and alerts requiring your attention</p>
     </div>
-    <%= if Enum.any?(@notifications) do %>
-      <span class="ng-notif-page-count">
-        <i class="mdi mdi-bell-ring-outline"></i>
-        <%= length(@notifications) %> active
-      </span>
-    <% end %>
+    <div class="ng-notif-header-actions">
+      <%= if Enum.any?(@notifications) do %>
+        <span class="ng-notif-page-count">
+          <i class="mdi mdi-bell-ring-outline"></i>
+          <%= length(@notifications) %> active
+        </span>
+        <%= if length(@notifications) > 1 do %>
+          <button
+            class="ng-secondary-btn"
+            phx-click="clear_all"
+            data-confirm="Dismiss all notifications?"
+          >
+            <i class="mdi mdi-bell-off-outline"></i> Clear all
+          </button>
+        <% end %>
+      <% end %>
+    </div>
   </div>
 </div>
 
@@ -20,22 +31,21 @@
       <table class="ng-table">
         <thead>
           <tr>
-            <th style="width: 2.75rem;"></th>
+            <th class="ng-th-narrow"></th>
             <th>Time</th>
             <th>User</th>
             <th>Message</th>
-            <th style="width: 3rem;"></th>
+            <th class="ng-th-narrow"></th>
           </tr>
         </thead>
         <tbody>
           <%= for {notification, index} <- Enum.with_index(@notifications) do %>
-            <tr>
+            <tr class={"ng-notif-row ng-notif-row--#{notification.type}"}>
               <td class="ng-td-center">
                 <%= icon(notification.type, assigns) %>
               </td>
               <td
-                class="ng-td-muted"
-                style="white-space: nowrap;"
+                class="ng-td-muted ng-td-nowrap"
                 id={"notification-time-#{index}"}
                 phx-hook="FormatTimestamp"
                 data-timestamp={notification.timestamp}
@@ -44,8 +54,8 @@
               <td><%= notification.message %></td>
               <td class="ng-td-center">
                 <button
-                  title="Dismiss"
                   class="ng-dismiss-btn"
+                  aria-label="Dismiss notification"
                   phx-click="clear_notification"
                   phx-value-index={index}
                 >
