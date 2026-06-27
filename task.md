@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-06-26 · Server at **v3.0.7** · Pairs with NexGuard Connect **v0.0.9**
+Last updated: 2026-06-28 · Server at **v3.0.9** · Pairs with NexGuard Connect **v0.0.9**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).
@@ -14,6 +14,8 @@ Connect client. Headline releases:
 
 | Version | Highlights |
 |---|---|
+| **v3.0.9** (2026-06-28) | **Admin portal UX sweep** — `frontend-design-direction` applied to every major surface across 24 commits: `/devices`, `/rules`, `/applications`, `/access-groups`, `/settings/{certificates, l7, security, account, network, audit_log, client_defaults, customization}`, `/diagnostics/connectivity_checks`, `/notifications`. Recurring patterns: stats strip + status callout up top, filter bars on indexes, 4-zone Overview cards on show pages, confirm modals for blast-radius toggles (Force MFA, Local Auth, masquerade, DNS save, no-MASQ enable), lock-out guards on SSO + MFA delete, computed warnings instead of conditional-in-prose, aria-label replaces hover-only `title=`, ~150 inline `style="..."` declarations → utility classes. Safety + correctness fixes uncovered along the way: `FzWall.CLI.Live.reload_postrouting/0` delegate (was crashing network settings on every save), `FzHttp.Validator.validate_cidr_list/3` (so `10.0.0.0` without `/N` no longer slips into nftables), `Devices.get_dns/2` auto-forces gateway CoreDNS when L7 is on (clients pointed at upstream DNS were NXDOMAINing every declared L7 hostname). New design tokens: `.ng-modal-callout--danger`, `.ng-cert-status-badge` family, `.ng-rule-action-badge--allow/--deny`, `.ng-conn-cell` family, `.ng-stat-tile--{danger,warn,ok,muted}`, `.ng-toggle-state(--on)`, `.ng-row--{pending,stale,failure}`, plus scoped `.ng-detail-card-header .ng-section-header { margin: 0 }` that kills 20+ inline `style="margin: 0"` overrides codebase-wide |
+| **v3.0.8** (2026-06-26) | **Users domain redesign** — full refresh of `/users`, `/users/:id`, and the add/edit user modal. Index gains a stats strip (Total / Active-24h / MFA-enrolled% / Admin / Break-glass), MFA-freshness column (`✓ 5m` / `⚠ 45d` / `?` / `—` driven off `User.Query.hydrate_index/1`), filter bar (email search + Role + MFA + Status chips), bulk actions (Disable / Enable / Delete with confirm modal). Show page picks up a 3-line hero, 4-zone Overview card, and 6 URL-addressable tabs (Overview / Devices / Groups / Access / Connections / Danger) with the Edit + Add-Device modals overlaying. Add/Edit user modal harmonised — email field + password inputs all in the `.ng-field` family, amber callout warning that email change may break OIDC/SAML linkage, "Leave blank to keep current password" hint, per-action submit copy ("Create user" vs "Save changes"). Removed: VPN Status column + Created column on index. Deferred: U-Show-C (modal partial extraction) needs a function-component refactor; E-Form-B/C opt-in follow-ups |
 | **v3.0.2** (2026-06-24, on prod, untagged) | ADR-015 **shared TLS certificate library**. Admins upload each wildcard / multi-SAN cert ONCE at `/settings/certificates`; L7 apps pick by `tls_cert_id` (explicit pin) or hostname → SAN auto-match via `FzHttp.L7.CertResolver`. Renewals are one-click in-place replace — every app pointing at the row rolls over on the next bundle pivot. New `l7_tls_certificates` table + `cert_source = :library`, daily `TlsCertExpiryScanner` (30d / 7d / expired thresholds with audit dedupe), `CertParser` enforcing RSA ≥2048 / ECDSA P-256+ / cert↔key match. **Applications hardening PR**: close enable-bypass via `update_application(%{"enabled" => true})`, capture full per-field diff in `application.update` audit metadata (l7_rules + cert config visible), explicit `@permitted_update` list replaces brittle `--` subtraction. ~3000 LoC + 30 test cases |
 | **v3.0.1** (2026-06-24, on prod, untagged) | Security hardening + DNS / runbook fixes. **Proxy**: strip client-sent `X-Forwarded-*` before forward + canonical add-back, path normalization (`..` and double-slash rejected before policy eval), JWT signature redaction in logs, PEM zeroed in memory after parse, `WriteHeader` guard. **JWT**: `iss=nexguard-proxy` + `aud=<app uuid>` + `jti` + `nbf` claims — backends MUST validate `iss` and `aud` (see `docs/migrations/v3.0.1.md`). **Audit**: whitelist 12 missing L7 / app / group / scope actions + regression test pin. **CoreDNS**: `fallthrough .` fix for sister names under declared zones, optional `COREDNS_FORWARD_TO_FALLBACK` for bind9 HA pair, cache hardening (`serve_stale 1h immediate` + `prefetch 10 1m 10%` + 16K success cap + 4K denial 5min), template plugin NXDOMAINs `.local/.lan/.home/.internal/.corp` locally |
 | **v3.0.0** (2026-06-21) | L7-D — L7 transparent proxy daemon GA. Custom Go binary (`proxy/`, ~5 KLOC, distroless ~20 MB image): IP_TRANSPARENT TLS listener, bundle/identity HTTP clients with TTL cache, RS256 JWT signer, first-match-wins policy evaluator, reverse proxy with backend-scheme allow-list + outbound TLS 1.2 pin + reserved-header response scrub, Prometheus metrics + structured access log + /healthz + /readyz. Server-side: bundle now carries `signing_key.private_pem` + per-app `key_pem`; `/internal/*` HARD-404'd at public :443; new Caddy :13443 mTLS site enforces `require_and_verify` against operator-provisioned `scripts/l7-rotate-proxy-cert.sh` CA. Independent security review: 2 critical + 4 high fixed inline. Perf: 1143 rps / p99 21 ms |
@@ -29,6 +31,28 @@ Connect client. Headline releases:
 ---
 
 ## ⏳ Pending — ready to implement when prioritized
+
+### 🆕 Carryover from v3.0.9 UX sweep
+
+Items each redesign-pass intentionally deferred, grouped by domain. Most
+are Pass-2-or-later work that needs either a backend endpoint, schema
+change, or design discussion before another template edit pays off.
+
+| ID | Surface | Task | Effort | Notes |
+|---|---|---|---|---|
+| **UX-1** | `/settings/security` | OIDC + SAML form-component harmonisation | ~1h | Bring the two SSO form modals up to the user/app form pattern — `phx-change="validate"`, `.ng-field` family, `.ng-modal-callout` upfront disclosure. Defer-able while the rest of the security page communicates state well |
+| **UX-2** | `/settings/security` | MFA freshness window (`require_mfa_age_seconds` org-wide) UI surface | ~2h | The field already gates L7 rules per-app; org-wide value would set the default ceiling for everyone |
+| **UX-3** | `/settings/account` | Sign-out other sessions affordance | ~2-3h | Needs `Sessions.list_by_user/1` + bulk-invalidate; current Presence is read-only and ephemeral |
+| **UX-4** | `/settings/audit_log` | CSV / JSON export endpoint | ~2h | Compliance reviewers' ask — new controller route gated by `:api` pipeline; filter params come from the URL |
+| **UX-5** | `/settings/audit_log` | Live tail via PubSub | ~2h | New `AuditLogs.subscribe/0` broadcast at insert + LV `stream_insert` on the existing table |
+| **UX-6** | `/settings/audit_log` | Severity tag on destructive actions | ~1h | Classifier: `*.disable / .delete / role.change / .revoke` → red; `*.create` → neutral; etc. Drives `.ng-row--*` tint |
+| **UX-7** | `/settings/audit_log` | Diff "hide unchanged" toggle | ~30min | `application.update` payloads carry 20+ keys; current diff shows them all |
+| **UX-8** | App-wide | DRY refactor of repeated 3-clone confirm modals | ~2h | Inline `<.confirm_modal>` function component once Phoenix LV 0.18+ embed_templates pattern feels stable. Tag against any future page that introduces yet another confirm |
+| **UX-9** | App-wide | Toggle-row function component | ~1.5h | 5 near-identical settings-row blocks on `/settings/security` + variants on `/settings/network`. Consolidate when next polish touches either page |
+| **UX-10** | `/settings/customization` | URL-mode logo live preview | ~30min | Paste URL → preview before save. Needs `phx-change` + image preload + debounce |
+| **UX-11** | `/applications` | `Applications.subscribe()` on Index + Show | ~30min | Multi-admin staleness. Same pattern in the new `setting_live/certificates_live.ex`. Tracked as **R6** below too |
+
+---
 
 ### 🚧 ZTNA L7 — Phase 5 next (operations polish)
 
@@ -231,12 +255,12 @@ Findings from the post-v3.0.2 module review. PR #1 ($1+#7+#2 — enable-bypass +
 
 - [ ] **R3**: L7 rules editor races on concurrent admin edits — `show_live.ex:131-165` reads `socket.assigns.application.l7_rules` then writes the new list back via `update_application`. Two admins on the same app overwrite each other's rules. Fix: move add/delete/reorder into `Applications.L7Rules` (or just `Applications`), each wrapping a `Repo.transaction` that re-reads `l7_rules` inside the txn before append/reorder. ~1-2h
 - [ ] **R4**: X509 parser duplicated in `applications_live/form_component.ex:94-157` (`preview_cert/1`) — same job as `FzHttp.L7.CertParser` shipped in Phase A of ADR-015. Expose `CertParser.parse_cert_only/1` (skip key match) and replace the inline parser. ~30min
-- [ ] **R5**: Index page stats strip still has a `step_ca` tile (`index.html.heex:107-111`) which is meaningless after most apps move to `cert_source: :library`. Either split into 3 tiles (library / upload / step_ca) or replace with "Apps with auto-match cert". ~15min
+- [x] **R5**: ~~Index page stats strip step_ca tile~~ — addressed adjacent in v3.0.9: the **form modal** demotes step_ca behind a "Pending" badge (`ng-radio-card--disabled`). Index stats strip step_ca tile only renders when count > 0, so it self-hides for library-first deployments. Full split into library/upload/step_ca tiles not done; revisit if a deployment ends up with mixed sources
 - [ ] **R6**: `applications_live/{index,show}` LiveViews don't `Applications.subscribe()` — multi-admin scenarios show stale state until refresh. Add `if connected?(socket), do: Applications.subscribe()` + `handle_info(:apps_changed, ...)` reload. Same pattern in the new `setting_live/certificates_live.ex` for cert-library mutations. ~30min
 
 ##### V — Versioning + release housekeeping (~30min)
 
-- [ ] **V1**: Bump `Dockerfile.prod ARG VERSION` 3.0.0 → 3.0.2, write `docs/migrations/v3.0.2.md` (cert library deploy steps + cert_source migration helper), update CHANGELOG, tag `v3.0.2` + push
+- [x] **V1**: Bump `Dockerfile.prod ARG VERSION` to current. Shipped — bumped through v3.0.4 → v3.0.5 → v3.0.6 → v3.0.7 → v3.0.8 → v3.0.9 with matching CHANGELOG entries + tags. v3.0.2's specific `docs/migrations/v3.0.2.md` deploy doc still missing (cert library steps were folded into the v3.0.5 runbook instead — close enough not to backfill)
 - [ ] **V2**: Migrate existing apps with `cert_source: :upload` → `:library` — for orgs that already have a wildcard cert covering the hostnames, set `tls_auto_match: true` and clear the per-app PEM. Helper mix task or one-shot SQL
 
 ##### X — External (out-of-repo, DNS team coordination)
@@ -401,8 +425,8 @@ Admin can end-to-end:
 | ID | Task | Effort | Notes |
 |---|---|---|---|
 | S5 | **Admin "Force re-auth" policy** (org-level setting "user must sign in again after X days") | ~2h server + ~1h client | Extra session control beyond the 24h VPN session. Per-org configurable. Server stamps `last_signed_in_at`; client checks on every refresh. |
-| S6 | **Bulk device approve/revoke** (checkbox-select multiple) | ~2h | Admin convenience when onboarding a team. Currently each device is one-at-a-time. |
-| S7 | **Audit log search + filter UI** | ~2-3h | Filter by actor / target / action / date range. Currently the audit log is a flat scrollable list. Admin oversight + compliance use case. |
+| ~~S6~~ | ~~**Bulk device approve/revoke**~~ | done | Shipped in **v3.0.8** as part of the devices redesign — bulk Approve / Revoke / Delete with confirm modal + sticky toolbar |
+| ~~S7~~ | ~~**Audit log search + filter UI**~~ | done | Shipped in **v3.0.9** — free-text search across actor_email / target_label / target_id / IP, time-range chip (24h/7d/30d/90d), Reset button, empty-state variants. CSV export + PubSub live tailing + severity tag classifier deferred to Pass 2 |
 | S8 | **API documentation** (OpenAPI / Swagger for `/api/v0/`) | ~2-3h | Enable third-party integration. Auto-generated from controller annotations would be lowest-maintenance. |
 
 ### 🔵 Larger features
