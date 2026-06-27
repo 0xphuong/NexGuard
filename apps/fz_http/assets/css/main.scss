@@ -5407,6 +5407,7 @@ pre {
 .ng-row--pending td { background: #fffbeb; }
 .ng-row--stale   td { color: #94a3b8; }
 .ng-row--stale td.ng-td-mono { color: #94a3b8; }
+.ng-row--failure td { background: #fef2f2; }
 
 /* ── Inline banner — pending-devices triage signal ──────────── */
 .ng-banner {

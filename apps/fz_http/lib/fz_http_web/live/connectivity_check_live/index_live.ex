@@ -1,17 +1,15 @@
 defmodule FzHttpWeb.ConnectivityCheckLive.Index do
   @moduledoc """
-  Manages the connectivity_checks view.
+  Diagnostic page — lists the last 20 WAN connectivity checks and
+  surfaces the current online/offline state + resolved public IP at
+  the top so an admin debugging "is the internet down?" gets an
+  answer in the first viewport.
   """
   use FzHttpWeb, :live_view
 
   alias FzHttp.ConnectivityChecks
 
   @page_title "WAN Connectivity Checks"
-  @page_subtitle """
-  NexGuard periodically checks for WAN connectivity to the Internet and logs the result here. \
-  This is used to determine the public IP address of this server for populating the default \
-  endpoint field in device configurations.
-  """
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
@@ -21,7 +19,6 @@ defmodule FzHttpWeb.ConnectivityCheckLive.Index do
     socket =
       socket
       |> assign(:connectivity_checks, connectivity_checks)
-      |> assign(:page_subtitle, @page_subtitle)
       |> assign(:page_title, @page_title)
 
     {:ok, socket}

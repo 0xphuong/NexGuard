@@ -10,6 +10,42 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# ── Current state callout ─────────────────────────────────
+  %# Derives from the freshest check + the rolling 20 below. Green
+  %# success variant when WAN is online; amber warning when the
+  %# latest check failed. Skipped entirely when no checks have
+  %# been recorded yet (the empty state below covers that case). %>
+  <%= if @connectivity_checks != [] do %>
+    <% latest = hd(@connectivity_checks) %>
+    <% online? = connectivity_check_online?(latest.response_code) %>
+    <% failures_count =
+         Enum.count(@connectivity_checks, &(not connectivity_check_online?(&1.response_code))) %>
+
+    <div class={["ng-modal-callout",
+                  online? && "ng-modal-callout--success",
+                  not online? && "ng-modal-callout--warning"]}>
+      <i class={["mdi",
+                 if(online?, do: "mdi-check-circle-outline", else: "mdi-alert-circle-outline")]}></i>
+      <span>
+        <strong>WAN is <%= if online?, do: "online", else: "offline" %>.</strong>
+        <%= if online? do %>
+          Public IP <code><%= latest.response_body %></code>.
+        <% end %>
+        Last checked
+        <span
+          id="latest-check-rel"
+          phx-hook="FormatTimestamp"
+          data-timestamp={latest.inserted_at}
+        >…</span>.
+        <%= if failures_count > 0 do %>
+          <span class="ng-td-muted">
+            (<%= failures_count %>/<%= length(@connectivity_checks) %> failures in the last <%= length(@connectivity_checks) %> checks)
+          </span>
+        <% end %>
+      </span>
+    </div>
+  <% end %>
+
   <div class="ng-info-banner">
     <i class="mdi mdi-information-outline"></i>
     NexGuard periodically checks for WAN connectivity and logs the result here.
@@ -43,19 +79,24 @@
         </thead>
         <tbody>
           <%= for check <- @connectivity_checks do %>
-            <tr>
+            <% row_online? = connectivity_check_online?(check.response_code) %>
+            <tr class={[not row_online? && "ng-row--failure"]}>
               <td
                 class="ng-td-muted"
                 id={"connectivity_check-#{check.id}"}
                 phx-hook="FormatTimestamp"
                 data-timestamp={check.inserted_at}
               >…</td>
-              <td class="ng-td-mono"><%= check.response_body %></td>
-              <td class="ng-td-mono ng-td-muted"><%= check.response_code %></td>
+              <td class="ng-td-mono">
+                <%= if check.response_body && check.response_body != "", do: check.response_body, else: "—" %>
+              </td>
+              <td class="ng-td-mono ng-td-muted">
+                <%= check.response_code || "—" %>
+              </td>
               <td>
                 <span class={connectivity_check_span_class(check.response_code)}>
                   <i class={connectivity_check_icon_class(check.response_code)}></i>
-                  <%= if connectivity_check_online?(check.response_code), do: "Online", else: "Offline" %>
+                  <%= if row_online?, do: "Online", else: "Offline" %>
                 </span>
               </td>
             </tr>
