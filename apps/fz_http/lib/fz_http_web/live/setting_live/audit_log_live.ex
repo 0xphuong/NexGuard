@@ -1,6 +1,14 @@
 defmodule FzHttpWeb.SettingLive.AuditLog do
   @moduledoc """
   Paginated, filterable view of the audit log.
+
+  Forensic queries the page supports as of v3.0.10+:
+    * Free-text search across actor_email / target_label / target_id
+      / ip_address — primary "find anything touching X" affordance.
+    * Time-range chip — 24h / 7d / 30d / 90d / all.
+    * Category + Result selects.
+    * Per-row metadata diff (before/after on `application.update`-shaped
+      payloads) or flat pretty JSON for anything else.
   """
   use FzHttpWeb, :live_view
   alias FzHttp.{AuditLogs, Config}
@@ -28,17 +36,31 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
     {"Failure", "failure"}
   ]
 
+  # Time-range options expressed as either nil (no filter) or a
+  # number-of-seconds back from now. The template renders these as
+  # an additional toolbar select.
+  @time_ranges [
+    {"All time",  ""},
+    {"Last 24h",  "86400"},
+    {"Last 7d",   "604800"},
+    {"Last 30d",  "2592000"},
+    {"Last 90d",  "7776000"}
+  ]
+
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
     socket =
       socket
       |> assign(:page_title, "Audit Log")
       |> assign(:page_subtitle, "Immutable record of all security-relevant events.")
+      |> assign(:search, "")
       |> assign(:category, "")
       |> assign(:result_filter, "")
+      |> assign(:time_range, "")
       |> assign(:page, 1)
       |> assign(:categories, @categories)
       |> assign(:results, @results)
+      |> assign(:time_ranges, @time_ranges)
       |> assign(:retention_days, Config.fetch_config!(:audit_log_retention_days))
       |> assign(:expanded, MapSet.new())
       |> load_logs()
@@ -47,9 +69,7 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   end
 
   # Expand/collapse a row to reveal its metadata diff. Per-session
-  # state lives in a MapSet on the socket — refresh clears it, which
-  # is the right call (filter/page change shouldn't preserve which
-  # rows were open under a different result set).
+  # state lives in a MapSet on the socket — refresh clears it.
   @impl Phoenix.LiveView
   def handle_event("toggle_row", %{"id" => id}, socket) do
     expanded =
@@ -64,27 +84,51 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
 
   @impl Phoenix.LiveView
   def handle_event("update_retention", %{"retention" => %{"days" => days_str}}, socket) do
-    days = String.to_integer(days_str)
+    case Integer.parse(to_string(days_str)) do
+      {days, _rest} when days >= 1 and days <= 3650 ->
+        apply_retention(socket, days)
 
-    case Config.update_config(Config.fetch_db_config!(), %{audit_log_retention_days: days}, socket.assigns.subject, socket.assigns[:remote_ip]) do
+      _ ->
+        {:noreply, put_flash(socket, :error, "Retention must be a number between 1 and 3650 days.")}
+    end
+  end
+
+  defp apply_retention(socket, days) do
+    case Config.update_config(Config.fetch_db_config!(),
+                              %{audit_log_retention_days: days},
+                              socket.assigns.subject, socket.assigns[:remote_ip]) do
       {:ok, _config} ->
-        socket =
-          socket
-          |> assign(:retention_days, days)
-          |> put_flash(:info, "Retention policy updated to #{days} days.")
-
-        {:noreply, socket}
+        {:noreply,
+         socket
+         |> assign(:retention_days, days)
+         |> put_flash(:info, "Retention policy updated to #{days} days.")}
 
       {:error, _changeset} ->
         {:noreply, put_flash(socket, :error, "Invalid retention value (must be 1–3650 days).")}
     end
   end
 
-  def handle_event("filter", %{"category" => category, "result" => result}, socket) do
+  def handle_event("filter", params, socket) do
     socket =
       socket
-      |> assign(:category, category)
-      |> assign(:result_filter, result)
+      |> assign(:search, Map.get(params, "search", ""))
+      |> assign(:category, Map.get(params, "category", ""))
+      |> assign(:result_filter, Map.get(params, "result", ""))
+      |> assign(:time_range, Map.get(params, "time_range", ""))
+      |> assign(:page, 1)
+      |> assign(:expanded, MapSet.new())
+      |> load_logs()
+
+    {:noreply, socket}
+  end
+
+  def handle_event("reset_filters", _, socket) do
+    socket =
+      socket
+      |> assign(:search, "")
+      |> assign(:category, "")
+      |> assign(:result_filter, "")
+      |> assign(:time_range, "")
       |> assign(:page, 1)
       |> assign(:expanded, MapSet.new())
       |> load_logs()
@@ -116,6 +160,13 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
   def target_parts(nil, _, _), do: nil
   def target_parts(type, _id, label) when is_binary(type), do: {type, label}
   def target_parts(_, _, _), do: nil
+
+  def filters_active?(socket_assigns) do
+    socket_assigns.search != "" or
+      socket_assigns.category != "" or
+      socket_assigns.result_filter != "" or
+      socket_assigns.time_range != ""
+  end
 
   # ── Metadata viewer helpers ─────────────────────────────────────
 
@@ -206,9 +257,23 @@ defmodule FzHttpWeb.SettingLive.AuditLog do
     []
     |> maybe_add(:category, socket.assigns.category)
     |> maybe_add(:result, socket.assigns.result_filter)
+    |> maybe_add(:search, String.trim(socket.assigns.search))
+    |> maybe_add_time_range(socket.assigns.time_range)
   end
 
   defp maybe_add(filters, _key, ""), do: filters
   defp maybe_add(filters, key, value), do: [{key, value} | filters]
 
+  defp maybe_add_time_range(filters, ""), do: filters
+
+  defp maybe_add_time_range(filters, seconds_str) do
+    case Integer.parse(seconds_str) do
+      {seconds, _} when seconds > 0 ->
+        cutoff = DateTime.add(DateTime.utc_now(), -seconds, :second)
+        [{:from, cutoff} | filters]
+
+      _ ->
+        filters
+    end
+  end
 end

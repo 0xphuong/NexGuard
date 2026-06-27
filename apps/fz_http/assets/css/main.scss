@@ -3551,6 +3551,9 @@ pre {
 .ng-audit-filters {
   display: flex;
   gap: 0.625rem;
+  flex-wrap: wrap;
+  flex: 1;
+  min-width: 0;
 }
 
 .ng-audit-filter-select {
@@ -3569,6 +3572,65 @@ pre {
     border-color: #2563eb;
     box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
+}
+
+/* Free-text search input — actor email / target / IP substring
+   match. Sits left-most in the toolbar; grows to fill remaining
+   space so admin can type long IPs without cramping. */
+.ng-audit-search {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1 1 220px;
+  min-width: 0;
+  padding: 0 0.5rem;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  height: 2.25rem;
+  box-sizing: border-box;
+
+  i.mdi { color: #94a3b8; font-size: 1rem; flex-shrink: 0; }
+
+  &:focus-within {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+  }
+}
+
+.ng-audit-search-input {
+  border: none;
+  outline: none;
+  background: transparent;
+  flex: 1;
+  padding: 0;
+  font-size: 0.875rem;
+  color: #0f172a;
+  min-width: 0;
+
+  &::placeholder { color: #94a3b8; }
+}
+
+/* Reset-filters button — appears in the toolbar only when any
+   filter is active. Matches the `.ng-user-filterbar-reset` shape
+   from the index pages but lives in the audit-toolbar class
+   family for consistency. */
+.ng-audit-filter-reset {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 2.25rem;
+  padding: 0 0.7rem;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #64748b;
+  cursor: pointer;
+
+  &:hover { background: #f1f5f9; color: #1e293b; }
+
+  i.mdi { font-size: 0.85rem; }
 }
 
 .ng-audit-filter-count {

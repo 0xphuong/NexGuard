@@ -21,7 +21,8 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
-  <%# ── Toolbar: filters + result count ────────────────────────── %>
+  <%# ── Toolbar: search + filters + result count ─────────────── %>
+  <% filters_active? = FzHttpWeb.SettingLive.AuditLog.filters_active?(assigns) %>
   <div class="ng-audit-toolbar">
     <.form
       :let={_f}
@@ -29,21 +30,51 @@
       phx-change="filter"
       class="ng-audit-filters"
     >
-      <select name="category" class="ng-audit-filter-select">
+      <div class="ng-audit-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="search"
+          value={@search}
+          placeholder="Search actor email, target, or IP…"
+          class="ng-audit-search-input"
+          phx-debounce="250"
+          autocomplete="off"
+        />
+      </div>
+
+      <select name="time_range" class="ng-audit-filter-select" aria-label="Time range">
+        <%= for {label, value} <- @time_ranges do %>
+          <option value={value} selected={value == @time_range}><%= label %></option>
+        <% end %>
+      </select>
+
+      <select name="category" class="ng-audit-filter-select" aria-label="Category">
         <%= for {label, value} <- @categories do %>
           <option value={value} selected={value == @category}><%= label %></option>
         <% end %>
       </select>
 
-      <select name="result" class="ng-audit-filter-select">
+      <select name="result" class="ng-audit-filter-select" aria-label="Result">
         <%= for {label, value} <- @results do %>
           <option value={value} selected={value == @result_filter}><%= label %></option>
         <% end %>
       </select>
+
+      <%= if filters_active? do %>
+        <button
+          type="button"
+          phx-click="reset_filters"
+          class="ng-audit-filter-reset"
+          aria-label="Reset all filters"
+        >
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
     </.form>
 
     <span class="ng-audit-filter-count">
-      <%= if @category != "" or @result_filter != "" do %>
+      <%= if filters_active? do %>
         Showing <strong><%= @total %></strong> of <%= @grand_total %> events
       <% else %>
         <%= @grand_total %> events total
@@ -69,8 +100,28 @@
         <%= if Enum.empty?(@logs) do %>
           <tr>
             <td colspan="7" class="ng-audit-empty">
-              <i class="mdi mdi-clipboard-text-clock-outline"></i>
-              No events match the current filters.
+              <%= cond do %>
+                <% @grand_total == 0 -> %>
+                  <i class="mdi mdi-clipboard-text-clock-outline"></i>
+                  <span>
+                    No events yet. The audit log starts populating once
+                    admins take any action (sign-in, user create, device
+                    approve, rule edit, …).
+                  </span>
+
+                <% filters_active? -> %>
+                  <i class="mdi mdi-filter-off-outline"></i>
+                  <span>
+                    No events match the current filters.
+                    <button type="button"
+                            phx-click="reset_filters"
+                            class="ng-inline-link">Reset filters</button>
+                  </span>
+
+                <% true -> %>
+                  <i class="mdi mdi-clipboard-text-clock-outline"></i>
+                  <span>No events on this page.</span>
+              <% end %>
             </td>
           </tr>
         <% else %>
@@ -120,11 +171,13 @@
                 </span>
               </td>
 
-              <%# Result — icon only %>
+              <%# Result — icon only, aria-label exposes the state to
+              %# keyboard / screen reader users without a hover tooltip. %>
               <td class="ng-audit-result-cell">
                 <span
                   class={"ng-result-icon ng-result-icon--#{log.result}"}
-                  title={log.result}
+                  role="img"
+                  aria-label={"Result: #{log.result}"}
                 >
                   <%= if log.result == "success" do %>
                     <i class="mdi mdi-check-circle"></i>

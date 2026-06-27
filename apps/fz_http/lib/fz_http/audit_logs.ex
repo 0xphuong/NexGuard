@@ -121,6 +121,23 @@ defmodule FzHttp.AuditLogs do
     query |> where([l], like(l.action, ^prefix)) |> apply_filters(rest)
   end
 
+  # Free-text search across the four columns admins most often
+  # forensic-grep by: actor email, target label, target id, IP.
+  # Case-insensitive partial match via ILIKE.
+  defp apply_filters(query, [{:search, q} | rest]) when is_binary(q) and q != "" do
+    pattern = "%" <> q <> "%"
+
+    query
+    |> where(
+      [l],
+      ilike(l.actor_email, ^pattern) or
+        ilike(l.target_label, ^pattern) or
+        ilike(l.target_id, ^pattern) or
+        ilike(l.ip_address, ^pattern)
+    )
+    |> apply_filters(rest)
+  end
+
   defp apply_filters(query, [{:page, page} | rest]) when is_integer(page) and page > 0 do
     query |> offset(^((page - 1) * @page_size)) |> apply_filters(rest)
   end
