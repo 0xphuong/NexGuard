@@ -176,6 +176,32 @@ defmodule FzHttp.Validator do
     end)
   end
 
+  @doc """
+  Validate a comma-separated CIDR list. Each item is trimmed and run
+  through `FzHttp.Types.CIDR.cast/1`; the first bad item produces the
+  error. Used for `gateway_no_masquerade_cidrs` where the field is
+  stored as a single string but represents multiple CIDR ranges.
+  """
+  def validate_cidr_list(changeset, field, _opts \\ []) do
+    validate_change(changeset, field, fn _current_field, value ->
+      value
+      |> to_string()
+      |> String.split(",", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+      |> Enum.find(fn item ->
+        case FzHttp.Types.CIDR.cast(item) do
+          {:ok, _} -> false
+          _        -> true
+        end
+      end)
+      |> case do
+        nil -> []
+        bad -> [{field, "contains invalid CIDR \"#{bad}\" — use the host/prefix form (e.g. 10.0.0.0/8)"}]
+      end
+    end)
+  end
+
   def validate_base64(changeset, field) do
     validate_change(changeset, field, fn _cur, value ->
       case Base.decode64(value) do

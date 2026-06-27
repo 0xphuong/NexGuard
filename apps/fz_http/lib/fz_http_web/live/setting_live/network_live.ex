@@ -109,10 +109,14 @@ defmodule FzHttpWeb.SettingLive.Network do
       |> Config.change_config(attrs)
       |> Map.put(:action, :validate)
 
+    # Save button stays disabled until there's a change AND it's
+    # valid — without the `valid?` guard, an invalid CIDR like
+    # "10.0.0.0" still set `:cidrs_form_changed = true` because the
+    # changes map was non-empty.
     {:noreply,
      socket
      |> assign(:configuration_changeset, changeset)
-     |> assign(:cidrs_form_changed, map_size(changeset.changes) > 0)}
+     |> assign(:cidrs_form_changed, map_size(changeset.changes) > 0 and changeset.valid?)}
   end
 
   @impl Phoenix.LiveView

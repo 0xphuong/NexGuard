@@ -18,6 +18,16 @@ defmodule FzWall.CLI.Live do
   def remove_l7, do: remove_l7_chain()
 
   @doc """
+  Reload the postrouting chain — called by `FzWall.Server` after the
+  admin updates `gateway_no_masquerade_enabled` or `_cidrs` via the
+  /settings/network UI. Without this delegate the server crashed
+  with `UndefinedFunctionError: FzWall.CLI.Live.reload_postrouting/0`
+  because the helper was imported (callable inside this module) but
+  never publicly exposed.
+  """
+  defdelegate reload_postrouting, to: FzWall.CLI.Helpers.Nft
+
+  @doc """
   Set up the loopback table + fwmark rule. Called once at fz_wall
   boot — zero-cost when no marked packets flow.
   """

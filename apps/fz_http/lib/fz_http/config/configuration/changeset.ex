@@ -43,6 +43,11 @@ defmodule FzHttp.Config.Configuration.Changeset do
       )
       |> trim_change(:default_client_dns)
       |> trim_change(:default_client_endpoint)
+      # CIDR-list format check — field is a `:string` (comma-joined)
+      # so we run a custom validator that splits + per-item casts.
+      # Without this, "10.0.0.0" (no prefix) passes the changeset but
+      # the downstream nftables reload fails silently.
+      |> validate_cidr_list(:gateway_no_masquerade_cidrs)
 
     Enum.reduce(@fields, changeset, fn field, changeset ->
       config_changeset(changeset, field)
