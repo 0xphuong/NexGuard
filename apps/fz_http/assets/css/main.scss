@@ -2015,10 +2015,29 @@ pre {
   flex-direction: column;
   gap: 0.25rem;
 
+  /* Toggle variant lays the switch out horizontally so an optional
+     "ON / OFF" state label can sit beside it. Without a label this
+     is a single right-anchored child, identical visually to the
+     prior column-end layout. */
   &--toggle {
-    align-items: flex-end;
-    justify-content: center;
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.6rem;
   }
+}
+
+/* Visible state label next to a `.ng-toggle` switch — small caps,
+   slate by default, green when the switch is ON. Helps admins
+   scan settings pages without staring at the thumb position. */
+.ng-toggle-state {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #94a3b8;
+
+  &--on { color: #16a34a; }
 }
 
 // Modern toggle — replaces legacy .switch.is-medium

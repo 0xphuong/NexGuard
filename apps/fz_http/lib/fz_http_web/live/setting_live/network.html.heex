@@ -1,8 +1,54 @@
+<%# ── Confirm modal — enabling no-MASQUERADE (Preserve Client IP) ── %>
+<%# Required-route disclosure UPFRONT, not buried in field copy. %>
+<%= if @pending_toggle == :enable do %>
+  <div class="modal is-active" phx-window-keydown="cancel_toggle" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_toggle"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-network-outline ng-modal-title-icon ng-modal-title-icon--warn"></i>
+          Enable Preserve Client IP
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_toggle">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">
+          You are about to switch the gateway into <strong>no-MASQUERADE</strong>
+          mode for these subnets:
+        </p>
+        <ul class="ng-modal-list">
+          <%= for cidr <- FzHttpWeb.SettingLive.Network.pending_cidrs(@configs) do %>
+            <li><code><%= cidr %></code></li>
+          <% end %>
+        </ul>
+        <p class="ng-modal-cons">After enabling:</p>
+        <ul class="ng-modal-list">
+          <li>Destination servers in those subnets see the <strong>real VPN client IP</strong> instead of the gateway IP.</li>
+          <li>Those servers <strong>must</strong> carry a return route to the WireGuard subnet (default <code>100.64.0.0/10</code>).</li>
+          <li>Without that route, traffic from VPN clients to the listed subnets will silently fail.</li>
+        </ul>
+        <p class="ng-modal-warn">
+          Test in a maintenance window if you haven't verified return routes.
+          You can disable any time — the toggle is instant and reversible.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_toggle">Cancel</button>
+        <button class="ng-primary-btn" phx-click="apply_toggle">
+          <i class="mdi mdi-check"></i> Enable
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
 <div class="ng-page-header">
   <div class="ng-page-header-inner">
     <div>
       <h1 class="ng-page-title">Network</h1>
-      <p class="ng-page-subtitle">Gateway routing and NAT settings</p>
+      <p class="ng-page-subtitle">Gateway routing and NAT settings.</p>
     </div>
   </div>
 </div>
@@ -17,6 +63,7 @@
 
     <%# Preserve Client IP toggle %>
     <% cfg_no_masq_enabled = Map.fetch!(@configs, :gateway_no_masquerade_enabled) %>
+    <% no_masq_on? = config_value(cfg_no_masq_enabled) %>
     <div class="ng-setting-row">
       <div class="ng-setting-info">
         <div class="ng-setting-label-wrap">
@@ -35,6 +82,10 @@
         </p>
       </div>
       <div class="ng-setting-control ng-setting-control--toggle">
+        <span class={["ng-toggle-state",
+                       no_masq_on? && "ng-toggle-state--on"]}>
+          <%= if no_masq_on?, do: "ON", else: "OFF" %>
+        </span>
         <label class="ng-toggle">
           <input
             type="checkbox"
@@ -42,7 +93,7 @@
             name="gateway_no_masquerade_enabled"
             phx-value-config="gateway_no_masquerade_enabled"
             disabled={config_has_override?(cfg_no_masq_enabled)}
-            checked={config_value(cfg_no_masq_enabled)}
+            checked={no_masq_on?}
             value={config_toggle_status(cfg_no_masq_enabled)}
           />
           <span class="ng-toggle-track"><span class="ng-toggle-thumb"></span></span>
