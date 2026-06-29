@@ -14,7 +14,15 @@ defmodule FzHttpWeb.NativeAuthController do
   use FzHttpWeb, :controller
   require Logger
 
-  @allowed_redirect_schemes ~w(nexguard-connect)
+  # Accepted client redirect URIs:
+  #   * `nexguard-connect://...`   -- macOS / iOS (custom URL scheme,
+  #                                   delivered via ASWebAuthenticationSession).
+  #   * `http://127.0.0.1:<port>/..` / `http://localhost:<port>/..` /
+  #     `http://[::1]:<port>/..`    -- Windows + Linux desktop, RFC 8252
+  #                                   §7.3 loopback redirect.
+  # No other http(s) hosts allowed -- pinning to loopback prevents the
+  # auth code from being shipped to any remote server.
+  @allowed_loopback_hosts ~w(127.0.0.1 localhost ::1)
   @code_challenge_min 43
   @code_challenge_max 128
 
@@ -58,8 +66,18 @@ defmodule FzHttpWeb.NativeAuthController do
 
   defp validate_redirect_uri(uri) when is_binary(uri) do
     case URI.parse(uri) do
-      %URI{scheme: scheme} when scheme in @allowed_redirect_schemes -> :ok
-      _ -> {:error, "invalid redirect_uri"}
+      %URI{scheme: "nexguard-connect"} ->
+        :ok
+
+      %URI{scheme: scheme, host: host} when scheme in ~w(http https) ->
+        if host in @allowed_loopback_hosts do
+          :ok
+        else
+          {:error, "invalid redirect_uri"}
+        end
+
+      _ ->
+        {:error, "invalid redirect_uri"}
     end
   end
 

@@ -23,7 +23,10 @@ defmodule FzHttp.NativeAuth do
 
   @code_ttl_seconds 300
   @refresh_ttl_seconds 60 * 60 * 24 * 30
-  @allowed_redirect_schemes ~w(nexguard-connect)
+  # Mirror of FzHttpWeb.NativeAuthController -- accept the macOS/iOS
+  # custom scheme `nexguard-connect://...` plus loopback http(s) URIs
+  # for Windows / Linux desktops per RFC 8252 §7.3.
+  @allowed_loopback_hosts ~w(127.0.0.1 localhost ::1)
 
   # ---- Auth codes ----
 
@@ -266,8 +269,18 @@ defmodule FzHttp.NativeAuth do
 
   defp validate_redirect_uri(uri) do
     case URI.parse(uri) do
-      %URI{scheme: scheme} when scheme in @allowed_redirect_schemes -> :ok
-      _ -> {:error, :invalid_redirect_uri}
+      %URI{scheme: "nexguard-connect"} ->
+        :ok
+
+      %URI{scheme: scheme, host: host} when scheme in ~w(http https) ->
+        if host in @allowed_loopback_hosts do
+          :ok
+        else
+          {:error, :invalid_redirect_uri}
+        end
+
+      _ ->
+        {:error, :invalid_redirect_uri}
     end
   end
 
