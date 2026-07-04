@@ -33,6 +33,15 @@ defmodule FzHttp.Devices.Device do
     field(:status, :string, default: "approved")
     field(:approved_at, :utc_datetime_usec)
 
+    # Passive client metadata from X-NexGuard-Client-Platform /
+    # X-NexGuard-Client-Version headers on enroll + config-fetch calls.
+    # `client_last_seen_at` is our "when we last heard from this
+    # client" timestamp -- distinct from updated_at (any field change)
+    # or latest_handshake (only on WG traffic).
+    field(:client_platform, :string)
+    field(:client_version,  :string)
+    field(:client_last_seen_at, :utc_datetime_usec)
+
     belongs_to(:user, FzHttp.Users.User)
     belongs_to(:approved_by, FzHttp.Users.User, foreign_key: :approved_by_id)
 

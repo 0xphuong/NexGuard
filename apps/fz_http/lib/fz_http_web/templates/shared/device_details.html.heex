@@ -58,6 +58,50 @@
   </dl>
 </div>
 
+<%# ── Client (native app reporting) ──────────────────────────────────────────
+   Populated from the X-NexGuard-Client-Platform + -Client-Version
+   headers the native client sends on enroll + config-fetch. Rows go
+   muted "—" when a device is old enough to predate the header rollout
+   or the client couldn't read its own version. %>
+<div class="ng-detail-card">
+  <div class="ng-detail-card-header">
+    <span class="ng-section-header" style="margin:0">
+      <i class="mdi mdi-monitor-cellphone"></i> Client
+    </span>
+  </div>
+  <dl class="ng-details-list">
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Platform</dt>
+      <dd class="ng-details-value">
+        <%= if @device.client_platform do %>
+          <%= @device.client_platform %>
+        <% else %>
+          <span class="ng-td-muted">—</span>
+        <% end %>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Version</dt>
+      <dd class="ng-details-value">
+        <%= if @device.client_version do %>
+          <code><%= @device.client_version %></code>
+        <% else %>
+          <span class="ng-td-muted">—</span>
+        <% end %>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Last Reported</dt>
+      <dd
+        class="ng-details-value ng-td-muted"
+        id={"device-#{@device.id}-client-last-seen"}
+        data-timestamp={@device.client_last_seen_at}
+        phx-hook="FormatTimestamp"
+      >…</dd>
+    </div>
+  </dl>
+</div>
+
 <%# ── WireGuard Configuration ──────────────────────────────────────────────── %>
 <div class="ng-detail-card">
   <div class="ng-detail-card-header">

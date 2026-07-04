@@ -30,6 +30,7 @@
         <th>User</th>
       <% end %>
       <th>Connection</th>
+      <th>Client</th>
       <th>Tunnel IPs</th>
       <th>Remote IP</th>
       <th>Transfer</th>
@@ -76,6 +77,13 @@
                   s   -> " · " <> s
                 end %>
           </span>
+        </td>
+        <td class="ng-td-muted">
+          <%= case {device.client_platform, device.client_version} do
+                {nil, _}       -> "—"
+                {plat, nil}    -> plat
+                {plat, ver}    -> "#{plat} · #{ver}"
+              end %>
         </td>
         <td class="ng-td-mono">
           <div><%= device.ipv4 %></div>

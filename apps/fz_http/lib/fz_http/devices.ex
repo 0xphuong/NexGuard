@@ -280,6 +280,34 @@ defmodule FzHttp.Devices do
     |> Repo.update()
   end
 
+  @doc """
+  Record client platform + version + last-seen from the native client's
+  request headers. Passive telemetry, no auth check needed -- the caller
+  already authenticated the request as this device's user via
+  `NativeAuthBearer`.
+
+  Any of `platform` / `version` may be `nil` (client couldn't read its
+  own version, or a rogue proxy stripped the header) -- we still stamp
+  `client_last_seen_at` so admins can spot devices where the version
+  never comes through.
+
+  Errors are swallowed on purpose (best-effort). A telemetry write must
+  never break the actual enroll / config flow.
+  """
+  def record_client_info(%Device{} = device, platform, version) do
+    attrs = %{
+      client_platform: platform,
+      client_version: version,
+      client_last_seen_at: DateTime.utc_now()
+    }
+
+    device
+    |> Ecto.Changeset.cast(attrs, [:client_platform, :client_version, :client_last_seen_at])
+    |> Ecto.Changeset.validate_length(:client_platform, max: 32)
+    |> Ecto.Changeset.validate_length(:client_version,  max: 32)
+    |> Repo.update()
+  end
+
   def delete_device(%Device{} = device, %Auth.Subject{} = subject, ip_address \\ nil) do
     with :ok <- authorize_user_device_management(device.user_id, subject),
          {:ok, deleted_device} <- Repo.delete(device) do

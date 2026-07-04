@@ -18,6 +18,8 @@ defmodule FzHttpWeb.API.V1.DeviceController do
 
     case Devices.find_or_create_for_user(user, name, public_key) do
       {:ok, device} ->
+        device = record_client_info(conn, device)
+
         AuditLogs.log("device.create",
           actor_id: user.id,
           actor_email: user.email,
@@ -43,6 +45,7 @@ defmodule FzHttpWeb.API.V1.DeviceController do
 
     case fetch_native_device(user) do
       {:ok, device} ->
+        device = record_client_info(conn, device)
         json(conn, build_device_response(device))
 
       {:error, :not_found} ->
@@ -51,6 +54,39 @@ defmodule FzHttpWeb.API.V1.DeviceController do
   end
 
   # ---- helpers ----
+
+  # Stamp the device row with the platform + version reported by the
+  # native client's request headers, plus a client_last_seen_at
+  # timestamp. Best-effort: any DB error is logged + swallowed so a
+  # telemetry write never breaks the enroll / config flow that
+  # actually matters to the user.
+  defp record_client_info(conn, device) do
+    platform = client_header(conn, "x-nexguard-client-platform")
+    version  = client_header(conn, "x-nexguard-client-version")
+
+    case Devices.record_client_info(device, platform, version) do
+      {:ok, updated}  -> updated
+      {:error, error} ->
+        Logger.warning("record_client_info failed: #{inspect(error)}")
+        device
+    end
+  end
+
+  # Extract a header value with client-supplied bounds. Missing header
+  # OR literal "unknown" (client couldn't read its own version) both
+  # collapse to nil so the DB column stays null instead of storing a
+  # misleading "unknown" string.
+  defp client_header(conn, name) do
+    conn
+    |> Plug.Conn.get_req_header(name)
+    |> List.first()
+    |> case do
+      nil       -> nil
+      ""        -> nil
+      "unknown" -> nil
+      value     -> String.slice(value, 0, 32)  # DB max_length is 32
+    end
+  end
 
   defp build_device_response(device) do
     %{
