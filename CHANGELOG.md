@@ -9,6 +9,76 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.0.10] - 2026-07-03
+
+Two feature adds serving the native clients. No schema changes to
+existing tables (one additive migration extends `devices`), no
+breaking API changes -- older Windows / macOS clients continue to
+work unchanged.
+
+### Added
+
+#### Client identity telemetry on the `devices` table
+
+Every native-client request to `/api/v1/devices/enroll` and
+`/api/v1/devices/me/config` now carries
+`X-NexGuard-Client-Platform` + `X-NexGuard-Client-Version` headers
+(set by NexGuard Connect Windows 0.1.8 and macOS 0.0.12). The
+server stamps those into new columns on the `devices` row plus a
+`client_last_seen_at` timestamp so admins can see which build each
+device is running at a glance.
+
+  * **Migration** `20260703000001_add_client_metadata_to_devices` --
+    adds `client_platform` / `client_version` (nullable strings,
+    max 32 chars) + `client_last_seen_at` (utc_datetime_usec) to
+    `devices`. Nullable so devices predating the header rollout
+    stay working -- they render a muted em-dash in the admin UI.
+  * **`FzHttp.Devices.record_client_info/3`** -- best-effort
+    passive-telemetry helper. Header values `""` or the literal
+    `"unknown"` (native client couldn't read its own version)
+    both collapse to `nil` so the DB never stores a misleading
+    string. Errors are logged + swallowed; a telemetry write never
+    breaks the enroll / config flow that actually matters.
+  * **`FzHttpWeb.API.V1.DeviceController`** -- extracts the headers
+    via `Plug.Conn.get_req_header/2` after each successful
+    `enroll` / `me_config` and calls `record_client_info`. Values
+    are truncated to 32 chars at the boundary in case a rogue proxy
+    injects a huge string.
+  * **Admin UI**:
+    - Device list (`devices_table.html.heex`) grows a **Client**
+      column between Connection and Tunnel IPs, formatted
+      `platform · version` (e.g. `windows · 0.1.8`) or `—` when
+      the device hasn't reported yet.
+    - Device detail (`device_details.html.heex`) grows a **Client**
+      section with Platform / Version / Last Reported rows.
+      Last Reported uses the existing `FormatTimestamp` hook for
+      "2 minutes ago" formatting.
+
+  Passive telemetry only -- no enforcement gate. If we ever want to
+  block old clients, the data model is already in place; add a
+  policy table + middleware and the columns feed the check.
+
+#### RFC 8252 §7.3 loopback redirect_uri support for native OAuth
+
+The `POST /auth/native/begin` endpoint now accepts
+`redirect_uri` values pointing at `http://127.0.0.1:*/callback` /
+`http://localhost:*/callback` / `http://[::1]:*/callback`, in
+addition to the custom `nexguard-connect://callback` scheme macOS
+uses.
+
+Windows can't register a custom URL scheme the same way macOS does
+(no `LSSetDefaultHandlerForURLScheme` equivalent for
+unprivileged apps); the RFC-blessed alternative is a loopback
+`http://` redirect that the client's own OS process handles. This
+change unblocks NexGuard Connect for Windows 0.1.0+ (WebView2
+OAuth) without introducing any new scheme-registration plumbing.
+
+Only loopback hosts (`127.0.0.1`, `localhost`, `::1`) are allowed
+-- arbitrary external `http://` URLs are still rejected as a CSRF
+guard.
+
+---
+
 ## [3.0.9] - 2026-06-28
 
 **Admin portal UX sweep — `frontend-design-direction` applied to
