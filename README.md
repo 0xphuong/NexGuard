@@ -53,6 +53,28 @@ nexguard-ctl create-or-reset-admin
 nexguard-ctl status
 ```
 
+## NexGuard Connect (VPN client)
+
+One-liner install for the desktop client:
+
+```bash
+# macOS
+curl -fsSL https://raw.githubusercontent.com/0xphuong/nexguard-releases/main/install.sh | bash
+
+# Linux (Ubuntu 20.04+ / Debian, needs root)
+curl -fsSL https://raw.githubusercontent.com/0xphuong/nexguard-releases/main/install.sh | sudo bash
+```
+
+Windows (PowerShell **as Administrator**):
+
+```powershell
+irm https://raw.githubusercontent.com/0xphuong/nexguard-releases/main/install.ps1 | iex
+```
+
+Each script fetches the manifest, downloads the matching artifact (DMG / `.deb` / MSI), verifies SHA-256, and installs silently. On macOS it also strips the Gatekeeper quarantine so the app launches without the "Apple could not verify" prompt.
+
+Uninstall: `bash -s -- --uninstall` (macOS/Linux) or `& ([scriptblock]::Create((irm .../install.ps1))) -Uninstall` (Windows). See [`nexguard-releases`](https://github.com/0xphuong/nexguard-releases) for all release artifacts + changelogs.
+
 ## Forward Traffic Without NAT (Preserve VPN Client IP)
 
 By default NexGuard masquerades all outbound traffic, so destination servers see the gateway IP instead of the VPN client's real IP. To disable NAT for specific internal subnets (so servers on those subnets see the actual VPN client IP), set `GATEWAY_NO_MASQUERADE_CIDRS` in `.env`:

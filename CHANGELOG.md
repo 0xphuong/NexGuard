@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Docs
+
+- README gains a **NexGuard Connect (VPN client)** section with one-liner install
+  commands for macOS / Linux (`curl … install.sh | bash`) and Windows PowerShell
+  (`irm … install.ps1 | iex`). Scripts live in the
+  [`nexguard-releases`](https://github.com/0xphuong/nexguard-releases) repo and
+  auto-detect OS, verify SHA-256 against `versions.json`, and on macOS strip the
+  Gatekeeper `com.apple.quarantine` attribute so the "Apple could not verify"
+  prompt no longer fires. No server code changes.
+
 ---
 
 ## [3.1.0] - 2026-07-03
