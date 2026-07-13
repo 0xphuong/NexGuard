@@ -91,6 +91,29 @@
       </dd>
     </div>
     <div class="ng-details-row">
+      <dt class="ng-details-label">Operating System</dt>
+      <dd class="ng-details-value">
+        <%= cond do %>
+          <% is_nil(@device.client_os_name) -> %>
+            <span class="ng-td-muted">—</span>
+          <% is_nil(@device.client_os_version) -> %>
+            <%= @device.client_os_name %>
+          <% true -> %>
+            <%= @device.client_os_name %> <%= @device.client_os_version %>
+        <% end %>
+      </dd>
+    </div>
+    <div class="ng-details-row">
+      <dt class="ng-details-label">Architecture</dt>
+      <dd class="ng-details-value">
+        <%= if @device.client_arch do %>
+          <code><%= @device.client_arch %></code>
+        <% else %>
+          <span class="ng-td-muted">—</span>
+        <% end %>
+      </dd>
+    </div>
+    <div class="ng-details-row">
       <dt class="ng-details-label">Last Reported</dt>
       <dd
         class="ng-details-value ng-td-muted"

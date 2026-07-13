@@ -7,6 +7,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [3.2.0] - 2026-07-13
+
+Additive telemetry release. One migration extends `devices` with
+three nullable columns; no schema changes to existing columns, no
+breaking API changes -- older Windows / macOS / Linux CLI clients
+that don't send the new headers keep working unchanged (their rows
+render `—` for the new fields until they hit any auth endpoint
+after upgrading).
+
+### Added
+
+#### Host OS + CPU architecture telemetry on the `devices` table
+
+Native clients already report `X-NexGuard-Client-Platform` +
+`X-NexGuard-Client-Version` (identifying the client build family
++ its own version). This release adds three more headers that
+identify the **host OS underneath**:
+
+    X-NexGuard-Client-OS-Name       "macOS" | "Windows Server 2022 Datacenter" | "Ubuntu"
+    X-NexGuard-Client-OS-Version    "14.3.1" | "10.0.20348" | "22.04.3 LTS"
+    X-NexGuard-Client-Arch          "arm64" | "x86_64" | "aarch64"
+
+Migration `20260714000001_add_client_os_to_devices.exs` adds three
+nullable string columns (`client_os_name` / `client_os_version` /
+`client_arch`, max 64/32/16 chars). Same best-effort ingestion
+path as the existing headers: `Devices.record_client_info/2` (now
+a map arg) casts + length-validates + stamps
+`client_last_seen_at`; any DB failure is logged and swallowed so
+telemetry can never break the enroll / config flow.
+
+Admin UI:
+
+- Devices index table gains a secondary line under the Client
+  column showing `<os_name> <os_version> · <arch>`. The primary
+  line still reads `<platform> · <client_version>`.
+- Device details page gets two new rows in the Client card:
+  **Operating System** (name + version) and **Architecture**
+  (mono-formatted).
+
+Rationale: support tickets like "app slow on MacBook Pro" become
+diagnosable at a glance (arch = `x86_64` on Apple Silicon = Rosetta
+runtime = suspected missing native arm64 build). Fleet audits like
+"which orgs still have Windows Server 2019 boxes" become one
+`WHERE client_os_name ILIKE '%Server 2019%'` query. No enforcement
+gate -- passive telemetry only, same policy as `client_version`.
+
+Native client work to actually populate the headers is separate
+per-platform work in the [`nexguard-connect`](https://github.com/0xphuong/nexguard-connect)
+repo (macOS: `ProcessInfo.operatingSystemVersionString` + `uname -m`;
+Windows: `Get-CimInstance Win32_OperatingSystem` + `PROCESSOR_ARCHITECTURE`;
+Linux: parse `/etc/os-release` + `std::env::consts::ARCH`). Server
+accepts the fields whenever any client build starts sending them
+-- no coordinated release required.
+
 ### Docs
 
 - README gains a **NexGuard Connect (VPN client)** section with one-liner install
@@ -15,7 +71,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   [`nexguard-releases`](https://github.com/0xphuong/nexguard-releases) repo and
   auto-detect OS, verify SHA-256 against `versions.json`, and on macOS strip the
   Gatekeeper `com.apple.quarantine` attribute so the "Apple could not verify"
-  prompt no longer fires. No server code changes.
+  prompt no longer fires.
 
 ---
 

@@ -61,10 +61,15 @@ defmodule FzHttpWeb.API.V1.DeviceController do
   # telemetry write never breaks the enroll / config flow that
   # actually matters to the user.
   defp record_client_info(conn, device) do
-    platform = client_header(conn, "x-nexguard-client-platform")
-    version  = client_header(conn, "x-nexguard-client-version")
+    attrs = %{
+      client_platform:   client_header(conn, "x-nexguard-client-platform"),
+      client_version:    client_header(conn, "x-nexguard-client-version"),
+      client_os_name:    client_header(conn, "x-nexguard-client-os-name"),
+      client_os_version: client_header(conn, "x-nexguard-client-os-version"),
+      client_arch:       client_header(conn, "x-nexguard-client-arch")
+    }
 
-    case Devices.record_client_info(device, platform, version) do
+    case Devices.record_client_info(device, attrs) do
       {:ok, updated}  -> updated
       {:error, error} ->
         Logger.warning("record_client_info failed: #{inspect(error)}")

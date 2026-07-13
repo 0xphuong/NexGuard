@@ -79,11 +79,27 @@
           </span>
         </td>
         <td class="ng-td-muted">
-          <%= case {device.client_platform, device.client_version} do
-                {nil, _}       -> "—"
-                {plat, nil}    -> plat
-                {plat, ver}    -> "#{plat} · #{ver}"
-              end %>
+          <div>
+            <%= case {device.client_platform, device.client_version} do
+                  {nil, _}       -> "—"
+                  {plat, nil}    -> plat
+                  {plat, ver}    -> "#{plat} · #{ver}"
+                end %>
+          </div>
+          <% os_line =
+               [
+                 case {device.client_os_name, device.client_os_version} do
+                   {nil, _}    -> nil
+                   {name, nil} -> name
+                   {name, ver} -> "#{name} #{ver}"
+                 end,
+                 device.client_arch
+               ]
+               |> Enum.reject(&is_nil/1)
+               |> Enum.join(" · ") %>
+          <%= if os_line != "" do %>
+            <div class="ng-td-os"><%= os_line %></div>
+          <% end %>
         </td>
         <td class="ng-td-mono">
           <div><%= device.ipv4 %></div>

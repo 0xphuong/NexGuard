@@ -281,30 +281,40 @@ defmodule FzHttp.Devices do
   end
 
   @doc """
-  Record client platform + version + last-seen from the native client's
-  request headers. Passive telemetry, no auth check needed -- the caller
-  already authenticated the request as this device's user via
-  `NativeAuthBearer`.
+  Record client + OS telemetry + last-seen from the native client's
+  request headers. Passive, no auth check needed -- the caller already
+  authenticated the request as this device's user via `NativeAuthBearer`.
 
-  Any of `platform` / `version` may be `nil` (client couldn't read its
-  own version, or a rogue proxy stripped the header) -- we still stamp
-  `client_last_seen_at` so admins can spot devices where the version
-  never comes through.
+  `attrs` is a map that may contain any subset of:
+      :client_platform    "macos" | "windows" | "linux-cli"
+      :client_version     "0.3.1"
+      :client_os_name     "macOS" | "Windows Server 2022 Datacenter" | "Ubuntu"
+      :client_os_version  "14.3.1" | "10.0.20348" | "22.04.3 LTS"
+      :client_arch        "arm64" | "x86_64" | "aarch64"
+
+  Any value may be `nil` (client couldn't read it, or a rogue proxy
+  stripped the header) -- we still stamp `client_last_seen_at` so
+  admins can spot devices where telemetry never comes through.
 
   Errors are swallowed on purpose (best-effort). A telemetry write must
   never break the actual enroll / config flow.
   """
-  def record_client_info(%Device{} = device, platform, version) do
-    attrs = %{
-      client_platform: platform,
-      client_version: version,
-      client_last_seen_at: DateTime.utc_now()
-    }
+  def record_client_info(%Device{} = device, attrs) when is_map(attrs) do
+    permitted = [
+      :client_platform, :client_version,
+      :client_os_name, :client_os_version, :client_arch,
+      :client_last_seen_at
+    ]
+
+    attrs_with_seen = Map.put(attrs, :client_last_seen_at, DateTime.utc_now())
 
     device
-    |> Ecto.Changeset.cast(attrs, [:client_platform, :client_version, :client_last_seen_at])
-    |> Ecto.Changeset.validate_length(:client_platform, max: 32)
-    |> Ecto.Changeset.validate_length(:client_version,  max: 32)
+    |> Ecto.Changeset.cast(attrs_with_seen, permitted)
+    |> Ecto.Changeset.validate_length(:client_platform,   max: 32)
+    |> Ecto.Changeset.validate_length(:client_version,    max: 32)
+    |> Ecto.Changeset.validate_length(:client_os_name,    max: 64)
+    |> Ecto.Changeset.validate_length(:client_os_version, max: 32)
+    |> Ecto.Changeset.validate_length(:client_arch,       max: 16)
     |> Repo.update()
   end
 

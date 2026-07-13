@@ -910,6 +910,16 @@ pre {
    the smaller font-size where it matters. */
 .ng-td-muted { color: #64748b; }
 
+/* Secondary OS/arch line under Client column in devices table.
+   Smaller + lighter than the primary "platform · client_version"
+   row so the eye reads "client identity, then host OS underneath"
+   without either line dominating. */
+.ng-td-os {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  margin-top: 0.15rem;
+}
+
 /* Inline label hint — the "(empty = any)" / "(optional)" / "(any
    of)" copy beside a form label. Smaller + lighter than the label
    itself so the eye reads "label · meta" not "label label". */
