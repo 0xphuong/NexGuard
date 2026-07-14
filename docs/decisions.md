@@ -4,7 +4,13 @@ This file collects architectural decisions specific to the NexGuard server
 and gateway. Client-side ADRs live in [`nexguard-connect/docs/decisions.md`](https://github.com/0xphuong/nexguard-connect/blob/main/docs/decisions.md).
 
 For the L7 architecture overview these decisions implement, see
-[`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture).
+[`nexguard-connect/SPEC.md` §8](https://github.com/0xphuong/nexguard-connect/blob/main/SPEC.md#8-gateway-l7-architecture)
+and the server-side operator-facing walkthrough in
+[`l7-architecture.md`](l7-architecture.md) — the consolidated doc
+that ties together ADR-007 → ADR-015, the v3.0.0 / v3.0.1 migration
+notes, and the Caddy dual-listener design that would otherwise live
+only in `docker-compose.prod.yml` inline comments.
+
 The provisional umbrella decision (ADR-006) lives in that repo; the
 records below (ADR-007 → ADR-013) refine it into concrete commitments
 before implementation begins.

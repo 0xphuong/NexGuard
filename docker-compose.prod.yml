@@ -36,6 +36,7 @@ services:
         # when certs are provisioned (run scripts/l7-rotate-proxy-cert.sh).
         # Otherwise Caddy boots with only the public portal site so
         # a fresh install / pre-L7-D deployment keeps working.
+        # Full design walkthrough: docs/l7-architecture.md §5.
         #
         # Global block goes FIRST (Caddy syntax requirement). Even
         # when the mTLS site isn't loaded, the global block stays —
