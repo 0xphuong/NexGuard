@@ -80,7 +80,7 @@ services:
     restart: "no"
 
   coredns:
-    image: coredns/coredns:1.11.3
+    image: coredns/coredns:1.14.6
     # Phoenix writes the Corefile from DB-backed org_settings;
     # CoreDNS' `reload 2s` plugin picks up edits without container
     # restart. Admins edit upstreams via /settings/l7 in the portal
