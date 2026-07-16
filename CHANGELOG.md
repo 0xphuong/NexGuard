@@ -9,6 +9,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.1] - 2026-07-16
+
+Observability polish. No schema change, no API change, no client
+coordination -- pure Phoenix-side change; older clients unaffected.
+
+### Fixed
+
+#### `TLS handshake error from 127.0.0.1: EOF` noise in `nexguard-proxy` log
+
+Every 60 s, `docker logs nexguard-proxy` emitted a line like:
+
+    2026/07/16 14:14:57 http: TLS handshake error from 127.0.0.1:42588: EOF
+
+Symptom benign but hid real errors + wasted log-rotation budget.
+
+Root cause: `FzHttp.HealthMonitor.probe_proxy/0` opened a bare TCP
+socket to the proxy's TLS transparent-proxy listener (`127.0.0.1:8443`),
+proved `accept()` completed, then closed. Go's `net/http.Server`
+stdlib logs a "TLS handshake error: EOF" every time an accepted
+connection closes before ClientHello. The comment in the old
+`probe_proxy/0` said "don't bother with TLS -- we'd need a client
+cert", which is correct but sidesteps the log-noise cost.
+
+Fix: probe `http://127.0.0.1:9090/readyz` on the proxy's plaintext
+observability port instead. Same endpoint the proxy's own docker
+`HEALTHCHECK --health-probe` uses. Implementation uses raw
+`:gen_tcp` with `packet: :http_bin` so the Erlang inet driver
+parses the status line -- no new dep, no `:inets`, no Finch pool
+to babysit for a probe that fires every 60 s.
+
+Bonus (accidental improvement in signal quality): `/readyz`
+returns 503 during bundle-bootstrap and during SIGTERM drain --
+the old TCP-connect probe reported `:ok` in both windows (listener
+still bound). The topbar dot now correctly turns red for a proxy
+that's stuck refreshing its policy bundle, matching what "healthy"
+actually means to a client.
+
+Rollback: single-file revert, no dependencies, no client
+coordination.
+
+---
+
 ## [3.2.0] - 2026-07-13
 
 Additive telemetry release. One migration extends `devices` with

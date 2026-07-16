@@ -27,8 +27,12 @@ defmodule FzHttp.HealthMonitor do
                   fixed sentinel name. Anything routable works; we
                   use the gateway's WG IP so the resolver also exercises
                   the hosts plugin path.
-    * Proxy    — TCP connect to `127.0.0.1:8443`. Don't bother with
-                  TLS — `accept()` proves the listener is up.
+    * Proxy    — HTTP GET `http://127.0.0.1:9090/readyz` against the
+                  proxy's plaintext observability port. Bare TCP connects
+                  against `:8443` (the TLS transparent-proxy listener)
+                  trigger Go's stdlib "TLS handshake error: EOF" every
+                  poll; hitting /readyz is quieter AND stricter (catches
+                  stuck-bundle state that a bare accept() would hide).
   """
   use GenServer
   require Logger
@@ -191,14 +195,40 @@ defmodule FzHttp.HealthMonitor do
     end
   end
 
-  # Plain TCP connect to the proxy listener. Don't do a TLS handshake
-  # — we'd need a client cert. `accept()` is enough proof the proxy
-  # is bound + ready.
+  # Probe the proxy's plaintext observability port (:9090) instead of
+  # the TLS transparent-proxy listener (:8443). The old approach did a
+  # bare TCP connect + immediate close against :8443 — functionally
+  # correct but noisy: Go's net/http.Server logs a "TLS handshake
+  # error from 127.0.0.1:...: EOF" every time we hang up before
+  # ClientHello. Once every 60 s × forever is enough to hide real
+  # errors in `docker logs nexguard-proxy`.
+  #
+  # `/readyz` is the same endpoint the proxy hits from its own
+  # `--health-probe` docker HEALTHCHECK — 200 iff the bundle bootstrap
+  # completed AND the SIGTERM drain hasn't started. Strictly stronger
+  # signal than "TCP accept succeeds": a proxy stuck refreshing the
+  # bundle used to show :ok (listener still bound); it now correctly
+  # shows :down.
+  #
+  # We use raw :gen_tcp with `packet: :http_bin` so the inet driver
+  # parses the status line for us — no HTTP client dep, no :inets
+  # boot, and no Finch pool to babysit for a probe that fires every 60 s.
   defp probe_proxy do
-    case :gen_tcp.connect(~c"127.0.0.1", 8443, [:binary, active: false], @probe_timeout_ms) do
-      {:ok, socket} ->
-        :gen_tcp.close(socket)
-        :ok
+    opts = [:binary, active: false, packet: :http_bin]
+
+    with {:ok, sock} <- :gen_tcp.connect(~c"127.0.0.1", 9090, opts, @probe_timeout_ms),
+         :ok <-
+           :gen_tcp.send(
+             sock,
+             "GET /readyz HTTP/1.0\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n"
+           ),
+         {:ok, {:http_response, _version, 200, _reason}} <-
+           :gen_tcp.recv(sock, 0, @probe_timeout_ms) do
+      _ = :gen_tcp.close(sock)
+      :ok
+    else
+      {:ok, {:http_response, _version, code, _reason}} ->
+        {:error, {:proxy_not_ready, code}}
 
       {:error, reason} ->
         {:error, reason}
