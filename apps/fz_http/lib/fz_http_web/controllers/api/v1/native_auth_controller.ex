@@ -11,7 +11,7 @@ defmodule FzHttpWeb.API.V1.NativeAuthController do
   use FzHttpWeb, :controller
   require Logger
 
-  alias FzHttp.{AuditLogs, NativeAuth, Users}
+  alias FzHttp.{AuditLogs, Config, NativeAuth, Users}
   alias FzHttpWeb.Auth.JSON.Authentication
 
   def token(conn, %{"code" => code, "code_verifier" => verifier})
@@ -147,12 +147,33 @@ defmodule FzHttpWeb.API.V1.NativeAuthController do
       refresh_token: refresh_token,
       token_type: "Bearer",
       expires_in: Authentication.native_access_ttl_seconds(),
+      # `session_expires_at`: authoritative timestamp (ISO 8601 UTC) at
+      # which this VPN session becomes invalid per the admin-configured
+      # `vpn_session_duration` policy. Native clients use this to
+      # detect session expiry LOCALLY, without needing a live server
+      # round-trip -- critical when the tunnel is dead but the client
+      # still needs to sign the user out (v3.2.2+).
+      #
+      # `null` when the org disabled session-based expiry
+      # (`Config.vpn_sessions_expire?() == false`) or when the user
+      # has never signed in (fresh account, `last_signed_in_at` is nil
+      # -- shouldn't happen from this endpoint since we just issued a
+      # refresh, but defensive).
+      session_expires_at: session_expires_at_iso(user),
       user: %{
         id: user.id,
         email: user.email,
         role: to_string(user.role)
       }
     }
+  end
+
+  defp session_expires_at_iso(user) do
+    cond do
+      not Config.vpn_sessions_expire?() -> nil
+      is_nil(user.last_signed_in_at) -> nil
+      true -> user |> Users.vpn_session_expires_at() |> DateTime.to_iso8601()
+    end
   end
 
   defp client_metadata(conn) do

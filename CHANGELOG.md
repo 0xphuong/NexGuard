@@ -9,6 +9,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.2] - 2026-07-20
+
+Additive: native auth token responses now include an authoritative
+`session_expires_at` timestamp. Native clients (v0.5.7+) use it to
+detect session expiry locally, without needing a live server call --
+critical when the tunnel is dead but the client still needs to sign
+the user out cleanly (tunnel-DNS unreachable = any HTTP call to the
+server URLErrors out, so the 401 that would normally trigger
+forceReSignIn never surfaces).
+
+### Added
+
+#### `session_expires_at` field in `/api/v1/native/token` + `/api/v1/native/refresh` response
+
+Response JSON now includes:
+
+```json
+{
+  "access_token": "...",
+  "refresh_token": "...",
+  "token_type": "Bearer",
+  "expires_in": 3600,
+  "session_expires_at": "2026-07-21T05:00:16.497725Z",
+  "user": { ... }
+}
+```
+
+`session_expires_at` is the ISO 8601 UTC timestamp at which the VPN
+session becomes invalid per the org-configured
+`vpn_session_duration` policy. Computed as
+`user.last_signed_in_at + vpn_session_duration`. `null` when the
+org disabled session-based expiry (`vpn_sessions_expire? ==
+false`) or when the user has never signed in (defensive; the endpoint
+just issued a refresh so this shouldn't happen from here).
+
+Native clients (macOS v0.5.7, Windows + Linux TBD) persist this in
+their per-server secret store and schedule a local Task that fires
+`forceReSignIn` at that exact moment -- no server round-trip needed
+to detect session expiry. Bonus consequences:
+
+- **Instant detection**: sign-in screen appears at the exact
+  moment the server considers the session dead, not
+  minutes-to-hours later.
+- **Works when tunnel is dead**: client independently knows, so
+  the "connected but tunnel doesn't pass traffic + no
+  notification" hang is gone.
+- **Backward compatible**: pre-3.2.2 servers don't emit the field;
+  new clients decode-if-present and fall back to their v0.5.6
+  detection paths (handshake-stale probe, refresh timer 401,
+  explicit user reconnect).
+
+Zero migration required. One-line schema change (JSON response
+shape only; no DB migration).
+
+---
+
 ## [3.2.1] - 2026-07-16
 
 Observability polish. No schema change, no API change, no client
