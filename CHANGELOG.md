@@ -9,6 +9,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.2.3] - 2026-07-21
+
+Fixes the "Windows A + Windows B collision" bug where two devices
+enrolled by the same user would fight over the tunnel: whichever
+signed in most recently hijacked the other's config on the
+`me_config` endpoint, so the older device could not reconnect
+without pulling the newer device's IP + config down (breaking WG
+routing for both).
+
+### Fixed
+
+- **`GET /api/v1/devices/me/config` now accepts an optional
+  `device_id` query parameter.** When present, the endpoint
+  returns that specific device (verifying it belongs to the
+  authenticated user); a `device_id` for a device owned by a
+  different user returns 403 `device_not_owned`, and a
+  device_id that doesn't exist (or isn't a valid UUID) returns
+  404 `device_not_enrolled`. Backward-compat: pre-v3.2.3 clients
+  that don't send the parameter still get the pre-existing
+  "most-recent-device" behavior, so existing clients keep
+  working while they upgrade.
+
+- **New `FzHttp.Devices.fetch_for_user_by_id/2` context helper**
+  encapsulates the "look up this exact device, but only if it
+  belongs to that user" pattern with clean not-found /
+  forbidden semantics, so the controller stays a thin router.
+
+### Client rollout
+
+Windows / macOS / Linux CLI clients need a matching change: send
+the enrolled `device_id` (which they already receive from
+`/api/v1/devices/enroll` and persist in their secure store) as a
+query parameter on every `me_config` call. Client versions to
+follow.
+
+### Compatibility
+
+- Clients that don't send `device_id` observe no behavior change.
+- Clients that send a well-formed but non-existent `device_id`
+  observe 404 (instead of the old "most-recent" fallback). This
+  is intentional: it surfaces a misconfigured client rather than
+  silently handing back a wrong device.
+
+---
+
 ## [3.2.2] - 2026-07-20
 
 Additive: native auth token responses now include an authoritative

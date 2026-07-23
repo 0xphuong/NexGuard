@@ -132,6 +132,53 @@ defmodule FzHttp.DevicesTest do
     end
   end
 
+  # v3.2.3: multi-device disambiguation for native `me_config`.
+  # Distinct from `fetch_device_by_id/2` above -- that one is
+  # permission-scoped for admin UIs; this one is user-scoped for
+  # the native OAuth flow where the user IS the caller.
+  describe "fetch_for_user_by_id/2" do
+    test "returns device when it belongs to the user", %{unprivileged_user: user} do
+      device = DevicesFixtures.create_device(user: user)
+      assert {:ok, ^device} = Devices.fetch_for_user_by_id(user, device.id)
+    end
+
+    test "returns :forbidden when device belongs to a different user", %{
+      unprivileged_user: user
+    } do
+      other_device = DevicesFixtures.create_device()
+      refute other_device.user_id == user.id
+
+      assert Devices.fetch_for_user_by_id(user, other_device.id) == {:error, :forbidden}
+    end
+
+    test "returns :not_found for a valid but non-existent UUID", %{unprivileged_user: user} do
+      assert Devices.fetch_for_user_by_id(user, Ecto.UUID.generate()) == {:error, :not_found}
+    end
+
+    test "returns :not_found for a malformed UUID string", %{unprivileged_user: user} do
+      assert Devices.fetch_for_user_by_id(user, "not-a-uuid") == {:error, :not_found}
+    end
+
+    # The exact "Windows A + Windows B collision" scenario the fix
+    # is targeting: the same user has two enrolled devices with
+    # different (name, public_key). Each device must be looked up
+    # by its own id, NOT by "most recent" (the pre-v3.2.3 fallback
+    # that hijacked A's config whenever B enrolled).
+    test "each device is looked up by its own id (multi-device)", %{unprivileged_user: user} do
+      device_a = DevicesFixtures.create_device(user: user)
+      # Enroll a second device for the same user AFTER a
+      # measurable interval so `inserted_at` clearly differs -- if
+      # the lookup accidentally fell back to "most recent" it
+      # would return device_b when asked about device_a.
+      Process.sleep(20)
+      device_b = DevicesFixtures.create_device(user: user)
+      refute device_a.id == device_b.id
+
+      assert {:ok, ^device_a} = Devices.fetch_for_user_by_id(user, device_a.id)
+      assert {:ok, ^device_b} = Devices.fetch_for_user_by_id(user, device_b.id)
+    end
+  end
+
   describe "list_devices/1" do
     test "returns empty list when there are no devices", %{admin_subject: subject} do
       assert list_devices(subject) == {:ok, []}

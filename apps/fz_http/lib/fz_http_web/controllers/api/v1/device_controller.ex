@@ -4,7 +4,10 @@ defmodule FzHttpWeb.API.V1.DeviceController do
   `FzHttpWeb.Plug.NativeAuthBearer` plug (in the router pipeline).
 
   - `POST /api/v1/devices/enroll` — idempotent enroll. Body: `{name, public_key}`.
-  - `GET  /api/v1/devices/me/config` — fetch the latest `wg-quick` config for this device.
+  - `GET  /api/v1/devices/me/config[?device_id=<uuid>]` — fetch the
+    `wg-quick` config. `device_id` (added in v3.2.3) picks a specific
+    row for multi-device users; omit for backward-compat "most-recent"
+    lookup.
   """
   use FzHttpWeb, :controller
   require Logger
@@ -40,16 +43,20 @@ defmodule FzHttpWeb.API.V1.DeviceController do
 
   def enroll(conn, _params), do: send_error(conn, :bad_request, "missing_params")
 
-  def me_config(conn, _params) do
+  def me_config(conn, params) do
     user = conn.assigns.current_user
+    device_id = Map.get(params, "device_id")
 
-    case fetch_native_device(user) do
+    case fetch_native_device(user, device_id) do
       {:ok, device} ->
         device = record_client_info(conn, device)
         json(conn, build_device_response(device))
 
       {:error, :not_found} ->
         send_error(conn, :not_found, "device_not_enrolled")
+
+      {:error, :forbidden} ->
+        send_error(conn, :forbidden, "device_not_owned")
     end
   end
 
@@ -102,10 +109,23 @@ defmodule FzHttpWeb.API.V1.DeviceController do
     }
   end
 
-  # Heuristic: most recent device for this user (single-machine clients
-  # only enroll one device; the recent-first ordering picks the right row
-  # if name ever changes between enrolls).
-  defp fetch_native_device(user) do
+  # v3.2.3+ path: client sends the device_id it captured on enroll.
+  # Fixes the "Windows A + Windows B collision" bug where a second
+  # signed-in device hijacked the first's config (and vice versa)
+  # because the fallback below picked the most-recent row for the
+  # user regardless of who was actually asking. Delegates to the
+  # Devices context so the not-found / forbidden semantics stay
+  # consistent with the rest of the codebase.
+  defp fetch_native_device(user, device_id) when is_binary(device_id) and device_id != "" do
+    FzHttp.Devices.fetch_for_user_by_id(user, device_id)
+  end
+
+  # Backward-compat path: pre-v3.2.3 clients don't send device_id
+  # (they were built against the old me_config that took no
+  # parameters). Fall back to the most-recent device for this user.
+  # Buggy for multi-device users -- recommend they upgrade to a
+  # client build that sends device_id.
+  defp fetch_native_device(user, _no_id) do
     import Ecto.Query
     alias FzHttp.{Repo, Devices.Device}
 

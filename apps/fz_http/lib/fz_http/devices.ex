@@ -467,6 +467,35 @@ defmodule FzHttp.Devices do
   end
 
   @doc """
+  Fetch a specific device by ID for the given user (v3.2.3+).
+
+  Used by the native `me_config` endpoint to disambiguate between
+  multiple enrolled devices for the same user (e.g. Windows A +
+  Windows B, or Mac + Windows). Prior to v3.2.3, `me_config`
+  always returned the most-recently-enrolled row, which caused
+  the second-signed-in device to hijack the config of the first
+  and vice versa.
+
+  Returns:
+    - `{:ok, device}`          if found + owned by the user
+    - `{:error, :not_found}`   if no device with that ID exists (or invalid UUID)
+    - `{:error, :forbidden}`   if the device belongs to a different user
+  """
+  def fetch_for_user_by_id(%Users.User{} = user, device_id) when is_binary(device_id) do
+    with {:ok, uuid} <- Ecto.UUID.cast(device_id),
+         %Device{} = device <- Repo.get(Device, uuid) do
+      if device.user_id == user.id do
+        {:ok, device}
+      else
+        {:error, :forbidden}
+      end
+    else
+      :error -> {:error, :not_found}
+      nil    -> {:error, :not_found}
+    end
+  end
+
+  @doc """
   Idempotent enroll for native clients. Lookup `(user_id, name)`:
     - not found       → create new device + sync VPN/firewall
     - found, same key → return existing (no-op)
