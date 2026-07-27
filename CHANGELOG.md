@@ -112,9 +112,13 @@ transition. `/rules` is scheduled for removal in v4.0.0 (see
   rules apply server-side.
 - **Legacy `rules` table untouched.** Migration is additive.
   Rows created in the admin UI's `/rules` page keep working.
-- **Removal plan**: v4.0.0 auto-migrates remaining `rules`
-  rows into a "legacy" policy, hides `/rules`, and drops the
-  table after a release cycle. See `task.md` for the ordered
+- **Removal plan**: v4.0.0 will drop the `/rules` UI, the
+  `Rules.as_settings/0` code path, and the `rules` table
+  outright -- no auto-migration into policies. Admins are
+  expected to recreate any remaining legacy rules as policies
+  before upgrading. Rationale: current operator has <10 legacy
+  rows; a schema-level auto-migration is more code to maintain
+  than admin-time value. See `task.md` for the ordered
   removal steps.
 
 ---
