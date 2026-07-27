@@ -16,7 +16,7 @@ defmodule FzHttp.Policies.PolicyRule.Changeset do
 
   def update_changeset(rule, attrs) do
     fields =
-      if FzHttp.Rules.port_rules_supported?() do
+      if FzHttp.Policies.port_rules_supported?() do
         @fields
       else
         @fields -- @port_based_fields

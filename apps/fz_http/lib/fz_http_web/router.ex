@@ -212,10 +212,7 @@ defmodule FzHttpWeb.Router do
       live "/users/:id", UserLive.Show, :show
       live "/users/:id/edit", UserLive.Show, :edit
       live "/users/:id/new_device", UserLive.Show, :new_device
-      live "/rules", RuleLive.Index, :allow
-      live "/rules/deny", RuleLive.Index, :deny
-
-      # Policies (v3.3.0 -- policy-based egress model, coexists with /rules)
+      # Policies (v4.0.0 -- sole egress rule surface; legacy /rules removed)
       live "/policies", PoliciesLive.Index, :index
       live "/policies/new", PoliciesLive.Index, :new
       live "/policies/:id", PoliciesLive.Show, :show
@@ -274,7 +271,6 @@ defmodule FzHttpWeb.Router do
     resources "/configuration", ConfigurationController, singleton: true, only: [:show, :update]
     resources "/users", UserController, except: [:new, :edit]
     resources "/devices", DeviceController, except: [:new, :edit]
-    resources "/rules", RuleController, except: [:new, :edit]
   end
 
   # Native client token + refresh (unauthenticated; trust via code/refresh_token in body)

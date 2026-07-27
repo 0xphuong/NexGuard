@@ -492,16 +492,6 @@
               <% end %>
             </dd>
           </div>
-          <%= if @rules_path do %>
-            <%= with {:ok, rules_count} <- FzHttp.Rules.fetch_count_by_user_id(@user.id, @subject) do %>
-              <div>
-                <dt>L3/L4 rules</dt>
-                <dd>
-                  <a href={"#{@rules_path}"} class="ng-action-link"><%= rules_count %></a>
-                </dd>
-              </div>
-            <% end %>
-          <% end %>
         </dl>
       </div>
     </div>

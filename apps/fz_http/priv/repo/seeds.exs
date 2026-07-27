@@ -16,7 +16,6 @@ alias FzHttp.{
   Devices,
   Users,
   ApiTokens,
-  Rules,
   Auth.MFA
 }
 
@@ -207,15 +206,9 @@ MFA.create_method(
   })
   |> Repo.insert()
 
-Rules.create_rule(%{
-  destination: "10.0.0.0/24",
-  port_type: :tcp,
-  port_range: "100-200"
-})
-
-Rules.create_rule(%{
-  destination: "1.2.3.4"
-})
+# v4.0.0: legacy `Rules.create_rule/1` seed removed with the
+# `FzHttp.Rules` context. Add sample policies here if seeding
+# needs L3/L4 egress fixtures for dev.
 
 FzHttp.Config.put_config!(:default_client_dns, ["4.3.2.1", "1.2.3.4"])
 

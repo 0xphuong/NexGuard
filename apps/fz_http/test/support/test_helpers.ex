@@ -8,7 +8,6 @@ defmodule FzHttp.TestHelpers do
     DevicesFixtures,
     NotificationsFixtures,
     Repo,
-    RulesFixtures,
     Users.User,
     UsersFixtures
   }
@@ -79,29 +78,12 @@ defmodule FzHttp.TestHelpers do
     {:ok, user: user}
   end
 
-  def create_accept_rule(_) do
-    rule = RulesFixtures.create_rule(%{action: :accept})
-    {:ok, rule: rule}
-  end
-
-  def create_drop_rule(_) do
-    rule = RulesFixtures.create_rule(%{action: :drop})
-    {:ok, rule: rule}
-  end
-
-  def create_rule(_) do
-    rule = RulesFixtures.create_rule(%{})
-    {:ok, rule: rule}
-  end
-
-  def create_rule_accept(_) do
-    rule = RulesFixtures.create_rule(%{action: :accept})
-    {:ok, rule: rule}
-  end
-
-  def create_rule_with_user_and_device(_) do
+  # v4.0.0: `create_rule*` helpers removed with `FzHttp.Rules`.
+  # Retained: `create_user_and_device/1` (used by device/user
+  # notifier + events tests that previously included an
+  # incidental rule they didn't actually assert on).
+  def create_user_and_device(_) do
     user = UsersFixtures.create_user_with_role(:admin)
-    rule = RulesFixtures.create_rule(user_id: user.id, destination: "10.20.30.0/24")
 
     device =
       DevicesFixtures.create_device(
@@ -109,20 +91,7 @@ defmodule FzHttp.TestHelpers do
         name: "device"
       )
 
-    {:ok, rule: rule, user: user, device: device}
-  end
-
-  def create_rule_with_user(opts \\ %{}) do
-    user = UsersFixtures.create_user_with_role(:admin)
-    rule = RulesFixtures.create_rule(Map.merge(%{user_id: user.id}, opts))
-
-    {:ok, rule: rule, user: user}
-  end
-
-  def create_rule_with_ports(opts \\ %{}) do
-    rule = RulesFixtures.create_rule(Map.merge(%{port_range: "10 - 20", port_type: :udp}, opts))
-
-    {:ok, rule: rule}
+    {:ok, user: user, device: device}
   end
 
   def create_user_with_valid_sign_in_token(_) do

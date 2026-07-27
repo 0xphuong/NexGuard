@@ -27,7 +27,6 @@ defmodule FzHttpWeb.UserLive.Show do
      |> assign(:user, user)
      |> assign(:tab, tab_for_action(socket.assigns[:live_action]))
      |> assign(:page_title, "Users")
-     |> assign(:rules_path, ~p"/rules")
      |> assign(:show_delete_confirm, false)
      |> assign(:show_mote_confirm, false)
      |> assign(:remove_group_confirm, nil)

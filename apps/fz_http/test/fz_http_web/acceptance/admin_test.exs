@@ -263,39 +263,12 @@ defmodule FzHttpWeb.Acceptance.AdminTest do
     end
   end
 
-  describe "rules" do
-    feature "manage allow rules", %{session: session, user: user} do
-      session =
-        session
-        |> visit(~p"/rules")
-        |> assert_has(Query.text("Egress Rules"))
-        |> find(Query.css("#accept-form"), fn parent ->
-          parent
-          |> set_value(Query.select("rule[port_type]"), "tcp")
-          |> set_value(Query.select("rule[user_id]"), user.email)
-          |> fill_form(%{
-            "rule[destination]" => "8.8.4.4",
-            "rule[port_range]" => "1-8000"
-          })
-          |> click(Query.button("Add"))
-        end)
-        |> assert_has(Query.text("8.8.4.4"))
-        |> assert_has(Query.link("Delete"))
-
-      assert rule = Repo.one(FzHttp.Rules.Rule)
-      assert rule.destination == %Postgrex.INET{address: {8, 8, 4, 4}}
-      assert rule.port_range == "1 - 8000"
-      assert rule.port_type == :tcp
-
-      click(session, Query.link("Delete"))
-
-      # XXX: We need to show a confirmation dialog on delete,
-      # and message once record was saved or deleted.
-      wait_for(fn ->
-        assert is_nil(Repo.one(FzHttp.Rules.Rule))
-      end)
-    end
-  end
+  # NOTE: acceptance test for the legacy `/rules` UI removed in
+  # v4.0.0 along with the `FzHttp.Rules` context. Coverage for
+  # the successor `/policies` UI lives in the LiveView tests
+  # under `test/fz_http_web/live/policies_live/` (not
+  # end-to-end, but the LiveView layer is where the workflow
+  # actually lives).
 
   describe "settings" do
     feature "change default settings", %{session: session} do

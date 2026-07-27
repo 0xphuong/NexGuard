@@ -9,6 +9,83 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.0] - 2026-07-27
+
+**Breaking**: retires the legacy `FzHttp.Rules` subsystem in
+its entirety. Policies (v3.3.0) are now the sole L3/L4 egress
+rule surface. Admins were expected to recreate any remaining
+legacy rules as policies BEFORE upgrading (see v3.3.0
+"Removal plan"). The Ecto migration guards against silent
+data loss -- see "Migration" below.
+
+### Removed
+
+- **`FzHttp.Rules` context** + `Rules.Rule` schema +
+  `Rules.Authorizer` (dropped from `FzHttp.Auth.Roles`) +
+  the `Rules.Rule.Changeset` + `Rules.Rule.Query` modules.
+- **`FzHttpWeb.RuleLive.Index`** LiveView + `rule_list_component`
+  + `/rules` route + `/rules/deny` route. Sidebar "Firewall
+  Rules" link is gone; Access Control section now leads with
+  Policies.
+- **`FzHttpWeb.API.V0.RuleController`** + `/api/v0/rules` REST
+  routes. External clients that scripted against `/api/v0/rules`
+  must migrate to policies (a REST surface for policies is
+  future work; see task.md if needed).
+- **`Events.add("rules", ...)`** + **`Events.delete("rules", ...)`**
+  handlers. Policy CRUD invokes `Events.set_rules/0`
+  directly.
+- **Legacy Postgres `rules` table** -- see Migration.
+- **`manage_rules_permission/0`** authorizer permission and the
+  `L3/L4 rules` count on the user Show page + `Firewall
+  Rules` row on the settings/account profile card (there is
+  no per-user rules concept any more; policies scope by
+  assignment or `applies_to_all_users`).
+
+### Changed
+
+- **`FzHttp.Events.set_rules/0`** + **`FzHttp.Server.load_settings/0`**
+  drop the `MapSet.union(Rules.as_settings(), ...)` step
+  introduced in v3.3.0 for coexistence; only
+  `Policies.as_effective_rules/0` runs now. One less table
+  hit per boot and per CRUD.
+- **`FzHttp.Policies.port_rules_supported?/0`** absorbs the
+  identical helper that used to live in `FzHttp.Rules`. Same
+  underlying config key (`:fz_wall, :port_based_rules_supported`);
+  moved home only.
+
+### Migration (`20260727000003_drop_legacy_rules_table.exs`)
+
+- Pre-flight `SELECT count(*) FROM rules` runs before the
+  drop. If the table is non-empty, the migration **refuses**
+  with a loud error explaining the required manual conversion
+  path. Prevents accidental egress-reopen on a live gateway
+  where the admin forgot to migrate remaining legacy rows.
+- **Escape hatch**: set
+  `NEXGUARD_ALLOW_LEGACY_RULES_LOSS=true` on the container
+  to force the drop even with non-zero rows. Intended for
+  fresh dev / staging boxes where losing legacy fixtures is
+  fine.
+- Postgres types `action_enum` + `port_type_enum` are NOT
+  dropped -- `policies` + `policy_rules` still reference
+  them.
+- `down/0` recreates the `rules` table shell (empty).
+  Rollback for the SCHEMA; the actual dropped rows are gone,
+  intentionally.
+
+### Compatibility
+
+- **No client change**. Clients see the same WG peer + config;
+  rules apply server-side.
+- **REST API v0**: `/api/v0/rules` is gone. Programmatic rule
+  management is not supported in v4.0.0 -- managed via
+  `/policies` admin UI.
+- **Rollback**: `git checkout v3.3.0` + `docker compose up -d`.
+  The Ecto `down/0` recreates the empty rules table; if you
+  need the legacy rows back, restore from a v3.3.x DB
+  snapshot.
+
+---
+
 ## [3.3.0] - 2026-07-27
 
 Additive: introduces the **policy-based egress model** as a

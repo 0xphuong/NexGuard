@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-07-27 · Server at **v3.3.0** · Pairs with NexGuard Connect macOS **v0.5.9** / Windows **v0.6.2** / Linux CLI **v0.3.1**
+Last updated: 2026-07-27 · Server at **v4.0.0** · Pairs with NexGuard Connect macOS **v0.5.9** / Windows **v0.6.2** / Linux CLI **v0.3.1**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).
@@ -522,7 +522,7 @@ Admin can end-to-end:
 | S10 | **Custom branding from server** (logo + accent color per org) | ~3h + server config endpoint | Per-org identity if NexGuard ever sells as SaaS. Client fetches `GET /config/branding` on bootstrap, caches locally. |
 | S11 | **MDM profile support** (`.mobileconfig` template + docs) | ~3-4h client + server docs | Corporate distribution via Jamf / Intune. Allows IT to push server URL + restrictions automatically. |
 | S12 | **Webhook system** for org events (device pending, user signed in, MFA challenge, approval changes) | ~3-4h | External integration target. Per-org webhook URL + event filter + retry/backoff. Generalizes S1. |
-| S14 | **v4.0.0 -- retire legacy `/rules`** | ~1-2h | Drop the `/rules` UI (route + sidebar), remove `Rules.as_settings/0` call from `FzHttp.Events.set_rules/0` + `FzHttp.Server.load_settings`, drop the `rules` table via Ecto migration. **No auto-migration into policies** -- admin must recreate any remaining legacy rows as policies BEFORE upgrading. Operator decision (2026-07-27): current fleet has <10 legacy rows, so admin-time migration is cheaper than maintaining a translation migration. Pre-flight check on boot: if `SELECT count(*) FROM rules > 0` when the migration runs, log a loud warning + refuse to drop the table until the admin manually clears it or overrides via `NEXGUARD_ALLOW_LEGACY_RULES_LOSS=true`. Ship as **v4.0.0** (major bump for schema drop). |
+| ~~S14~~ | ~~**v4.0.0 -- retire legacy `/rules`**~~ | done in **v4.0.0** | Drop the `/rules` UI (route + sidebar), remove `Rules.as_settings/0` call from `FzHttp.Events.set_rules/0` + `FzHttp.Server.load_settings`, drop the `rules` table via Ecto migration. **No auto-migration into policies** -- admin must recreate any remaining legacy rows as policies BEFORE upgrading. Operator decision (2026-07-27): current fleet has <10 legacy rows, so admin-time migration is cheaper than maintaining a translation migration. Pre-flight check on boot: if `SELECT count(*) FROM rules > 0` when the migration runs, log a loud warning + refuse to drop the table until the admin manually clears it or overrides via `NEXGUARD_ALLOW_LEGACY_RULES_LOSS=true`. Ship as **v4.0.0** (major bump for schema drop). |
 
 ---
 

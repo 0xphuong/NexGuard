@@ -54,7 +54,8 @@ defmodule FzHttpWeb.SidebarComponent do
 
         <%# Access Control = every surface that decides "who can
         %# reach what". Two network layers under one roof:
-        %#   * Rules         — L3/L4 firewall (CIDR + port + drop/accept)
+        %#   * Policies      — L3/L4 egress via named policies
+        %#                     (v4.0.0: sole surface, legacy /rules retired)
         %#   * Applications  — L7 identity-aware proxy targets
         %#   * Access Groups — group → app M:N for L7 policy
         %#   * TLS Certs     — shared cert library backing L7 apps
@@ -63,19 +64,9 @@ defmodule FzHttpWeb.SidebarComponent do
         %# Ordered top-down by network layer: L3/L4 first, L7 below,
         %# enforcement switch last. Matches the admin's mental model
         %# of "coarse policy → fine policy → flip it on".
-        %#
-        %# "Firewall Rules" (vs the page's "Egress Rules" title) so
-        %# the sidebar doesn't collide with the per-app "L7 rules"
-        %# editor under Applications → Policy.
         %# %>
         <p class="menu-label ng-sidebar-label">Access Control</p>
         <ul class="menu-list ng-sidebar-list">
-          <li>
-            <%= live_redirect(to: ~p"/rules", class: nav_class(@path, "/rules")) do %>
-              <span class="icon"><i class="mdi mdi-filter-outline"></i></span>
-              <span class="menu-item-label">Firewall Rules</span>
-            <% end %>
-          </li>
           <li>
             <%= live_redirect(to: ~p"/policies", class: nav_class(@path, "/policies")) do %>
               <span class="icon"><i class="mdi mdi-shield-check-outline"></i></span>

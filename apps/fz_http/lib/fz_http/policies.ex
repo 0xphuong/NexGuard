@@ -377,16 +377,26 @@ defmodule FzHttp.Policies do
   `rules` or `policy_rules`.
 
   Skips port_type/port_range fields when fz_wall's config flag
-  reports port-based rules are unsupported (same guard the
-  legacy `Rules.as_settings/0` uses).
+  reports port-based rules are unsupported.
   """
   def as_effective_rules do
-    port_rules_supported? = FzHttp.Rules.port_rules_supported?()
+    port_rules_supported? = port_rules_supported?()
 
     global_rules(port_rules_supported?)
     |> Kernel.++(per_user_rules(port_rules_supported?))
     |> MapSet.new()
   end
+
+  @doc """
+  Whether the kernel/nftables build supports port-based rules.
+  Read from `:fz_wall, :port_based_rules_supported` at
+  application config time.
+
+  Moved here from the retired `FzHttp.Rules` module in v4.0.0;
+  the underlying config key (owned by fz_wall) is unchanged.
+  """
+  def port_rules_supported?,
+    do: FzHttp.Config.fetch_env!(:fz_wall, :port_based_rules_supported)
 
   # v3.3.0 M6: policies with `applies_to_all_users=true` produce
   # a single rule per (destination, action, port*) with

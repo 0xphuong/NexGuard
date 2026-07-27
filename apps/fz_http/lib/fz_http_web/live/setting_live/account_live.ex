@@ -38,7 +38,6 @@ defmodule FzHttpWeb.SettingLive.Account do
       |> assign(:methods, methods)
       |> assign(:page_title, @page_title)
       |> assign(:page_subtitle, @page_subtitle)
-      |> assign(:rules_path, ~p"/rules")
       |> assign(:show_account_delete_confirm, false)
       |> assign(:pending_mfa_delete, nil)
       |> assign(:pending_token_delete, nil)

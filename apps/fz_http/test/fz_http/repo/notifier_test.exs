@@ -43,46 +43,14 @@ defmodule FzHttp.Repo.NotifierTest do
     end
   end
 
-  describe "rules changed" do
-    setup :create_rule
-
-    test "rule insert adds rule to wall state", %{rule: rule} do
-      Notifier.handle_event("rules", %{op: "INSERT", row: rule})
-
-      expected_state = %{
-        users: MapSet.new([]),
-        rules:
-          MapSet.new([
-            %{
-              action: rule.action,
-              destination: "10.10.10.0/24",
-              user_id: rule.user_id,
-              port_range: nil,
-              port_type: nil
-            }
-          ]),
-        devices: MapSet.new([])
-      }
-
-      assert :sys.get_state(Events.wall_pid()) == expected_state
-    end
-
-    test "rule delete removes rule from wall state", %{rule: rule} do
-      Notifier.handle_event("rules", %{op: "INSERT", row: rule})
-      Notifier.handle_event("rules", %{op: "DELETE", row: rule})
-
-      expected_state = %{
-        users: MapSet.new([]),
-        rules: MapSet.new([]),
-        devices: MapSet.new([])
-      }
-
-      assert :sys.get_state(Events.wall_pid()) == expected_state
-    end
-  end
+  # NOTE: "rules changed" LISTEN/NOTIFY plumbing was removed in
+  # v4.0.0 along with the legacy `rules` table. Policy CRUD
+  # triggers `FzHttp.Events.set_rules/0` directly rather than
+  # via Postgres NOTIFY; there is no equivalent Notifier event
+  # channel for `policies` / `policy_rules`.
 
   describe "devices changed" do
-    setup :create_rule_with_user_and_device
+    setup :create_user_and_device
 
     test "device insert adds device to vpn and wall state", %{device: device, user: user} do
       Notifier.handle_event("devices", %{op: "INSERT", row: device})

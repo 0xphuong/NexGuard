@@ -48,14 +48,4 @@
     <dd class="ng-details-value"><%= FzHttp.Devices.count_by_user_id(@user.id) %></dd>
   </div>
 
-  <%= if @rules_path do %>
-    <%= with {:ok, rules_count} <- FzHttp.Rules.fetch_count_by_user_id(@user.id, @subject) do %>
-      <div class="ng-details-row">
-        <dt class="ng-details-label">Firewall Rules</dt>
-        <dd class="ng-details-value">
-          <a href={"#{@rules_path}"} class="ng-action-link"><%= rules_count %></a>
-        </dd>
-      </div>
-    <% end %>
-  <% end %>
 </dl>
