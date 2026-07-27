@@ -1,0 +1,63 @@
+<div>
+  <.form
+    :let={f}
+    for={@changeset}
+    as={:policy}
+    id={@form}
+    phx-target={@myself}
+    phx-change="validate"
+    phx-submit="save"
+  >
+    <p class="ng-modal-form-hint">
+      Policies bundle rules together and apply them by user assignment.
+      Add rules and users after the policy is created.
+    </p>
+
+    <div class="ng-field">
+      <%= label(f, :name, "Name", class: "ng-label") %>
+      <%= text_input(f, :name,
+            class: "ng-input #{input_error_class(f, :name)}",
+            placeholder: "engineering, wiki-readers, dns-admin",
+            autocomplete: "off",
+            phx_debounce: "300") %>
+      <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+      <p class="ng-field-hint">
+        Unique per organisation. 1–100 chars. Pick a name that maps to a real
+        team or role; users get assigned to policies by name.
+      </p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :description, "Description", class: "ng-label") %>
+      <%= textarea(f, :description,
+            class: "ng-input #{input_error_class(f, :description)}",
+            rows: 3,
+            placeholder: "Optional — what this policy is for, who owns it.") %>
+      <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+    </div>
+
+    <div class="ng-field">
+      <%= label(f, :default_action, "Default action", class: "ng-label") %>
+      <%= select(f, :default_action, [{"Deny", "drop"}, {"Allow", "accept"}],
+            class: "ng-input #{input_error_class(f, :default_action)}") %>
+      <p class="ng-field-hint">
+        Applies when this policy has no matching rule for a packet.
+        Recommended: <strong>Deny</strong> — start locked-down and layer explicit accepts on top.
+      </p>
+    </div>
+
+    <div class="ng-field">
+      <label class="ng-label" style="display:flex; align-items:center; gap:.5rem;">
+        <%= checkbox(f, :applies_to_all_users) %>
+        <span>Apply to all users (global policy)</span>
+      </label>
+      <p class="ng-field-hint">
+        When enabled, this policy's rules apply to every user — including future ones —
+        without needing per-user assignment. Materialises as <strong>one</strong> nftables
+        rule per destination instead of one per user × destination
+        (better kernel throughput, fewer set elements).
+        Leave off for policies that should scope to a specific team.
+      </p>
+    </div>
+  </.form>
+</div>

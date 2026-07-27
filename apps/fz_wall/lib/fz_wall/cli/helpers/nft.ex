@@ -312,10 +312,39 @@ defmodule FzWall.CLI.Helpers.Nft do
     """)
   end
 
+  # v3.3.0: policy-based egress can produce two rules on the same
+  # user whose destinations overlap (e.g. one policy allows
+  # `10.0.0.0/8`, another allows `10.0.55.10`). nftables interval
+  # sets reject overlap-adds with "interval overlaps with an
+  # existing one" / "File exists". Both are idempotent no-ops from
+  # a firewall standpoint -- narrower element is already accepted
+  # by the wider interval -- so swallow those two errors and keep
+  # booting. Any other nft failure still crashes so we don't hide
+  # real config bugs.
   defp add_elem_exec(set, elem) do
-    exec!("""
-      #{nft()} 'add element inet #{@table_name} #{set} { #{elem} }'
-    """)
+    cmd = "#{nft()} 'add element inet #{@table_name} #{set} { #{elem} }'\n"
+
+    case FzWall.Shell.bash(cmd) do
+      {_out, 0} ->
+        :ok
+
+      {err, _code} ->
+        cond do
+          String.contains?(err, "interval overlaps") or String.contains?(err, "File exists") ->
+            Logger.debug(fn ->
+              "[fz_wall] add_elem_exec skipped (already covered): set=#{set} elem=#{elem}"
+            end)
+            :ok
+
+          true ->
+            raise """
+              Error executing command #{cmd}.
+              Exit code: 1
+              Error message:
+              #{err}
+            """
+        end
+    end
   end
 
   def get_elem(ip) do

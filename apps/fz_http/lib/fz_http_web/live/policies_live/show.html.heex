@@ -1,0 +1,561 @@
+<%# ── Delete Policy Confirmation Modal ────────────────────────────── %>
+<%= if @show_delete_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete Policy
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @policy.name %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
+          <li>Remove <%= length(@rules) %> rule<%= if length(@rules) != 1, do: "s" %> inside this policy</li>
+          <li>Un-assign <%= length(@users) %> user<%= if length(@users) != 1, do: "s" %></li>
+          <li>Immediately update the nftables rule set for affected users</li>
+        </ul>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete_policy">
+          <i class="mdi mdi-delete"></i> Delete Policy
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Remove User Confirmation Modal ──────────────────────────────── %>
+<%= if @remove_user_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_remove_user" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_remove_user"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-account-minus-outline ng-modal-title-icon"></i>
+          Remove User
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_remove_user">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">Remove this user from the policy:</p>
+        <div class="ng-modal-entity"><%= @remove_user_confirm.email %></div>
+        <p class="ng-modal-desc">
+          <strong><%= @remove_user_confirm.email %></strong> will stop getting
+          the rules defined in <em><%= @policy.name %></em>. Any other
+          policies they belong to keep applying.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_remove_user">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="remove_user">
+          <i class="mdi mdi-account-minus-outline"></i> Remove
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Remove Rule Confirmation Modal ──────────────────────────────── %>
+<%= if @remove_rule_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_remove_rule" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_remove_rule"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Remove Rule
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_remove_rule">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">Remove this rule from the policy:</p>
+        <div class="ng-modal-entity">
+          <%= @remove_rule_confirm.action %> · <%= @remove_rule_confirm.destination %>
+          <%= if @remove_rule_confirm.port_type do %>
+            (<%= @remove_rule_confirm.port_type %> <%= @remove_rule_confirm.port_range %>)
+          <% end %>
+        </div>
+        <p class="ng-modal-desc">
+          Rule takes effect immediately on the nftables backend for all
+          <%= length(@users) %> assigned user<%= if length(@users) != 1, do: "s" %>.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_remove_rule">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="remove_rule">
+          <i class="mdi mdi-delete"></i> Remove
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Bulk Assign Users Confirmation Modal ────────────────────────── %>
+<%= if @bulk_add_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_bulk_add" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_bulk_add"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-account-multiple-plus ng-modal-title-icon"></i>
+          Assign all users
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_bulk_add">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to assign:</p>
+        <div class="ng-modal-entity">
+          <%= length(@available_users) %> user<%= if length(@available_users) != 1, do: "s" %>
+        </div>
+        <p class="ng-modal-desc">
+          Every user not currently in <em><%= @policy.name %></em> will be added
+          to this policy. The nftables rule set is refreshed once for all
+          affected users. If you want the policy to also cover any user
+          enrolled in the future, consider enabling <em>Apply to all users</em>
+          in the Overview tab instead.
+        </p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_bulk_add">Cancel</button>
+        <button class="ng-primary-btn" phx-click="add_all_users">
+          <i class="mdi mdi-account-multiple-plus"></i> Assign all
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<%# ── Hero ────────────────────────────────────────────────────────── %>
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div class="ng-app-hero">
+      <div class="ng-avatar ng-avatar--lg ng-avatar--group">
+        <i class="mdi mdi-shield-check-outline"></i>
+      </div>
+      <div class="ng-app-hero-meta">
+        <div class="ng-app-hero-breadcrumb">
+          <.link navigate={~p"/policies"} class="ng-breadcrumb">Policies</.link>
+          <span class="ng-breadcrumb-sep">/</span>
+          <h1 class="ng-page-title"><%= @policy.name %></h1>
+        </div>
+        <div class="ng-app-hero-status">
+          <%= if @policy.applies_to_all_users do %>
+            <span class="ng-source-badge ng-source-badge--accept">
+              <i class="mdi mdi-earth"></i> global
+            </span>
+            <span class="ng-td-muted">·</span>
+          <% end %>
+          <span class={"ng-source-badge ng-source-badge--#{@policy.default_action}"}>
+            default: <%= @policy.default_action %>
+          </span>
+          <span class="ng-td-muted">·</span>
+          <span class="ng-device-count">
+            <i class="mdi mdi-format-list-checks"></i>
+            <%= length(@rules) %> rule<%= if length(@rules) != 1, do: "s" %>
+          </span>
+          <%= unless @policy.applies_to_all_users do %>
+            <span class="ng-td-muted">·</span>
+            <span class="ng-device-count">
+              <i class="mdi mdi-account"></i>
+              <%= length(@users) %> user<%= if length(@users) != 1, do: "s" %>
+            </span>
+          <% end %>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<%# ── Tab navigation ─────────────────────────────────────────────── %>
+<nav class="ng-tab-nav">
+  <.link patch={~p"/policies/#{@policy}"}
+         replace={true}
+         class={["ng-tab", @tab == :overview && "is-active"]}>
+    <i class="mdi mdi-information-outline"></i>
+    <span>Overview</span>
+  </.link>
+  <.link patch={~p"/policies/#{@policy}/rules"}
+         replace={true}
+         class={["ng-tab", @tab == :rules && "is-active"]}>
+    <i class="mdi mdi-format-list-checks"></i>
+    <span>Rules</span>
+    <span class="ng-tab-count"><%= length(@rules) %></span>
+  </.link>
+  <%= unless @policy.applies_to_all_users do %>
+    <.link patch={~p"/policies/#{@policy}/users"}
+           replace={true}
+           class={["ng-tab", @tab == :users && "is-active"]}>
+      <i class="mdi mdi-account-multiple"></i>
+      <span>Users</span>
+      <span class="ng-tab-count"><%= length(@users) %></span>
+    </.link>
+  <% end %>
+  <.link patch={~p"/policies/#{@policy}/danger"}
+         replace={true}
+         class={["ng-tab ng-tab--danger", @tab == :danger && "is-active"]}>
+    <i class="mdi mdi-alert-octagon-outline"></i>
+    <span>Danger zone</span>
+  </.link>
+</nav>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%# ── Overview tab ────────────────────────────────────────────── %>
+  <%= if @tab == :overview do %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-pencil-outline"></i> Edit policy
+        </span>
+      </div>
+      <div class="ng-detail-card-body">
+        <.form
+          :let={f}
+          for={@changeset}
+          as={:policy}
+          phx-change="validate"
+          phx-submit="update"
+        >
+          <div class="ng-field">
+            <%= label(f, :name, "Name", class: "ng-label") %>
+            <%= text_input(f, :name, class: "ng-input #{input_error_class(f, :name)}", phx_debounce: "300") %>
+            <p class="ng-field-error"><%= error_tag(f, :name) %></p>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :description, "Description", class: "ng-label") %>
+            <%= textarea(f, :description, class: "ng-input #{input_error_class(f, :description)}", rows: 3) %>
+            <p class="ng-field-error"><%= error_tag(f, :description) %></p>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :default_action, "Default action", class: "ng-label") %>
+            <%= select(f, :default_action, [{"Deny", "drop"}, {"Allow", "accept"}],
+                  class: "ng-input #{input_error_class(f, :default_action)}") %>
+            <p class="ng-field-hint">
+              Applies when a packet doesn't match any rule in this policy.
+            </p>
+          </div>
+
+          <div class="ng-field">
+            <label class="ng-label" style="display:flex; align-items:center; gap:.5rem;">
+              <%= checkbox(f, :applies_to_all_users) %>
+              <span>Apply to all users (global policy)</span>
+            </label>
+            <p class="ng-field-hint">
+              When enabled, this policy's rules apply to every user, including
+              future ones. One nftables rule per destination — no per-user
+              cross product.
+            </p>
+          </div>
+
+          <div class="ng-form-actions">
+            <%= submit("Save changes",
+                  class: "ng-primary-btn",
+                  phx_disable_with: "Saving…",
+                  disabled: map_size(@changeset.changes) == 0) %>
+          </div>
+        </.form>
+      </div>
+    </div>
+  <% end %>
+
+  <%# ── Rules tab ──────────────────────────────────────────────── %>
+  <%= if @tab == :rules do %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-plus-box-outline"></i> Add rule
+        </span>
+      </div>
+      <div class="ng-detail-card-body">
+        <p class="ng-form-hint" style="margin-bottom: 1rem;">
+          Rules combine (destination IP/CIDR + optional TCP/UDP port + action).
+          Empty port fields apply to all traffic to the destination.
+        </p>
+
+        <.form
+          :let={f}
+          for={@rule_changeset}
+          as={:rule}
+          phx-change="validate_rule"
+          phx-submit="add_rule"
+        >
+          <div class="ng-inline-form-row">
+          <div class="ng-field ng-field--grow">
+            <%= label(f, :destination, "Destination", class: "ng-label") %>
+            <%= text_input(f, :destination,
+                  class: "ng-input #{input_error_class(f, :destination)}",
+                  placeholder: "10.0.0.0/8 or 192.168.1.5",
+                  autocomplete: "off") %>
+            <p class="ng-field-error"><%= error_tag(f, :destination) %></p>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :action, "Action", class: "ng-label") %>
+            <%= select(f, :action, [{"Allow", "accept"}, {"Deny", "drop"}],
+                  class: "ng-input #{input_error_class(f, :action)}") %>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :port_type, "Protocol", class: "ng-label") %>
+            <%= select(f, :port_type, [{"ANY — all protocols", ""}, {"TCP", "tcp"}, {"UDP", "udp"}],
+                  class: "ng-input #{input_error_class(f, :port_type)}") %>
+            <p class="ng-field-hint">
+              ANY: match every L4 protocol (TCP, UDP, ICMP, etc.) — leave the
+              port field empty.
+            </p>
+          </div>
+
+          <div class="ng-field">
+            <%= label(f, :port_range, "Port(s)", class: "ng-label") %>
+            <%= text_input(f, :port_range,
+                  class: "ng-input #{input_error_class(f, :port_range)}",
+                  placeholder: "443 or 8000-8080  (empty for ANY)",
+                  autocomplete: "off") %>
+            <p class="ng-field-error"><%= error_tag(f, :port_range) %></p>
+          </div>
+
+          <div class="ng-field ng-field--action">
+            <button type="submit" class="ng-primary-btn">
+              <i class="mdi mdi-plus"></i> Add rule
+            </button>
+          </div>
+          </div>
+        </.form>
+      </div>
+    </div>
+
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-format-list-checks"></i> Rules
+          <span class="ng-section-badge"><%= length(@rules) %></span>
+        </span>
+      </div>
+
+      <%= if @rules == [] do %>
+        <div class="ng-detail-card-body--bottom">
+          <div class="ng-empty-state ng-empty-state--inline">
+            <p class="ng-empty-state-hint">
+              No rules yet. Add one above to grant or deny traffic to a destination.
+            </p>
+          </div>
+        </div>
+      <% else %>
+        <div class="ng-table-wrap">
+          <table class="ng-table">
+            <thead>
+              <tr>
+                <th>Action</th>
+                <th>Destination</th>
+                <th>Protocol</th>
+                <th>Port(s)</th>
+                <th>Added</th>
+                <th class="ng-th-center ng-th-narrow"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for rule <- @rules do %>
+                <tr id={"rule-#{rule.id}"}>
+                  <td>
+                    <span class={"ng-source-badge ng-source-badge--#{rule.action}"}>
+                      <%= rule.action %>
+                    </span>
+                  </td>
+                  <td class="ng-td-mono"><%= rule.destination %></td>
+                  <td class="ng-td-muted"><%= rule.port_type || "any" %></td>
+                  <td class="ng-td-mono"><%= rule.port_range || "any" %></td>
+                  <td
+                    id={"rule-#{rule.id}-inserted-at"}
+                    data-timestamp={rule.inserted_at}
+                    phx-hook="FormatTimestamp"
+                    class="ng-td-muted"
+                  >
+                    …
+                  </td>
+                  <td class="ng-td-center">
+                    <button
+                      class="ng-dismiss-btn"
+                      aria-label="Remove rule"
+                      phx-click="confirm_remove_rule"
+                      phx-value-rule-id={rule.id}
+                    >
+                      <i class="mdi mdi-trash-can-outline"></i>
+                    </button>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+  <% end %>
+
+  <%# ── Users tab ──────────────────────────────────────────────── %>
+  <%= if @tab == :users do %>
+    <%= if @policy.applies_to_all_users do %>
+      <div class="ng-modal-callout ng-modal-callout--warning">
+        <i class="mdi mdi-earth"></i>
+        <span>
+          <strong>Global policy.</strong> This policy applies to every user
+          automatically, including any user enrolled in the future. Per-user
+          assignment is disabled. Turn off <em>Apply to all users</em> in the
+          Overview tab to switch back to per-user scope.
+        </span>
+      </div>
+    <% end %>
+    <%= if not @policy.applies_to_all_users and @available_users != [] do %>
+      <div class="ng-detail-card">
+        <div class="ng-detail-card-header">
+          <span class="ng-section-header">
+            <i class="mdi mdi-account-plus-outline"></i> Assign user
+          </span>
+        </div>
+        <div class="ng-detail-card-body">
+          <p class="ng-form-hint" style="margin-bottom: 1rem;">
+            Pick a user from the list, or assign every remaining user in one
+            click. Effective nftables rules update immediately.
+          </p>
+          <form id="add-user-form" phx-submit="add_user" class="ng-form-inline" autocomplete="off">
+            <div class="ng-field ng-field--grow">
+              <label class="ng-label">User</label>
+              <select name="user_id" class="ng-input" required>
+                <option value="">Select a user…</option>
+                <%= for user <- @available_users do %>
+                  <option value={user.id}>
+                    <%= user.email %><%= if user.role && user.role != :unprivileged, do: " · #{user.role}" %>
+                  </option>
+                <% end %>
+              </select>
+            </div>
+            <button type="submit" class="ng-primary-btn ng-form-inline-btn">
+              <i class="mdi mdi-account-plus"></i> Assign
+            </button>
+            <button
+              type="button"
+              class="ng-secondary-btn ng-form-inline-btn"
+              phx-click="confirm_add_all_users">
+              <i class="mdi mdi-account-multiple-plus"></i>
+              Assign all (<%= length(@available_users) %>)
+            </button>
+          </form>
+          <p class="ng-field-hint">
+            <%= length(@available_users) %> user<%= if length(@available_users) != 1, do: "s" %> available (not yet assigned).
+          </p>
+        </div>
+      </div>
+    <% end %>
+
+    <%= unless @policy.applies_to_all_users do %>
+    <div class="ng-detail-card">
+      <div class="ng-detail-card-header">
+        <span class="ng-section-header">
+          <i class="mdi mdi-account-multiple"></i> Assigned users
+          <span class="ng-section-badge"><%= length(@users) %></span>
+        </span>
+      </div>
+
+      <%= if @users == [] do %>
+        <div class="ng-detail-card-body--bottom">
+          <div class="ng-empty-state ng-empty-state--inline">
+            <p class="ng-empty-state-hint">
+              No users assigned. Add one above to grant them this policy's rules.
+            </p>
+          </div>
+        </div>
+      <% else %>
+        <div class="ng-table-wrap">
+          <table class="ng-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th class="ng-th-center ng-th-narrow"></th>
+              </tr>
+            </thead>
+            <tbody>
+              <%= for user <- @users do %>
+                <tr id={"user-#{user.id}"}>
+                  <td>
+                    <div class="ng-user-cell">
+                      <div class="ng-avatar">
+                        <i class="mdi mdi-account"></i>
+                      </div>
+                      <div class="ng-user-info">
+                        <span class="ng-user-email"><%= user.email %></span>
+                      </div>
+                    </div>
+                  </td>
+                  <td>
+                    <span class="ng-td-muted"><%= user.role %></span>
+                  </td>
+                  <td class="ng-td-center">
+                    <button
+                      class="ng-dismiss-btn"
+                      aria-label={"Remove #{user.email}"}
+                      phx-click="confirm_remove_user"
+                      phx-value-user-id={user.id}
+                    >
+                      <i class="mdi mdi-account-minus-outline"></i>
+                    </button>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      <% end %>
+    </div>
+    <% end %>
+  <% end %>
+
+  <%# ── Danger tab ─────────────────────────────────────────────── %>
+  <%= if @tab == :danger do %>
+    <div class="ng-danger-zone">
+      <div class="ng-danger-zone-header">
+        <i class="mdi mdi-alert-octagon"></i>
+        <span>Danger zone</span>
+      </div>
+      <div class="ng-danger-zone-body">
+        <div class="ng-danger-zone-item">
+          <div>
+            <div class="ng-danger-zone-label">Delete this policy</div>
+            <p class="ng-danger-zone-desc">
+              Removes the policy, its
+              <strong><%= length(@rules) %></strong> rule<%= if length(@rules) != 1, do: "s" %>,
+              and
+              <%= if @policy.applies_to_all_users do %>
+                the global scope binding.
+              <% else %>
+                <strong><%= length(@users) %></strong> user assignment<%= if length(@users) != 1, do: "s" %>.
+              <% end %>
+              The nftables rule set is refreshed immediately for affected users.
+              This action cannot be undone.
+            </p>
+          </div>
+          <button class="ng-danger-btn" phx-click="show_delete_confirm">
+            <i class="mdi mdi-trash-can-outline"></i> Delete policy
+          </button>
+        </div>
+      </div>
+    </div>
+  <% end %>
+</section>

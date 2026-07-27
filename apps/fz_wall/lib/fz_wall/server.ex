@@ -113,6 +113,23 @@ defmodule FzWall.Server do
 
   @impl GenServer
   def handle_call({:set_rules, settings}, _from, _settings) do
+    # v3.3.0: teardown + rebuild the whole `inet nexguard` table
+    # before restore. `restore/1` in `FzWall.CLI.Live` is
+    # additive -- it calls `add_user` / `add_device` / `add_rule`
+    # without checking for existing state. Calling `set_rules`
+    # more than once (which the Policies context now does on
+    # every CRUD, so users see policy changes immediately without
+    # a server restart) would otherwise pile duplicate jump rules
+    # onto the forward chain + duplicate accept/drop rules onto
+    # each per-user chain (each observed at ~5x on the staging
+    # box after a handful of policy edits).
+    #
+    # `setup_firewall/0` runs `teardown_table + setup_table +
+    # setup_chains + setup_rules(nil)` -- a clean slate, then
+    # restore layers the current DB state on top. O(users x
+    # rules) per call which stays sub-second on realistic org
+    # sizes.
+    cli().setup_firewall()
     cli().restore(settings)
 
     {:reply, :ok, settings}

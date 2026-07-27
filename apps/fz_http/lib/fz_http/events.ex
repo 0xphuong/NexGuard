@@ -3,7 +3,7 @@ defmodule FzHttp.Events do
   Handles interfacing with other processes in the system.
   """
 
-  alias FzHttp.{Devices, Rules, Users, Notifications}
+  alias FzHttp.{Devices, Rules, Policies, Users, Notifications}
 
   require Logger
 
@@ -72,13 +72,22 @@ defmodule FzHttp.Events do
   end
 
   def set_rules do
+    # v3.3.0: policy-derived rules union with legacy per-user
+    # rules. During the transition (v3.3.x -> v4.0.0) both
+    # streams coexist so admins can migrate at their pace.
+    # `FzWall.Server` sees one flat set + doesn't care which
+    # source each rule came from -- projections share the same
+    # shape via `Rules.setting_projection/1` and
+    # `Policies.as_effective_rules/0`.
+    effective_rules = MapSet.union(Rules.as_settings(), Policies.as_effective_rules())
+
     GenServer.call(
       wall_pid(),
       {:set_rules,
        %{
          users: Users.as_settings(),
          devices: Devices.as_settings(),
-         rules: Rules.as_settings()
+         rules: effective_rules
        }}
     )
   end

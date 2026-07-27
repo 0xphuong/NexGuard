@@ -19,7 +19,9 @@ defmodule FzHttp.Auth.Roles do
       # L7 ZTNA (ADR-007 → ADR-014)
       FzHttp.AccessGroups.Authorizer,
       FzHttp.Applications.Authorizer,
-      FzHttp.OrgSettings.Authorizer
+      FzHttp.OrgSettings.Authorizer,
+      # Policy-based egress (v3.3.0)
+      FzHttp.Policies.Authorizer
     ]
   end
 

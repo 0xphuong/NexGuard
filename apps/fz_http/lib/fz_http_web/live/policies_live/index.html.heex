@@ -1,0 +1,228 @@
+<%= if @live_action == :new do %>
+  <%= live_modal(
+    FzHttpWeb.PoliciesLive.FormComponent,
+    return_to: ~p"/policies",
+    title: "New Policy",
+    id: "policy-form-component",
+    policy: nil,
+    subject: @subject,
+    remote_ip: @remote_ip,
+    action: @live_action,
+    form: "policy-form",
+    button_text: "Create Policy"
+  ) %>
+<% end %>
+
+<%# ── Delete Confirmation Modal ─────────────────────────────────── %>
+<%= if @delete_confirm do %>
+  <div class="modal is-active" phx-window-keydown="cancel_delete" phx-key="escape">
+    <div class="modal-background" phx-click="cancel_delete"></div>
+    <div class="modal-card">
+      <header class="modal-card-head">
+        <p class="modal-card-title">
+          <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+          Delete Policy
+        </p>
+        <button class="ng-modal-close" aria-label="Close" phx-click="cancel_delete">
+          <i class="mdi mdi-close"></i>
+        </button>
+      </header>
+      <section class="modal-card-body">
+        <p class="ng-modal-intro">You are about to permanently delete:</p>
+        <div class="ng-modal-entity"><%= @delete_confirm.name %></div>
+        <p class="ng-modal-cons">This will also:</p>
+        <ul class="ng-modal-list">
+          <li>Remove <%= @delete_confirm.rule_count %> rule<%= if @delete_confirm.rule_count != 1, do: "s" %> inside this policy</li>
+          <%= if @delete_confirm.applies_to_all_users do %>
+            <li>Detach the policy from <strong>every user</strong> (global scope)</li>
+          <% else %>
+            <li>Un-assign <%= @delete_confirm.user_count %> user<%= if @delete_confirm.user_count != 1, do: "s" %></li>
+          <% end %>
+          <li>Immediately update the nftables rule set for affected users</li>
+        </ul>
+        <p class="ng-modal-warn">This action cannot be undone.</p>
+      </section>
+      <footer class="modal-card-foot">
+        <button class="ng-secondary-btn" phx-click="cancel_delete">Cancel</button>
+        <button class="ng-danger-btn ng-danger-btn--filled" phx-click="delete">
+          <i class="mdi mdi-delete"></i> Delete Policy
+        </button>
+      </footer>
+    </div>
+  </div>
+<% end %>
+
+<div class="ng-page-header">
+  <div class="ng-page-header-inner">
+    <div>
+      <h1 class="ng-page-title">Policies</h1>
+      <p class="ng-page-subtitle">
+        Named egress policies. Add rules once, assign users, and let the merged
+        rule set land in nftables via the existing per-user chains.
+      </p>
+    </div>
+    <.link replace={true} patch={~p"/policies/new"} class="ng-primary-btn">
+      <i class="mdi mdi-shield-plus"></i> New Policy
+    </.link>
+  </div>
+</div>
+
+<section class="section is-main-section">
+  <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
+
+  <%= if @all_policies == [] do %>
+    <div class="ng-empty-state">
+      <i class="mdi mdi-shield-outline ng-empty-state-icon"></i>
+      <p class="ng-empty-state-title">No policies yet</p>
+      <p class="ng-empty-state-hint">
+        Create a policy to group rules by team or role, then assign users.
+        Legacy per-user rules keep working alongside.
+      </p>
+      <.link replace={true} patch={~p"/policies/new"} class="ng-primary-btn ng-empty-state-cta">
+        <i class="mdi mdi-shield-plus"></i> Create first policy
+      </.link>
+    </div>
+  <% else %>
+    <%# ── Stats strip ────────────────────────────────────────────── %>
+    <div class="ng-stat-strip">
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value"><%= length(@all_policies) %></div>
+        <div class="ng-stat-tile-label">Policies</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.sum(Enum.map(@all_policies, & &1.rule_count)) %>
+        </div>
+        <div class="ng-stat-tile-label">Rules</div>
+      </div>
+      <div class="ng-stat-tile">
+        <div class="ng-stat-tile-value">
+          <%= Enum.sum(Enum.map(@all_policies, & &1.user_count)) %>
+        </div>
+        <div class="ng-stat-tile-label">Assignments</div>
+      </div>
+    </div>
+
+    <%# ── Filter bar (name/desc substring only) ─────────────────── %>
+    <.form
+      :let={_f}
+      for={%{}}
+      as={:filters}
+      phx-change="filter"
+      class="ng-user-filterbar"
+    >
+      <div class="ng-user-filterbar-search">
+        <i class="mdi mdi-magnify"></i>
+        <input
+          type="text"
+          name="filters[search]"
+          value={@filters["search"]}
+          placeholder="Search by name or description…"
+          class="ng-user-filterbar-input"
+          phx-debounce="200"
+          autocomplete="off"
+        />
+      </div>
+
+      <%= if FzHttpWeb.PoliciesLive.Index.filters_active?(@filters) do %>
+        <button type="button" phx-click="reset_filters" class="ng-user-filterbar-reset">
+          <i class="mdi mdi-close"></i> Reset
+        </button>
+      <% end %>
+
+      <span class="ng-user-filterbar-count">
+        <%= length(@policies) %> of <%= length(@all_policies) %>
+      </span>
+    </.form>
+
+    <%# ── Table ─────────────────────────────────────────────────── %>
+    <%= if @policies == [] do %>
+      <div class="ng-empty-state ng-empty-state--inline">
+        <p class="ng-empty-state-hint">
+          No policies match the current filters.
+          <button type="button" phx-click="reset_filters" class="ng-inline-link">Reset filters</button>
+        </p>
+      </div>
+    <% else %>
+    <div class="ng-table-wrap">
+      <table class="ng-table">
+        <thead>
+          <tr>
+            <th>Policy</th>
+            <th class="ng-th-center">Rules</th>
+            <th class="ng-th-center">Users</th>
+            <th>Default</th>
+            <th>Created</th>
+            <th class="ng-th-center ng-th-narrow"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <%= for policy <- @policies do %>
+            <tr id={"policy-#{policy.id}"}>
+              <td>
+                <div class="ng-user-cell">
+                  <div class="ng-avatar ng-avatar--group">
+                    <i class="mdi mdi-shield-check-outline"></i>
+                  </div>
+                  <div class="ng-user-info">
+                    <.link navigate={~p"/policies/#{policy}"} class="ng-user-email">
+                      <%= policy.name %>
+                    </.link>
+                    <%= if policy.applies_to_all_users do %>
+                      <span class="ng-td-muted ng-td-meta">
+                        <i class="mdi mdi-earth"></i> global — applies to all users
+                      </span>
+                    <% end %>
+                    <%= if policy.description && policy.description != "" do %>
+                      <span class="ng-td-muted ng-td-meta"><%= policy.description %></span>
+                    <% end %>
+                  </div>
+                </div>
+              </td>
+              <td class="ng-td-center">
+                <span class="ng-device-count">
+                  <i class="mdi mdi-format-list-checks"></i> <%= policy.rule_count %>
+                </span>
+              </td>
+              <td class="ng-td-center">
+                <%= if policy.applies_to_all_users do %>
+                  <span class="ng-device-count ng-td-muted" title="Global policy — applies to every user">
+                    <i class="mdi mdi-earth"></i> all
+                  </span>
+                <% else %>
+                  <span class="ng-device-count">
+                    <i class="mdi mdi-account"></i> <%= policy.user_count %>
+                  </span>
+                <% end %>
+              </td>
+              <td>
+                <span class={"ng-source-badge ng-source-badge--#{policy.default_action}"}>
+                  <%= policy.default_action %>
+                </span>
+              </td>
+              <td
+                id={"policy-#{policy.id}-inserted-at"}
+                data-timestamp={policy.inserted_at}
+                phx-hook="FormatTimestamp"
+                class="ng-td-muted"
+              >
+                …
+              </td>
+              <td class="ng-td-center">
+                <button
+                  class="ng-dismiss-btn"
+                  aria-label={"Delete policy #{policy.name}"}
+                  phx-click="confirm_delete"
+                  phx-value-id={policy.id}
+                >
+                  <i class="mdi mdi-trash-can-outline"></i>
+                </button>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+    <% end %>
+  <% end %>
+</section>

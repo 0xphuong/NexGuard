@@ -1,6 +1,6 @@
 # Task list — NexGuard server
 
-Last updated: 2026-07-21 · Server at **v3.2.3** · Pairs with NexGuard Connect macOS **v0.5.8** / Windows **v0.5.0** (SAC-rollback) / Linux CLI **v0.3.0**
+Last updated: 2026-07-27 · Server at **v3.3.0** · Pairs with NexGuard Connect macOS **v0.5.9** / Windows **v0.6.2** / Linux CLI **v0.3.1**
 
 For the full feature history see [CHANGELOG.md](CHANGELOG.md). For the matching
 client task list see [`nexguard-connect/task.md`](https://github.com/0xphuong/nexguard-connect/blob/main/task.md).

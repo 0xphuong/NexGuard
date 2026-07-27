@@ -214,6 +214,14 @@ defmodule FzHttpWeb.Router do
       live "/users/:id/new_device", UserLive.Show, :new_device
       live "/rules", RuleLive.Index, :allow
       live "/rules/deny", RuleLive.Index, :deny
+
+      # Policies (v3.3.0 -- policy-based egress model, coexists with /rules)
+      live "/policies", PoliciesLive.Index, :index
+      live "/policies/new", PoliciesLive.Index, :new
+      live "/policies/:id", PoliciesLive.Show, :show
+      live "/policies/:id/rules", PoliciesLive.Show, :rules
+      live "/policies/:id/users", PoliciesLive.Show, :users
+      live "/policies/:id/danger", PoliciesLive.Show, :danger
       live "/devices", DeviceLive.Admin.Index, :index
       live "/devices/:id", DeviceLive.Admin.Show, :show
 

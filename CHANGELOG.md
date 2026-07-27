@@ -9,6 +9,116 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [3.3.0] - 2026-07-27
+
+Additive: introduces the **policy-based egress model** as a
+successor to the per-user `rules` table. Named policies group
+`(destination, port, action)` rules; users are added to policies
+via a many-to-many join. The nftables backend (fz_wall) is
+unchanged -- it already organises rules per-user internally, so
+policy-derived rules just union with the legacy rule stream and
+land in the exact same per-user chains.
+
+Coexists with the legacy `/rules` UI during the v3.3.x
+transition. `/rules` is scheduled for removal in v4.0.0 (see
+`task.md`). Admins can migrate at their pace; no forced move.
+
+### Added
+
+- **New tables**: `policies`, `policy_rules`, `users_policies`
+  (composite PK on the join). Ecto schemas +
+  `FzHttp.Policies.{Policy, PolicyRule}` + `FzHttp.Policies`
+  context with the standard `create / update / delete / list`
+  surface + `add_user_to_policy / remove_user_from_policy /
+  list_users_in_policy / list_policies_for_user` for M2M
+  operations. Idempotent add (composite PK + `ON CONFLICT DO
+  NOTHING`) so a UI double-click no-ops instead of raising.
+- **Postgres constraints**: reused `action_enum` and
+  `port_type_enum` types so the wire shape stays identical to
+  legacy rules. Two GiST exclusion constraints prevent
+  duplicate `(policy_id, destination, action)` with overlapping
+  port ranges inside the same policy (port-less vs port-typed
+  predicates split so `10.0/8 accept` doesn't collide with
+  `10.0/8 accept :443`).
+- **`FzHttp.Policies.as_effective_rules/0`** flattens every
+  (user, policy_rule) pair into rule projections whose shape
+  matches `FzHttp.Rules.setting_projection/1` -- fz_wall sees
+  one flat `MapSet` regardless of source.
+- **`FzHttp.Events.set_rules/0` unions** the legacy per-user
+  rules and the policy-derived rules so both surfaces stay
+  live during the transition.
+- **Admin UI `/policies`**: index + show (Overview / Rules /
+  Users / Danger tabs) + New Policy modal + inline add-rule +
+  user assignment `<select>` + confirm modals for
+  delete/remove. Sidebar link "Policies" under Access Control,
+  next to Firewall Rules.
+- **Audit log events**: `policy.create`, `policy.update`,
+  `policy.delete`, `policy_rule.{create,update,delete}`,
+  `policy.user_added`, `policy.user_removed`,
+  `policy.users_bulk_added`.
+- **Bulk assign**: `[Assign all (N)]` button on the policy's
+  Users tab -- inserts every remaining user via a single
+  `INSERT ... ON CONFLICT DO NOTHING` and fires
+  `Events.set_rules/0` exactly once (loop-calling the
+  per-user path would trigger N nftables teardown+rebuild
+  cycles, which is unnecessary for a single bulk action).
+- **Global policies** (`applies_to_all_users` flag). When
+  enabled, the policy's rules materialise ONCE with
+  `user_id=nil` (fz_wall's global `forward` chain + global
+  `ip_accept`/`ip_drop` sets) instead of the per-user
+  cross product. New users automatically inherit these
+  rules -- no per-user assignment step. Example: "allow
+  `10.0.100.10:443` for everyone" is now one nftables
+  element regardless of user count, matching what the
+  legacy `/rules` UI did with `user_id=nil`. UI hides the
+  Users tab for global policies and shows a `global`
+  badge in the list + header.
+- **nftables overlap-tolerance**: `add_element` calls now
+  swallow `interval overlaps with an existing one` and
+  `File exists` errors (both idempotent no-ops -- the
+  narrower interval is already covered by the wider one).
+  Prevents a hard boot-time crash of `fz_wall.Server.init/1`
+  when a user has both a legacy rule and a policy rule
+  whose destinations overlap during the v3.3.x transition.
+- **/policies UI alignment**: Replaced OS-native
+  `data-confirm` browser prompts on the list-page delete
+  button and the "Assign all users" button with the styled
+  in-app modal used by Applications / Users / Access Groups.
+  Switched `ng-card` / `ng-card-header` / `ng-card--danger`
+  (undefined in main.scss -- rendered unstyled) to the
+  peer-page `ng-detail-card` + `ng-section-header` shell,
+  and moved the Danger tab to the shared `ng-danger-zone`
+  layout. No functional change; visual/typography
+  consistency with the rest of the admin only.
+
+### Behaviour notes
+
+- **Effective rule for a user** = union of the user's legacy
+  rows in `rules` (if any) plus every `policy_rule` in every
+  policy the user is in. `FzWall.Server` doesn't care where
+  each rule came from -- the merge happens above it.
+- **Conflict semantics** carry over unchanged from the legacy
+  model: nftables first-match wins inside each per-user chain.
+  Ordering is by insertion order (same as `rules`).
+- **Default action** on a policy is currently informational --
+  the global fz_wall default (`drop`) still gates anything not
+  matched by an explicit rule. Persisted so a future release
+  can key per-user default off the policy without a schema
+  change.
+
+### Compatibility
+
+- **No client change** -- clients see the same WG peer + config;
+  rules apply server-side.
+- **Legacy `rules` table untouched.** Migration is additive.
+  Rows created in the admin UI's `/rules` page keep working.
+- **Removal plan**: v4.0.0 auto-migrates remaining `rules`
+  rows into a "legacy" policy, hides `/rules`, and drops the
+  table after a release cycle. See `task.md` for the ordered
+  removal steps.
+
+---
+
 ## [3.2.3] - 2026-07-21
 
 Fixes the "Windows A + Windows B collision" bug where two devices
