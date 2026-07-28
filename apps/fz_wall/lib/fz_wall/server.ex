@@ -132,6 +132,21 @@ defmodule FzWall.Server do
     cli().setup_firewall()
     cli().restore(settings)
 
+    # v4.0.1: `setup_firewall/0`'s `teardown_table` wipes the WHOLE
+    # `inet nexguard` table, including the `l7_prerouting` chain
+    # installed at boot by `install_l7/0`. Without re-installing
+    # it here, any policy CRUD would silently break L7 apps
+    # (traffic to `10.99.0.0/16` VIPs falls through to the
+    # forward chain instead of being TPROXY'd) until the next
+    # container restart. Mirrors the boot flow in `init/1`.
+    #
+    # `fwmark route` lives in the kernel routing table, NOT
+    # nftables -- it survives `teardown_table` and doesn't need
+    # a rerun here.
+    if l7_enabled?() do
+      try_l7(&cli().install_l7/0, "TPROXY chain")
+    end
+
     {:reply, :ok, settings}
   end
 

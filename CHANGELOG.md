@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.1] - 2026-07-27
+
+### Fixed
+
+- **L7 apps unreachable after any policy CRUD** (regression
+  since v3.3.0). `FzWall.Server.handle_call({:set_rules, ...})`
+  runs `cli().setup_firewall()` before `restore/1` to prevent
+  duplicate jump-rule accumulation -- but `setup_firewall/0`'s
+  `teardown_table` wipes the **whole** `inet nexguard` table,
+  including the `l7_prerouting` chain installed at boot. The
+  restore path only re-adds users/devices/filter rules, so
+  the TPROXY hook was silently missing until the next
+  container restart. Effect: traffic to any L7 VIP in
+  `10.99.0.0/16` fell through to the forward chain and hit
+  the `Default deny` policy (or fz_wall global default),
+  making every L7-managed app unreachable to VPN clients as
+  soon as an admin edited a policy.
+
+  Fix: after `restore/1`, re-run `try_l7(install_l7)` if
+  `l7_enabled?() == true`. The `fwmark route` lives in the
+  kernel routing table (not nftables) so it survives the
+  teardown and doesn't need a rerun. Mirrors the boot flow
+  in `FzWall.Server.init/1`.
+
+  No client change; deploy the image + no manual step needed.
+  L7 access recovers as soon as the container running v4.0.1
+  is up (next boot re-installs the TPROXY chain fresh, and
+  subsequent policy CRUDs no longer wipe it).
+
+---
+
 ## [4.0.0] - 2026-07-27
 
 **Breaking**: retires the legacy `FzHttp.Rules` subsystem in
