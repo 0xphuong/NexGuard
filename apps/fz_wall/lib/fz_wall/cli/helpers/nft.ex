@@ -15,20 +15,6 @@ defmodule FzWall.CLI.Helpers.Nft do
   end
 
   @doc """
-  Append a policy rule to a chain (v4.1.0). Uses `nft add rule`
-  which puts the rule at the END of the chain, so iterating rules
-  in priority-ASC order and calling `add_chain_rule` per rule
-  yields a chain whose top-to-bottom order matches priority
-  (lower priority number = evaluated first).
-
-  `rule_str` is the nft rule body, e.g.
-    "ip daddr 10.0.55.0/24 tcp dport 443 accept".
-  """
-  def add_chain_rule(chain, rule_str) do
-    exec!("#{nft()} 'add rule inet #{@table_name} #{chain} #{rule_str}'")
-  end
-
-  @doc """
   Insert a nft jump rule
   """
   def insert_dev_rule(ip_type, source_set, jump_chain) do
@@ -113,38 +99,11 @@ defmodule FzWall.CLI.Helpers.Nft do
 
   @doc """
   Sets up nexguard chains.
-
-  v4.1.2: `ct state established,related accept` gets inserted at
-  the top of the forward chain immediately after creation.
-  Without it, return traffic (SYN-ACK, HTTP responses, everything
-  travelling backwards through the box) hits the per-user-chain
-  jumps looking for a match on the ORIGINAL destination host's
-  IP (not any VPN client's IP), fails every user match, then
-  falls through to whatever global `0.0.0.0/0 drop` policy the
-  admin set up -- silently killing established sessions.
-
-  This bug was latent from day one: pre-v3.3.0 there was no
-  policy-driven default-deny, so return traffic drifted down to
-  the chain's `policy accept` fallthrough and worked by luck.
-  With Policies (v3.3.0+) an admin can now write an explicit
-  Default-deny 0.0.0.0/0 policy, and the missing conntrack
-  accept surfaces immediately: forward traffic passes via the
-  user chain, return SYN-ACK gets dropped, TCP handshake hangs.
-
-  `ct state established,related` covers all reply packets of any
-  session already accepted by a rule below -- new connections
-  (`ct state new`) still evaluate the full chain so per-user
-  policies keep their gatekeeping role.
   """
   def setup_chains do
     exec!(
       "#{nft()} 'add chain inet #{@table_name} #{@main_chain} " <>
         "{ type filter hook forward priority 0 ; policy accept ; }'"
-    )
-
-    exec!(
-      "#{nft()} 'add rule inet #{@table_name} #{@main_chain} " <>
-        "ct state established,related accept'"
     )
 
     exec!(

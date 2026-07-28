@@ -156,37 +156,6 @@ defmodule FzHttpWeb.PoliciesLive.Show do
     end
   end
 
-  # v4.1.1: inline priority editor -- debounced `phx-change` on
-  # the number input inside each rule row. Fires ~800ms after
-  # the admin stops typing; empty / invalid values are ignored
-  # so a mid-edit backspace doesn't clobber the rule with 0.
-  # Same `Policies.update_policy_rule/3` path a future full-edit
-  # modal would use -- guarded by `manage_policies` permission.
-  def handle_event("update_priority", %{"rule-id" => rule_id, "priority" => raw}, socket) do
-    with {new_priority, ""} <- Integer.parse(raw),
-         true <- new_priority >= 0 and new_priority <= 9999,
-         %FzHttp.Policies.PolicyRule{} = rule <-
-           Enum.find(socket.assigns.rules, &(&1.id == rule_id)),
-         true <- rule.priority != new_priority,
-         {:ok, _updated} <-
-           FzHttp.Policies.update_policy_rule(
-             rule,
-             %{"priority" => new_priority},
-             socket.assigns.subject,
-             socket.assigns[:remote_ip]
-           ) do
-      {:noreply,
-       socket
-       |> load_policy_assigns(socket.assigns.policy)
-       |> put_flash(:info, "Priority updated to #{new_priority}.")}
-    else
-      # Unchanged, empty / not-integer, or out-of-range -- silent
-      # no-op keeps the row sane while admin is mid-edit.
-      _ ->
-        {:noreply, socket}
-    end
-  end
-
   def handle_event(
         "remove_rule",
         _params,
@@ -357,19 +326,12 @@ defmodule FzHttpWeb.PoliciesLive.Show do
 
     socket
     |> assign(:policy, policy)
-    # v4.1.0: sort by (priority ASC, inserted_at ASC) so the
-    # rules table reads top-down in evaluation order -- matches
-    # what fz_wall actually applies to nftables.
-    |> assign(:rules, Enum.sort_by(policy.rules, &{&1.priority, &1.inserted_at}))
+    |> assign(:rules, Enum.sort_by(policy.rules, &to_string(&1.destination)))
     |> assign(:users, Enum.sort_by(policy.users, & &1.email))
     |> assign(:available_users, available_users)
     |> assign(:changeset, Policies.change_policy(policy, %{}))
     |> assign(:rule_changeset,
-      Policies.new_policy_rule(%{
-        "policy_id" => policy.id,
-        "action" => "accept",
-        "priority" => 100
-      }))
+      Policies.new_policy_rule(%{"policy_id" => policy.id, "action" => "accept"}))
     |> assign(:page_title, "Policy: #{policy.name}")
   end
 end
