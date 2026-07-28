@@ -341,11 +341,8 @@
           </div>
 
           <p class="ng-rule-add-form-hint">
-            <strong>Destination</strong> takes a CIDR (<code>10.0.0.0/8</code>)
-            or a single host (<code>192.168.1.5</code>). <strong>Protocol</strong>
-            <code>ANY</code> matches every L4 protocol -- leave <strong>Port(s)</strong>
-            empty (or use <code>443</code>, <code>8000-8080</code>).
-            <strong>Comment</strong> is admin-facing memo, shown next to the rule.
+            Protocol <code>ANY</code> matches every L4 — leave port empty.
+            Port <code>443</code> or a range <code>8000-8080</code>.
           </p>
 
           <%= if @rule_changeset.action == :insert and Enum.any?(@rule_changeset.errors) do %>

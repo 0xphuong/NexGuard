@@ -5710,15 +5710,36 @@ pre {
   margin-bottom: 0.25rem;
 }
 
+/* Bottom-align every field's input to the row baseline, regardless
+   of label height. Without this the labels sit at whatever top-of-
+   ng-field is + the input follows — leaving `<select>` cells
+   visibly lower than `<input>` cells because native select controls
+   render slightly taller. Flex column + `justify-content: flex-end`
+   pins the input to the field's bottom edge, and the grid's
+   `align-items: end` lines every field's bottom to the row bottom. */
 .ng-rule-add-form .ng-field {
   margin: 0;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
 }
 
 .ng-rule-add-form .ng-input,
 .ng-rule-add-form select.ng-input {
   width: 100%;
   min-width: 0;
+  /* Explicit height matches the primary button so `<select>` and
+     `<input>` render at the same bottom line as the submit btn.
+     Chrome/Safari native select controls are ~2px taller by
+     default; without this, Action + Protocol sit ~2px lower. */
+  height: 2.5rem;
+  box-sizing: border-box;
+}
+
+.ng-rule-add-form > .ng-primary-btn {
+  height: 2.5rem;
+  align-self: end;
 }
 
 @media (max-width: 900px) {

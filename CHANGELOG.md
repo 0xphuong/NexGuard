@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.3] - 2026-07-27
+
+### Fixed
+
+- **Add-rule form: `<select>` cells rendered lower than
+  `<input>` cells** (Action + Protocol sat ~2px below
+  Destination, Port, Comment). Native select controls in
+  Chrome/Safari are marginally taller than text inputs by
+  default; `align-items: end` on the grid aligned each
+  field's bottom edge but the fields themselves had
+  different intrinsic heights. Fix:
+  - `.ng-rule-add-form .ng-field` gets an explicit
+    `display: flex; flex-direction: column; justify-content:
+    flex-end` so the input pins to the field's bottom edge
+    regardless of label height.
+  - `.ng-input` height locked at `2.5rem` (both `<select>`
+    and `<input>` variants) with `box-sizing: border-box`.
+  - Submit button height matched to `2.5rem` + `align-self:
+    end`. Every control now sits on the same baseline.
+
+### Changed
+
+- **Trimmed the add-rule hint line** from 3 sentences to 1.
+  The placeholders (`10.0.0.0/8`, `e.g. Grafana at 10.99.0.5`)
+  already communicate the input format for destination and
+  comment; the hint only needed to cover the non-obvious
+  case (ANY protocol + empty port matches every L4).
+
+---
+
 ## [4.0.2] - 2026-07-27
 
 ### Added
