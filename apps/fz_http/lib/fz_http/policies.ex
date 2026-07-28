@@ -44,9 +44,89 @@ defmodule FzHttp.Policies do
 
   def list_policies(%Auth.Subject{} = subject) do
     with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_policies_permission()) do
+      # v4.0.4: the default policy is surfaced separately at
+      # the top of the /policies page via `fetch_default_policy/1`,
+      # so filter it out of the regular list to avoid a duplicate
+      # row.
+      import Ecto.Query
+
       Policy.Query.all()
+      |> where([policies: p], p.is_default == false)
       |> Authorizer.for_subject(subject)
       |> Repo.list()
+    end
+  end
+
+  @doc """
+  Fetch the single row marked `is_default = true`, or `nil`.
+  """
+  def fetch_default_policy(%Auth.Subject{} = subject) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_policies_permission()) do
+      import Ecto.Query
+
+      policy =
+        Policy.Query.all()
+        |> where([policies: p], p.is_default == true)
+        |> Repo.one()
+
+      {:ok, policy}
+    end
+  end
+
+  @doc """
+  Create-or-update the singleton default policy. Uses the
+  dedicated `default_policy_changeset/2` that locks
+  `is_default = true` + `applies_to_all_users = true`. Fires
+  `Events.set_rules/0` so the catch-all synthesised rule
+  updates nftables immediately.
+  """
+  def upsert_default_policy(attrs, %Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_policies_permission()),
+         {:ok, current} <- fetch_default_policy(subject),
+         {:ok, policy} <-
+           (current || %Policy{})
+           |> Policy.Changeset.default_policy_changeset(attrs)
+           |> Repo.insert_or_update() do
+      AuditLogs.log(
+        if(current, do: "policy.default_updated", else: "policy.default_created"),
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "policy",
+        target_id: policy.id,
+        target_label: "default",
+        metadata: %{default_action: to_string(policy.default_action)}
+      )
+
+      FzHttp.Events.set_rules()
+      {:ok, policy}
+    end
+  end
+
+  @doc """
+  Delete the default policy if one exists. Emits `set_rules/0`
+  so the catch-all rule is removed from nftables. No-op when
+  no default is set.
+  """
+  def clear_default_policy(%Auth.Subject{actor: {:user, actor}} = subject, ip_address \\ nil) do
+    with :ok <- Auth.ensure_has_permissions(subject, Authorizer.manage_policies_permission()),
+         {:ok, policy} <- fetch_default_policy(subject),
+         false <- is_nil(policy),
+         {:ok, deleted} <- Repo.delete(policy) do
+      AuditLogs.log("policy.default_deleted",
+        actor_id: actor.id,
+        actor_email: actor.email,
+        ip_address: ip_address,
+        target_type: "policy",
+        target_id: deleted.id,
+        target_label: "default"
+      )
+
+      FzHttp.Events.set_rules()
+      {:ok, deleted}
+    else
+      true -> {:ok, nil}
+      other -> other
     end
   end
 
@@ -382,9 +462,44 @@ defmodule FzHttp.Policies do
   def as_effective_rules do
     port_rules_supported? = port_rules_supported?()
 
-    global_rules(port_rules_supported?)
-    |> Kernel.++(per_user_rules(port_rules_supported?))
+    (global_rules(port_rules_supported?) ++
+       per_user_rules(port_rules_supported?) ++
+       default_policy_rules())
     |> MapSet.new()
+  end
+
+  # v4.0.4: synthesise the catch-all rules from the singleton
+  # `is_default = true` policy. Emitted at end of the list so
+  # in the set-based nftables model these land in the `ip_drop`
+  # / `ip6_drop` (or accept) sets alongside anything an
+  # ordinary global policy added. Emits BOTH IP families so a
+  # single admin toggle covers v4 + v6 traffic (dual-stack
+  # clients don't slip through the v4 catch-all with v6).
+  defp default_policy_rules do
+    import Ecto.Query
+
+    case Policy.Query.all() |> where([policies: p], p.is_default == true) |> Repo.one() do
+      nil ->
+        []
+
+      %Policy{default_action: action} ->
+        [
+          %{
+            destination: "0.0.0.0/0",
+            action: action,
+            user_id: nil,
+            port_type: nil,
+            port_range: nil
+          },
+          %{
+            destination: "::/0",
+            action: action,
+            user_id: nil,
+            port_type: nil,
+            port_range: nil
+          }
+        ]
+    end
   end
 
   @doc """

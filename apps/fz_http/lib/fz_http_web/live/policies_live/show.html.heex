@@ -165,10 +165,6 @@
             </span>
             <span class="ng-td-muted">·</span>
           <% end %>
-          <span class={"ng-source-badge ng-source-badge--#{@policy.default_action}"}>
-            default: <%= @policy.default_action %>
-          </span>
-          <span class="ng-td-muted">·</span>
           <span class="ng-device-count">
             <i class="mdi mdi-format-list-checks"></i>
             <%= length(@rules) %> rule<%= if length(@rules) != 1, do: "s" %>
@@ -249,14 +245,11 @@
             <p class="ng-field-error"><%= error_tag(f, :description) %></p>
           </div>
 
-          <div class="ng-field">
-            <%= label(f, :default_action, "Default action", class: "ng-label") %>
-            <%= select(f, :default_action, [{"Deny", "drop"}, {"Allow", "accept"}],
-                  class: "ng-input #{input_error_class(f, :default_action)}") %>
-            <p class="ng-field-hint">
-              Applies when a packet doesn't match any rule in this policy.
-            </p>
-          </div>
+          <%# v4.0.4: `default_action` moved into the Default
+              Policy card on /policies. Kept as a hidden field
+              so `validate_required(:default_action)` still
+              passes on updates. %>
+          <%= hidden_input(f, :default_action) %>
 
           <div class="ng-field">
             <label class="ng-label" style="display:flex; align-items:center; gap:.5rem;">

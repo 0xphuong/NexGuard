@@ -19,20 +19,22 @@ defmodule FzHttpWeb.PoliciesLive.Index do
 
   @impl Phoenix.LiveView
   def mount(_params, _session, socket) do
-    case Policies.list_policies(socket.assigns.subject) do
-      {:ok, policies} ->
-        policies = decorate(policies)
-        filters = default_filters()
+    with {:ok, policies} <- Policies.list_policies(socket.assigns.subject),
+         {:ok, default_policy} <- Policies.fetch_default_policy(socket.assigns.subject) do
+      policies = decorate(policies)
+      filters = default_filters()
 
-        {:ok,
-         socket
-         |> assign(:all_policies, policies)
-         |> assign(:policies, apply_filters(policies, filters))
-         |> assign(:filters, filters)
-         |> assign(:delete_confirm, nil)
-         |> assign(:page_title, @page_title)
-         |> assign(:page_subtitle, @page_subtitle)}
-
+      {:ok,
+       socket
+       |> assign(:all_policies, policies)
+       |> assign(:policies, apply_filters(policies, filters))
+       |> assign(:filters, filters)
+       |> assign(:default_policy, default_policy)
+       |> assign(:delete_confirm, nil)
+       |> assign(:clear_default_confirm, false)
+       |> assign(:page_title, @page_title)
+       |> assign(:page_subtitle, @page_subtitle)}
+    else
       {:error, _reason} ->
         # LiveView contract requires `{:ok, socket}` from mount --
         # returning `{:error, ...}` crashes with ArgumentError.
@@ -111,6 +113,54 @@ defmodule FzHttpWeb.PoliciesLive.Index do
          socket
          |> assign(:delete_confirm, nil)
          |> put_flash(:error, "Could not delete policy.")}
+    end
+  end
+
+  # ── Default Policy ──────────────────────────────────────────────
+  # v4.0.4: catch-all rule sits at the tail of the effective-rules
+  # stream. UI is a single verdict selector -- allow/deny for all
+  # users, all destinations (v4 + v6). Persisted as a normal Policy
+  # row with `is_default = true`; emission adds the synthesised
+  # 0.0.0.0/0 + ::/0 catch-all rules on top of whatever regular
+  # policies emit.
+
+  def handle_event("save_default", %{"default" => %{"action" => action}}, socket) do
+    case Policies.upsert_default_policy(
+           %{"default_action" => action},
+           socket.assigns.subject,
+           socket.assigns[:remote_ip]
+         ) do
+      {:ok, policy} ->
+        {:noreply,
+         socket
+         |> assign(:default_policy, policy)
+         |> put_flash(:info, "Default policy set to #{policy.default_action}.")}
+
+      {:error, _cs} ->
+        {:noreply, put_flash(socket, :error, "Could not save default policy.")}
+    end
+  end
+
+  def handle_event("confirm_clear_default", _, socket),
+    do: {:noreply, assign(socket, :clear_default_confirm, true)}
+
+  def handle_event("cancel_clear_default", _, socket),
+    do: {:noreply, assign(socket, :clear_default_confirm, false)}
+
+  def handle_event("clear_default", _params, socket) do
+    case Policies.clear_default_policy(socket.assigns.subject, socket.assigns[:remote_ip]) do
+      {:ok, _} ->
+        {:noreply,
+         socket
+         |> assign(:default_policy, nil)
+         |> assign(:clear_default_confirm, false)
+         |> put_flash(:info, "Default policy cleared. Unmatched traffic now falls through to policy accept.")}
+
+      {:error, _} ->
+        {:noreply,
+         socket
+         |> assign(:clear_default_confirm, false)
+         |> put_flash(:error, "Could not clear default policy.")}
     end
   end
 

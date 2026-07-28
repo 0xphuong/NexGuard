@@ -70,6 +70,105 @@
 <section class="section is-main-section">
   <%= render(FzHttpWeb.SharedView, "flash.html", assigns) %>
 
+  <%# ── Default Policy card ────────────────────────────────────────
+  %# The catch-all rule that fires at the END of the effective-rules
+  %# stream. One per install. `deny` here reproduces Firezone's
+  %# legacy `Denylist 0.0.0.0/0` end-of-chain behaviour; `accept`
+  %# makes the policy engine allow-list-only (fallthrough passes
+  %# anything not explicitly dropped). %>
+  <div class="ng-detail-card">
+    <div class="ng-detail-card-header">
+      <span class="ng-section-header">
+        <i class="mdi mdi-earth"></i> Default policy
+        <span class="ng-section-badge">catch-all</span>
+      </span>
+    </div>
+    <div class="ng-detail-card-body">
+      <p class="ng-form-hint" style="margin-bottom: 0.75rem;">
+        Applies to <strong>every user</strong> for <strong>every destination
+        (IPv4 + IPv6)</strong> that no rule in a regular policy has matched.
+        Sits at the tail of the effective-rules stream.
+      </p>
+
+      <.form
+        :let={_}
+        for={%{}}
+        as={:default}
+        phx-submit="save_default"
+        class="ng-form-inline"
+      >
+        <div class="ng-field ng-field--grow">
+          <label class="ng-label">Verdict</label>
+          <select name="default[action]" class="ng-input">
+            <option value="drop" selected={
+              @default_policy && @default_policy.default_action == :drop
+            }>Deny (drop) — recommended, then layer explicit allows above</option>
+            <option value="accept" selected={
+              @default_policy && @default_policy.default_action == :accept
+            }>Allow (accept) — allow-list-only, explicit denies still block</option>
+          </select>
+        </div>
+        <button type="submit" class="ng-primary-btn ng-form-inline-btn">
+          <i class="mdi mdi-content-save"></i>
+          <%= if @default_policy, do: "Save", else: "Set default" %>
+        </button>
+        <%= if @default_policy do %>
+          <button
+            type="button"
+            class="ng-secondary-btn ng-form-inline-btn"
+            phx-click="confirm_clear_default"
+            title="Remove the default policy -- chain fall-through returns to nftables policy accept."
+          >
+            <i class="mdi mdi-close"></i> Clear
+          </button>
+        <% end %>
+      </.form>
+
+      <p class="ng-field-hint" style="margin-top: 0.75rem;">
+        <%= if @default_policy do %>
+          Current: <strong class={"ng-source-badge ng-source-badge--#{@default_policy.default_action}"}><%= @default_policy.default_action %></strong>
+          for both IPv4 and IPv6. Rule updates take effect immediately.
+        <% else %>
+          <strong>No default policy set</strong> — traffic not matched by any
+          regular-policy rule falls through to nftables' <code>policy accept</code>.
+          Set a default to explicitly deny or allow.
+        <% end %>
+      </p>
+    </div>
+  </div>
+
+  <%= if @clear_default_confirm do %>
+    <div class="modal is-active" phx-window-keydown="cancel_clear_default" phx-key="escape">
+      <div class="modal-background" phx-click="cancel_clear_default"></div>
+      <div class="modal-card">
+        <header class="modal-card-head">
+          <p class="modal-card-title">
+            <i class="mdi mdi-alert-octagon ng-modal-title-icon"></i>
+            Clear default policy
+          </p>
+          <button class="ng-modal-close" aria-label="Close" phx-click="cancel_clear_default">
+            <i class="mdi mdi-close"></i>
+          </button>
+        </header>
+        <section class="modal-card-body">
+          <p class="ng-modal-intro">Remove the catch-all rule?</p>
+          <p class="ng-modal-desc">
+            Traffic not matched by any regular-policy rule will fall through to
+            nftables' <code>policy accept</code> — effectively an "allow all"
+            for unmatched packets. Only clear if you want no catch-all behaviour
+            (rare).
+          </p>
+        </section>
+        <footer class="modal-card-foot">
+          <button class="ng-secondary-btn" phx-click="cancel_clear_default">Cancel</button>
+          <button class="ng-danger-btn ng-danger-btn--filled" phx-click="clear_default">
+            <i class="mdi mdi-close"></i> Clear default
+          </button>
+        </footer>
+      </div>
+    </div>
+  <% end %>
+
   <%= if @all_policies == [] do %>
     <div class="ng-empty-state">
       <i class="mdi mdi-shield-outline ng-empty-state-icon"></i>
@@ -151,7 +250,6 @@
             <th>Policy</th>
             <th class="ng-th-center">Rules</th>
             <th class="ng-th-center">Users</th>
-            <th>Default</th>
             <th>Created</th>
             <th class="ng-th-center ng-th-narrow"></th>
           </tr>
@@ -194,11 +292,6 @@
                     <i class="mdi mdi-account"></i> <%= policy.user_count %>
                   </span>
                 <% end %>
-              </td>
-              <td>
-                <span class={"ng-source-badge ng-source-badge--#{policy.default_action}"}>
-                  <%= policy.default_action %>
-                </span>
               </td>
               <td
                 id={"policy-#{policy.id}-inserted-at"}

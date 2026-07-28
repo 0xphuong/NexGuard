@@ -36,15 +36,14 @@
       <p class="ng-field-error"><%= error_tag(f, :description) %></p>
     </div>
 
-    <div class="ng-field">
-      <%= label(f, :default_action, "Default action", class: "ng-label") %>
-      <%= select(f, :default_action, [{"Deny", "drop"}, {"Allow", "accept"}],
-            class: "ng-input #{input_error_class(f, :default_action)}") %>
-      <p class="ng-field-hint">
-        Applies when this policy has no matching rule for a packet.
-        Recommended: <strong>Deny</strong> — start locked-down and layer explicit accepts on top.
-      </p>
-    </div>
+    <%# v4.0.4: `default_action` field intentionally omitted here.
+        The catch-all verdict is set once via the Default Policy
+        card at the top of /policies -- individual policies just
+        bundle rules with per-rule actions. %>
+    <%# Hidden field so the changeset keeps satisfying
+        `validate_required(:default_action)` on create. Value
+        is unused by fz_wall on non-default rows. %>
+    <%= hidden_input(f, :default_action, value: "drop") %>
 
     <div class="ng-field">
       <label class="ng-label" style="display:flex; align-items:center; gap:.5rem;">

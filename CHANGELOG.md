@@ -9,6 +9,77 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.4] - 2026-07-28
+
+Refines the policy model: introduces a first-class **Default
+Policy** concept (single catch-all row that emits at the tail
+of the effective-rules stream, IPv4 + IPv6) and removes the
+per-policy `default_action` field from the create/edit forms.
+Regular policies now express intent purely via per-rule
+actions inside the Rules tab; the catch-all lives in one
+dedicated card at the top of `/policies`.
+
+### Added
+
+- **`policies.is_default` column** (nullable-safe boolean,
+  default false). Partial unique index
+  `policies_only_one_default` enforces the singleton --
+  Postgres refuses a second row with `is_default = true` at
+  DB level, no app-side race.
+- **`Policies.fetch_default_policy/1`** returns the singleton
+  or nil. **`upsert_default_policy/3`** create-or-updates it
+  through `default_policy_changeset/2`, which locks
+  `is_default = true` + `applies_to_all_users = true` so the
+  UI can't accidentally scope the default to a subset.
+  **`clear_default_policy/2`** deletes it; both trigger
+  `Events.set_rules/0` so nftables reflects the change
+  immediately.
+- **Default-policy card** on `/policies` (top of the page).
+  Verdict `Allow` / `Deny` toggle + Save / Clear buttons.
+  Renders **before** the regular policies table so the
+  catch-all decision reads as "the last thing that fires"
+  in the admin's mental model of chain traversal.
+- **`Policies.as_effective_rules/0`** synthesises TWO
+  catch-all rule projections when a default policy exists:
+  `0.0.0.0/0 <action>` **and** `::/0 <action>`. Landing in
+  both the IPv4 and IPv6 set families closes the dual-stack
+  bypass where an IPv4-only drop rule silently misses every
+  v6 packet.
+- Audit events `policy.default_created`, `policy.default_updated`,
+  `policy.default_deleted`.
+
+### Changed
+
+- **New Policy modal drops the `Default action` selector.**
+  The field stays in the DB schema (backwards compat with
+  v3.3.0..v4.0.3 rows) but is written as a hidden input
+  with the default value. Admins compose regular policies
+  purely as (rules × users), and set the catch-all once
+  from the top card.
+- **Show page hides the `default: drop | accept` badge in
+  the hero** and drops the Default-action select from the
+  Overview edit form (kept as a hidden input to survive the
+  changeset's `validate_required(:default_action)`).
+- **`/policies` list table no longer shows a Default column**.
+  The catch-all lives in the card above; per-policy values
+  are irrelevant to firewall behaviour and confusing to
+  admins.
+- **`Policies.list_policies/1`** filters out the
+  `is_default = true` row so the regular list doesn't
+  duplicate the card above.
+
+### Migration
+
+- Automatic on container boot; sets `is_default = false` on
+  every existing row. No manual step. Existing policies with
+  a legacy `Default deny 0.0.0.0/0` rule keep working exactly
+  as before -- they just don't get the "Default Policy" card
+  treatment. To migrate: set the top card to `Deny`, then
+  delete the old catch-all policy.
+- No client change.
+
+---
+
 ## [4.0.3] - 2026-07-27
 
 ### Fixed
