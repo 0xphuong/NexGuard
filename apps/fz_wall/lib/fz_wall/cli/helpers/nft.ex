@@ -15,6 +15,20 @@ defmodule FzWall.CLI.Helpers.Nft do
   end
 
   @doc """
+  Append a policy rule to a chain (v4.1.0). Uses `nft add rule`
+  which puts the rule at the END of the chain, so iterating rules
+  in priority-ASC order and calling `add_chain_rule` per rule
+  yields a chain whose top-to-bottom order matches priority
+  (lower priority number = evaluated first).
+
+  `rule_str` is the nft rule body, e.g.
+    "ip daddr 10.0.55.0/24 tcp dport 443 accept".
+  """
+  def add_chain_rule(chain, rule_str) do
+    exec!("#{nft()} 'add rule inet #{@table_name} #{chain} #{rule_str}'")
+  end
+
+  @doc """
   Insert a nft jump rule
   """
   def insert_dev_rule(ip_type, source_set, jump_chain) do

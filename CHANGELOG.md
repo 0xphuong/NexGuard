@@ -9,6 +9,89 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.0] - 2026-07-27
+
+Introduces **explicit rule priority + chain-based nftables
+emission**. Solves the "drop 8.8.4.4 inside a policy that also
+allows 8.8.0.0/16" case that the v3.3.0 set-based model
+silently ignored (accept set was checked first, drop was
+shadowed by the wider allow). Semantics now match iptables /
+AWS NACL / GCP firewall priority conventions: lower priority
+number = evaluated first, first-match-wins.
+
+### Added
+
+- **`policy_rules.priority` column** (integer 0..9999,
+  default 100). Ecto migration
+  `20260727000005_add_priority_to_policy_rules.exs` adds
+  it non-null with default 100 so every existing row
+  back-fills to the same "middle-of-range" priority
+  (matches inserted_at ASC for ties).
+- **`FzWall.CLI.Live.emit_rule/1`** -- emits a single
+  policy_rule as an nftables chain rule. Format:
+  `ip[6] daddr <cidr> [<proto> dport <port>] <action>`.
+  Uses `nft add rule` (append) so iterating rules in
+  priority-ASC order yields a chain whose top-to-bottom
+  layout matches evaluation order.
+- **UI Priority column** on /policies/:id/rules -- shown
+  leftmost in the add-rule form (default 100) and as the
+  `#` column in the rules table (sorted ASC).
+
+### Changed
+
+- **`FzHttp.Policies.as_effective_rules/0`** now returns a
+  **list** sorted by (priority ASC, inserted_at ASC), was a
+  MapSet in v3.3.0..v4.0.x. `FzWall.Server` iterates the
+  list in order when rebuilding nftables state.
+- **`FzWall.CLI.Live` filter emission** switches from
+  set-based (`_ip_accept`, `_ip_drop`, `_ip_accept_layer4`,
+  `_ip_drop_layer4` sets + set-jump rules inside each user
+  chain) to **chain-based** (individual `nft add rule`
+  per policy_rule). Trade-off:
+  - **Lost**: O(1) hash lookup per set; nft filter-set
+    creation overhead
+  - **Gained**: deterministic ordering, first-match-wins
+    semantics, explicit priority resolution
+  - Kernel-side latency at realistic org sizes (10s-100s of
+    rules per chain) stays sub-microsecond; nftables handles
+    thousands of chain rules per traversal without
+    measurable impact.
+- **`_ip_devices` set retained** -- source-IP lookup still
+  needs O(1) matching to pick the right user chain. Only
+  filter sets went away.
+- **`setup_firewall/0` no longer calls `setup_rules(nil)`**
+  (that only created global filter sets, no longer needed).
+
+### Removed
+
+- **Legacy `handle_call({:add_rule, ...})` / `handle_call({:delete_rule, ...})`**
+  in `FzWall.Server`. Both were dead code since v4.0.0
+  when the retired `FzHttp.Rules` context stopped emitting
+  single-rule events. Policy CRUD flushes the whole rule
+  set via `set_rules/0`.
+- **`FzWall.CLI.Live.add_rule/1`, `delete_rule/1`,
+  `setup_rules/1`, `add_filter_sets/1`, `delete_filter_sets/1`,
+  `add_filter_rules/1`** -- callers gone with the chain-based
+  refactor.
+
+### Migration notes
+
+- **Migration is automatic** on container boot. Every
+  existing policy_rule row gets `priority = 100` (default).
+  Admin sets explicit priority via the /policies/:id/rules
+  form after upgrade.
+- **Chain layout at kernel level changes**. Before v4.1.0:
+  each user chain had 4 set-jump rules
+  (`ip daddr @user<UUID>_ip_accept accept` etc). After
+  v4.1.0: each user chain has one nft rule per policy_rule
+  applied to that user. Set-based debugging commands
+  (`nft list set inet nexguard user<UUID>_ip_accept`) will
+  show that these sets no longer exist -- use
+  `nft list chain inet nexguard user<UUID>` instead.
+- **No client change**.
+
+---
+
 ## [4.0.3] - 2026-07-27
 
 ### Fixed

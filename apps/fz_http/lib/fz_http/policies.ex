@@ -370,11 +370,17 @@ defmodule FzHttp.Policies do
   # ── Bridge to fz_wall ─────────────────────────────────────
 
   @doc """
-  Flatten every (user, policy_rule) pair the assignments define
-  into rule projections that match what `FzHttp.Rules.setting_projection/1`
-  emits for per-user rules. `FzWall.Server` reads a `MapSet` of
-  these projections and doesn't care whether they came from
-  `rules` or `policy_rules`.
+  Flatten every (user, policy_rule) pair into rule projections
+  ordered by (priority ASC, inserted_at ASC). `FzWall.Server`
+  emits these as individual nftables CHAIN RULES in this exact
+  order -- lower priority evaluated first, matching iptables /
+  AWS NACL / GCP conventions.
+
+  v4.1.0: returns a **list** (was MapSet in v3.3.0..v4.0.x). The
+  transition unblocks explicit conflict resolution: `drop
+  8.8.4.4 priority=10` now beats `allow 8.8.0.0/16 priority=100`
+  inside a single policy without needing an extra policy or
+  set-based tricks.
 
   Skips port_type/port_range fields when fz_wall's config flag
   reports port-based rules are unsupported.
@@ -382,9 +388,11 @@ defmodule FzHttp.Policies do
   def as_effective_rules do
     port_rules_supported? = port_rules_supported?()
 
-    global_rules(port_rules_supported?)
-    |> Kernel.++(per_user_rules(port_rules_supported?))
-    |> MapSet.new()
+    (global_rules(port_rules_supported?) ++ per_user_rules(port_rules_supported?))
+    # Priority ASC then insertion tie-breaker gives operators a
+    # stable, predictable ordering: two rules with the same
+    # priority land in the order they were created.
+    |> Enum.sort_by(fn r -> {r.priority, r.inserted_at} end)
   end
 
   @doc """
@@ -416,7 +424,9 @@ defmodule FzHttp.Policies do
           destination: pr.destination,
           action: pr.action,
           port_type: pr.port_type,
-          port_range: pr.port_range
+          port_range: pr.port_range,
+          priority: pr.priority,
+          inserted_at: pr.inserted_at
         }
       )
 
@@ -455,7 +465,9 @@ defmodule FzHttp.Policies do
           action: pr.action,
           user_id: up.user_id,
           port_type: pr.port_type,
-          port_range: pr.port_range
+          port_range: pr.port_range,
+          priority: pr.priority,
+          inserted_at: pr.inserted_at
         }
       )
 

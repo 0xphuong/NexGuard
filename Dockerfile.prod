@@ -39,7 +39,7 @@ COPY priv priv
 COPY apps apps
 
 # mix phx.digest triggers fz_http compilation, need version to be set here
-ARG VERSION=4.0.3
+ARG VERSION=4.1.0
 ENV VERSION=$VERSION
 
 # compile assets

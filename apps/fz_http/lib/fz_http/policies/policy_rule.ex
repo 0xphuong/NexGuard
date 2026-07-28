@@ -15,6 +15,13 @@ defmodule FzHttp.Policies.PolicyRule do
     # the business reason shows next to each destination. Not
     # passed to fz_wall -- it's a UI-only column.
     field :comment, :string
+    # v4.1.0: explicit ordering. Lower = evaluated first, matching
+    # iptables sequence-number / AWS NACL / GCP firewall priority.
+    # Ties broken by `inserted_at ASC` inside the effective-rules
+    # sort. Default 100 leaves headroom on both sides (0..99 for
+    # "priority overrides" like drop-specific-before-broad-allow,
+    # 101..9999 for "catch-all" like Default deny 0.0.0.0/0 last).
+    field :priority, :integer, default: 100
 
     belongs_to :policy, FzHttp.Policies.Policy
 

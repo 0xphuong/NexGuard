@@ -5699,6 +5699,7 @@ pre {
 .ng-rule-add-form {
   display: grid;
   grid-template-columns:
+    minmax(72px,  0.5fr)  /* priority    (v4.1.0)   */
     minmax(180px, 1.6fr)  /* destination */
     minmax(90px,  0.7fr)  /* action      */
     minmax(110px, 0.9fr)  /* protocol    */

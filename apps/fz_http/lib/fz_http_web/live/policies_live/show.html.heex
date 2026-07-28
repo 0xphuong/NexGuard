@@ -299,6 +299,15 @@
         >
           <div class="ng-rule-add-form">
             <div class="ng-field">
+              <%= label(f, :priority, "Priority", class: "ng-label") %>
+              <%= number_input(f, :priority,
+                    class: "ng-input #{input_error_class(f, :priority)}",
+                    value: input_value(f, :priority) || 100,
+                    min: 0,
+                    max: 9999) %>
+            </div>
+
+            <div class="ng-field">
               <%= label(f, :destination, "Destination", class: "ng-label") %>
               <%= text_input(f, :destination,
                     class: "ng-input #{input_error_class(f, :destination)}",
@@ -341,8 +350,9 @@
           </div>
 
           <p class="ng-rule-add-form-hint">
+            <strong>Priority</strong> lower = evaluated first (e.g. <code>10</code>
+            for specific drops that override broader allows). Default <code>100</code>.
             Protocol <code>ANY</code> matches every L4 — leave port empty.
-            Port <code>443</code> or a range <code>8000-8080</code>.
           </p>
 
           <%= if @rule_changeset.action == :insert and Enum.any?(@rule_changeset.errors) do %>
@@ -377,6 +387,7 @@
           <table class="ng-table">
             <thead>
               <tr>
+                <th class="ng-th-narrow">#</th>
                 <th>Action</th>
                 <th>Destination</th>
                 <th>Protocol</th>
@@ -389,6 +400,9 @@
             <tbody>
               <%= for rule <- @rules do %>
                 <tr id={"rule-#{rule.id}"}>
+                  <td class="ng-td-mono ng-td-muted" title="Priority — lower evaluates first">
+                    <%= rule.priority %>
+                  </td>
                   <td>
                     <span class={"ng-source-badge ng-source-badge--#{rule.action}"}>
                       <%= rule.action %>

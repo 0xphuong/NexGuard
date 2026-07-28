@@ -326,12 +326,19 @@ defmodule FzHttpWeb.PoliciesLive.Show do
 
     socket
     |> assign(:policy, policy)
-    |> assign(:rules, Enum.sort_by(policy.rules, &to_string(&1.destination)))
+    # v4.1.0: sort by (priority ASC, inserted_at ASC) so the
+    # rules table reads top-down in evaluation order -- matches
+    # what fz_wall actually applies to nftables.
+    |> assign(:rules, Enum.sort_by(policy.rules, &{&1.priority, &1.inserted_at}))
     |> assign(:users, Enum.sort_by(policy.users, & &1.email))
     |> assign(:available_users, available_users)
     |> assign(:changeset, Policies.change_policy(policy, %{}))
     |> assign(:rule_changeset,
-      Policies.new_policy_rule(%{"policy_id" => policy.id, "action" => "accept"}))
+      Policies.new_policy_rule(%{
+        "policy_id" => policy.id,
+        "action" => "accept",
+        "priority" => 100
+      }))
     |> assign(:page_title, "Policy: #{policy.name}")
   end
 end

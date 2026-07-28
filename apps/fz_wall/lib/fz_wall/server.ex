@@ -83,19 +83,10 @@ defmodule FzWall.Server do
       :error
   end
 
-  @impl GenServer
-  def handle_call({:add_rule, rule}, _from, %{rules: existing_rules} = state) do
-    new_rules = add_rule(rule, existing_rules)
-
-    {:reply, :ok, %{state | rules: new_rules}}
-  end
-
-  @impl GenServer
-  def handle_call({:delete_rule, rule}, _from, %{rules: existing_rules} = state) do
-    new_rules = delete_rule(rule, existing_rules)
-
-    {:reply, :ok, %{state | rules: new_rules}}
-  end
+  # v4.0.0 retired `{:add_rule, ...}` / `{:delete_rule, ...}` --
+  # the legacy `FzHttp.Rules` context they served was removed, and
+  # policy CRUD flushes the whole rule set via `set_rules/0` on
+  # every change so there's no single-rule fast path any more.
 
   @impl GenServer
   def handle_call({:add_device, device}, _from, %{devices: existing_devices} = state) do
@@ -113,22 +104,20 @@ defmodule FzWall.Server do
 
   @impl GenServer
   def handle_call({:set_rules, settings}, _from, _settings) do
-    # v3.3.0: teardown + rebuild the whole `inet nexguard` table
-    # before restore. `restore/1` in `FzWall.CLI.Live` is
-    # additive -- it calls `add_user` / `add_device` / `add_rule`
-    # without checking for existing state. Calling `set_rules`
-    # more than once (which the Policies context now does on
-    # every CRUD, so users see policy changes immediately without
-    # a server restart) would otherwise pile duplicate jump rules
-    # onto the forward chain + duplicate accept/drop rules onto
-    # each per-user chain (each observed at ~5x on the staging
-    # box after a handful of policy edits).
+    # Teardown + rebuild the whole `inet nexguard` table before
+    # restore. `restore/1` in `FzWall.CLI.Live` is additive --
+    # add_user/add_device/emit_rule each shell out to `nft add
+    # ...` without checking existing state. Calling this handler
+    # more than once (which Policies CRUD does on every change,
+    # so admins see policy edits take effect immediately without
+    # a container restart) would otherwise stack duplicate
+    # rules on top of each other.
     #
-    # `setup_firewall/0` runs `teardown_table + setup_table +
-    # setup_chains + setup_rules(nil)` -- a clean slate, then
-    # restore layers the current DB state on top. O(users x
-    # rules) per call which stays sub-second on realistic org
-    # sizes.
+    # `setup_firewall/0` = `teardown_table + setup_table +
+    # setup_chains` (empty scaffolding). Restore then layers the
+    # current DB state on top. Per-call cost is O(users +
+    # devices + rules), which stays comfortably sub-second at
+    # realistic org sizes.
     cli().setup_firewall()
     cli().restore(settings)
 
@@ -176,18 +165,6 @@ defmodule FzWall.Server do
 
   def http_pid do
     :global.whereis_name(:fz_http_server)
-  end
-
-  defp add_rule(rule, existing_rules) do
-    cli().add_rule(rule)
-
-    MapSet.put(existing_rules, rule)
-  end
-
-  defp delete_rule(rule, existing_rules) do
-    cli().delete_rule(rule)
-
-    MapSet.delete(existing_rules, rule)
   end
 
   defp add_user(user_id, existing_users) do
