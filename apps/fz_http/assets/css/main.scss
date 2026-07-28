@@ -5689,6 +5689,62 @@ pre {
   align-self: flex-end;
 }
 
+/* v4.0.2 Policies /rules tab — one-row add-rule form.
+   6-column grid: destination, action, protocol, port, comment,
+   submit. Column ratios weight destination + comment (the two
+   free-text inputs an admin types into) heaviest, while action
+   / protocol are compact `<select>`s. Below ~900px the grid
+   drops to a two-column wrap so the whole form still fits on a
+   sidebar-open laptop viewport without any input clipping. */
+.ng-rule-add-form {
+  display: grid;
+  grid-template-columns:
+    minmax(180px, 1.6fr)  /* destination */
+    minmax(90px,  0.7fr)  /* action      */
+    minmax(110px, 0.9fr)  /* protocol    */
+    minmax(110px, 0.9fr)  /* port(s)     */
+    minmax(160px, 1.4fr)  /* comment     */
+    auto;                 /* submit      */
+  gap: 0.75rem;
+  align-items: end;
+  margin-bottom: 0.25rem;
+}
+
+.ng-rule-add-form .ng-field {
+  margin: 0;
+  min-width: 0;
+}
+
+.ng-rule-add-form .ng-input,
+.ng-rule-add-form select.ng-input {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (max-width: 900px) {
+  .ng-rule-add-form {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Joint hint line below the compact add-rule form -- replaces
+   the four separate `.ng-field-hint` blocks the vertical form
+   used to render (one per input), which stacked into a wall of
+   text. */
+.ng-rule-add-form-hint {
+  color: #64748b;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0.5rem 0 0;
+}
+
+.ng-rule-add-form-hint code {
+  background: #f1f5f9;
+  padding: 0.05rem 0.35rem;
+  border-radius: 3px;
+  font-size: 0.72rem;
+}
+
 /* Danger-zone divider — flat 1px line in the warm pink so it reads
    as part of the danger-zone chrome instead of a generic hr. */
 .ng-danger-zone-divider {

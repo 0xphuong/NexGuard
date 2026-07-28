@@ -11,6 +11,10 @@ defmodule FzHttp.Policies.PolicyRule do
     field :destination, FzHttp.Types.INET
     field :port_type, Ecto.Enum, values: [:tcp, :udp]
     field :port_range, FzHttp.Types.Int4Range
+    # v4.0.2: admin-facing memo, surfaced in the rules table so
+    # the business reason shows next to each destination. Not
+    # passed to fz_wall -- it's a UI-only column.
+    field :comment, :string
 
     belongs_to :policy, FzHttp.Policies.Policy
 

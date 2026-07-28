@@ -88,6 +88,11 @@
             (<%= @remove_rule_confirm.port_type %> <%= @remove_rule_confirm.port_range %>)
           <% end %>
         </div>
+        <%= if @remove_rule_confirm.comment && @remove_rule_confirm.comment != "" do %>
+          <p class="ng-modal-desc" style="font-style: italic;">
+            "<%= @remove_rule_confirm.comment %>"
+          </p>
+        <% end %>
         <p class="ng-modal-desc">
           Rule takes effect immediately on the nftables backend for all
           <%= length(@users) %> assigned user<%= if length(@users) != 1, do: "s" %>.
@@ -285,11 +290,6 @@
         </span>
       </div>
       <div class="ng-detail-card-body">
-        <p class="ng-form-hint" style="margin-bottom: 1rem;">
-          Rules combine (destination IP/CIDR + optional TCP/UDP port + action).
-          Empty port fields apply to all traffic to the destination.
-        </p>
-
         <.form
           :let={f}
           for={@rule_changeset}
@@ -297,47 +297,64 @@
           phx-change="validate_rule"
           phx-submit="add_rule"
         >
-          <div class="ng-inline-form-row">
-          <div class="ng-field ng-field--grow">
-            <%= label(f, :destination, "Destination", class: "ng-label") %>
-            <%= text_input(f, :destination,
-                  class: "ng-input #{input_error_class(f, :destination)}",
-                  placeholder: "10.0.0.0/8 or 192.168.1.5",
-                  autocomplete: "off") %>
-            <p class="ng-field-error"><%= error_tag(f, :destination) %></p>
-          </div>
+          <div class="ng-rule-add-form">
+            <div class="ng-field">
+              <%= label(f, :destination, "Destination", class: "ng-label") %>
+              <%= text_input(f, :destination,
+                    class: "ng-input #{input_error_class(f, :destination)}",
+                    placeholder: "10.0.0.0/8",
+                    autocomplete: "off") %>
+            </div>
 
-          <div class="ng-field">
-            <%= label(f, :action, "Action", class: "ng-label") %>
-            <%= select(f, :action, [{"Allow", "accept"}, {"Deny", "drop"}],
-                  class: "ng-input #{input_error_class(f, :action)}") %>
-          </div>
+            <div class="ng-field">
+              <%= label(f, :action, "Action", class: "ng-label") %>
+              <%= select(f, :action, [{"Allow", "accept"}, {"Deny", "drop"}],
+                    class: "ng-input #{input_error_class(f, :action)}") %>
+            </div>
 
-          <div class="ng-field">
-            <%= label(f, :port_type, "Protocol", class: "ng-label") %>
-            <%= select(f, :port_type, [{"ANY — all protocols", ""}, {"TCP", "tcp"}, {"UDP", "udp"}],
-                  class: "ng-input #{input_error_class(f, :port_type)}") %>
-            <p class="ng-field-hint">
-              ANY: match every L4 protocol (TCP, UDP, ICMP, etc.) — leave the
-              port field empty.
-            </p>
-          </div>
+            <div class="ng-field">
+              <%= label(f, :port_type, "Protocol", class: "ng-label") %>
+              <%= select(f, :port_type, [{"ANY", ""}, {"TCP", "tcp"}, {"UDP", "udp"}],
+                    class: "ng-input #{input_error_class(f, :port_type)}") %>
+            </div>
 
-          <div class="ng-field">
-            <%= label(f, :port_range, "Port(s)", class: "ng-label") %>
-            <%= text_input(f, :port_range,
-                  class: "ng-input #{input_error_class(f, :port_range)}",
-                  placeholder: "443 or 8000-8080  (empty for ANY)",
-                  autocomplete: "off") %>
-            <p class="ng-field-error"><%= error_tag(f, :port_range) %></p>
-          </div>
+            <div class="ng-field">
+              <%= label(f, :port_range, "Port(s)", class: "ng-label") %>
+              <%= text_input(f, :port_range,
+                    class: "ng-input #{input_error_class(f, :port_range)}",
+                    placeholder: "443 or 8000-8080",
+                    autocomplete: "off") %>
+            </div>
 
-          <div class="ng-field ng-field--action">
+            <div class="ng-field">
+              <%= label(f, :comment, "Comment", class: "ng-label") %>
+              <%= text_input(f, :comment,
+                    class: "ng-input #{input_error_class(f, :comment)}",
+                    placeholder: "e.g. Grafana at 10.99.0.5",
+                    maxlength: 200,
+                    autocomplete: "off") %>
+            </div>
+
             <button type="submit" class="ng-primary-btn">
-              <i class="mdi mdi-plus"></i> Add rule
+              <i class="mdi mdi-plus"></i> Add
             </button>
           </div>
-          </div>
+
+          <p class="ng-rule-add-form-hint">
+            <strong>Destination</strong> takes a CIDR (<code>10.0.0.0/8</code>)
+            or a single host (<code>192.168.1.5</code>). <strong>Protocol</strong>
+            <code>ANY</code> matches every L4 protocol -- leave <strong>Port(s)</strong>
+            empty (or use <code>443</code>, <code>8000-8080</code>).
+            <strong>Comment</strong> is admin-facing memo, shown next to the rule.
+          </p>
+
+          <%= if @rule_changeset.action == :insert and Enum.any?(@rule_changeset.errors) do %>
+            <p class="ng-field-error" style="margin-top: 0.5rem;">
+              <%= for {field, {msg, _}} <- @rule_changeset.errors do %>
+                <span><strong><%= field %></strong>: <%= msg %></span><br />
+              <% end %>
+            </p>
+          <% end %>
         </.form>
       </div>
     </div>
@@ -367,6 +384,7 @@
                 <th>Destination</th>
                 <th>Protocol</th>
                 <th>Port(s)</th>
+                <th>Comment</th>
                 <th>Added</th>
                 <th class="ng-th-center ng-th-narrow"></th>
               </tr>
@@ -382,6 +400,13 @@
                   <td class="ng-td-mono"><%= rule.destination %></td>
                   <td class="ng-td-muted"><%= rule.port_type || "any" %></td>
                   <td class="ng-td-mono"><%= rule.port_range || "any" %></td>
+                  <td>
+                    <%= if rule.comment && rule.comment != "" do %>
+                      <span class="ng-td-muted"><%= rule.comment %></span>
+                    <% else %>
+                      <span class="ng-td-muted">—</span>
+                    <% end %>
+                  </td>
                   <td
                     id={"rule-#{rule.id}-inserted-at"}
                     data-timestamp={rule.inserted_at}

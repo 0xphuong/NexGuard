@@ -6,7 +6,7 @@ defmodule FzHttp.Policies.PolicyRule.Changeset do
   @port_range_msg "port is not within valid range"
   @port_type_msg "port_type must be specified with port_range"
 
-  @fields ~w[policy_id action destination port_type port_range]a
+  @fields ~w[policy_id action destination port_type port_range comment]a
   @port_based_fields ~w[port_type port_range]a
   @required_fields ~w[policy_id action destination]a
 
@@ -25,6 +25,7 @@ defmodule FzHttp.Policies.PolicyRule.Changeset do
     rule
     |> cast(attrs, fields)
     |> validate_required(@required_fields)
+    |> validate_length(:comment, max: 200)
     |> validate_required_group(~w[port_range port_type]a)
     |> check_constraint(:port_range,
       message: @port_range_msg,

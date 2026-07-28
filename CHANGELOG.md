@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.2] - 2026-07-27
+
+### Added
+
+- **`policy_rules.comment` column** (nullable, ≤200 chars).
+  Admin-facing memo -- what a rule is for ("Grafana at
+  10.99.0.5", "block old wiki backend"). Rendered as a
+  regular column in the /policies/:id/rules table and echoed
+  in the Remove-rule confirmation modal so a delete decision
+  has the business context inline.
+- New Ecto migration
+  `20260727000004_add_comment_to_policy_rules.exs` adds the
+  column non-null-safely -- existing rules default to
+  `NULL` and render as `—` in the table until edited.
+
+### Changed
+
+- **Add-rule form on `/policies/:id/rules` collapsed to a
+  single row** (was four full-width stacked field boxes).
+  New CSS grid `.ng-rule-add-form` -- six columns:
+  destination / action / protocol / port(s) / comment /
+  submit. Column ratios weight the two free-text inputs
+  (destination + comment) heaviest via
+  `minmax(160-180px, 1.4-1.6fr)` so shorter selects don't
+  starve them; the small selects use `minmax(90-110px,
+  0.7-0.9fr)`. Below 900px viewport the grid wraps to
+  two columns so nothing clips inside a sidebar-open
+  laptop admin console. Four per-input hint blocks were
+  fused into one `.ng-rule-add-form-hint` line below the
+  grid.
+
+### Notes
+
+- No fz_wall change -- `comment` is a UI-only column and is
+  not projected into `Policies.as_effective_rules/0`.
+- No client change.
+
+---
+
 ## [4.0.1] - 2026-07-27
 
 ### Fixed
