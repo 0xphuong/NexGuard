@@ -5749,6 +5749,52 @@ pre {
   }
 }
 
+/* v4.1.1 -- inline priority editor in the rules table. Ghost
+   input by default (transparent, no border), grows a subtle
+   outline on hover/focus to signal editability without adding
+   a persistent form-input look to every row. Auto-saves on
+   `phx-change` with `phx-debounce="800"` so admins can tune
+   priorities without a Save button, matching the "quiet ops
+   tool" design direction. */
+.ng-inline-priority-input {
+  width: 4.5rem;
+  padding: 0.2rem 0.4rem;
+  border: 1px solid transparent;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  border-radius: 3px;
+  transition: border-color 120ms, background-color 120ms;
+  -moz-appearance: textfield;
+  text-align: right;
+}
+
+.ng-inline-priority-input::-webkit-inner-spin-button,
+.ng-inline-priority-input::-webkit-outer-spin-button {
+  opacity: 0.35;
+}
+
+.ng-inline-priority-input:hover {
+  border-color: #cbd5e1;
+}
+
+.ng-inline-priority-input:focus {
+  border-color: #64748b;
+  background: #fff;
+  outline: none;
+}
+
+@media (prefers-color-scheme: dark) {
+  .ng-inline-priority-input:hover {
+    border-color: #475569;
+  }
+  .ng-inline-priority-input:focus {
+    border-color: #94a3b8;
+    background: #1e293b;
+  }
+}
+
 /* Joint hint line below the compact add-rule form -- replaces
    the four separate `.ng-field-hint` blocks the vertical form
    used to render (one per input), which stacked into a wall of

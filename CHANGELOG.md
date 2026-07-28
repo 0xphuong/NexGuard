@@ -9,6 +9,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.1] - 2026-07-27
+
+### Added
+
+- **Inline priority editor** in the /policies/:id/rules table.
+  The Priority cell (leftmost `#` column) is now an editable
+  number input -- change the number, tab away (or wait ~800ms
+  after the last keystroke), and the rule saves. Debounced
+  `phx-change` avoids a save per keystroke; empty / non-integer
+  / out-of-range / unchanged values silently no-op so a
+  mid-edit backspace doesn't clobber the rule with 0.
+
+  Design: ghost input (transparent by default, subtle border on
+  hover, active outline on focus) matches the "quiet ops tool"
+  direction -- doesn't turn every row into a form-input soup.
+  Flash confirmation reuses the existing `put_flash(:info, ...)`
+  pattern. Full "Edit rule" modal (change destination / action
+  / port / comment) still TBD -- current workaround is delete
+  + re-add. Priority swap covered the 80% ask ("resolve conflict
+  between overlapping allow/drop").
+
+- **`.ng-inline-priority-input` design token** in
+  `main.scss`, including dark-mode variants
+  (`@media prefers-color-scheme: dark`) and dimmed
+  `::-webkit-inner-spin-button` styling.
+
+---
+
 ## [4.1.0] - 2026-07-27
 
 Introduces **explicit rule priority + chain-based nftables

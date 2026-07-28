@@ -400,8 +400,19 @@
             <tbody>
               <%= for rule <- @rules do %>
                 <tr id={"rule-#{rule.id}"}>
-                  <td class="ng-td-mono ng-td-muted" title="Priority — lower evaluates first">
-                    <%= rule.priority %>
+                  <td title="Lower = evaluated first · edit + press Enter (or tab away) to save">
+                    <form phx-change="update_priority" phx-value-rule-id={rule.id} autocomplete="off">
+                      <input
+                        type="number"
+                        name="priority"
+                        value={rule.priority}
+                        min="0"
+                        max="9999"
+                        phx-debounce="800"
+                        class="ng-inline-priority-input ng-td-mono"
+                        aria-label={"Priority for rule to #{rule.destination}"}
+                      />
+                    </form>
                   </td>
                   <td>
                     <span class={"ng-source-badge ng-source-badge--#{rule.action}"}>
