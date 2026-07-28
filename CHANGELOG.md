@@ -9,6 +9,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.1.2] - 2026-07-28
+
+### Fixed
+
+- **Return traffic dropped when Default-deny policy is
+  active** (latent since v3.3.0, surfaced by policy-based
+  egress). The nftables `forward` chain was missing
+  `ct state established,related accept` at the top. New
+  outgoing connections passed through per-user chain jumps
+  (source-IP matches VPN client → accept via user's policy),
+  but SYN-ACK / HTTP-response / any reply packet had
+  `saddr = <backend host IP>` -- which is NOT in any user's
+  `_ip_devices` set. Return packets therefore skipped every
+  user jump, fell through to the global `0.0.0.0/0 drop`
+  emitted by a Default-deny policy, and got silently killed.
+  Effect: TCP handshakes hung, admins saw "policy allow
+  10.0.0.0/8 doesn't work" when in fact the allow was firing
+  on the SYN and only the reply was blocked.
+
+  Pre-Policies (< v3.3.0) the same missing rule was masked
+  by the chain's `policy accept` fallthrough -- reply packets
+  drifted to the end and got accepted by luck. As soon as an
+  admin added an explicit Default-deny 0.0.0.0/0 policy the
+  luck ran out.
+
+  Fix: insert `ct state established,related accept` at the
+  top of the forward chain right after chain creation in
+  `FzWall.CLI.Helpers.Nft.setup_chains/0`. Every reply of a
+  session already accepted by a downstream rule (per-user or
+  global) short-circuits here; new connections (`ct state new`)
+  keep flowing through the full chain so per-user policies
+  retain their gatekeeping role.
+
+  No client change; deploy the image + no manual step.
+
+---
+
 ## [4.1.1] - 2026-07-27
 
 ### Added
