@@ -104,7 +104,7 @@ const installCopy = function () {
     if (!cmd) return
 
     navigator.clipboard.writeText(cmd).then(() => {
-      btn.innerHTML = '<i class="mdi mdi-check"></i><span>Copied</span>'
+      btn.innerHTML = '<i class="mdi mdi-check"></i><span>Copied ✓</span>'
       btn.classList.add("is-copied")
       if (this._copyTimer) clearTimeout(this._copyTimer)
       this._copyTimer = setTimeout(() => {

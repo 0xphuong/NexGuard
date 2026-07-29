@@ -5775,108 +5775,194 @@ pre {
 }
 
 /* v4.0.6 — Install NexGuard Connect section on /user/devices.
-   Segmented control (3 OS tabs) + code block + copy button.
-   Utilitarian palette, matches the rest of /settings/*. */
+   Redesigned (Variant A, refined light-first): OS tabs +
+   contextual step labels + light code block + ghost copy button
+   above code + info-callout for prereq hint. Matches the modern
+   install-flow aesthetic used by Supabase / Vercel / Stripe. */
+
+.ng-install-card {
+  /* Slight tint over the default detail-card so the install
+     section reads as its own moment, not just another card. */
+  background: #fbfcfe;
+}
+
+/* Small step label sitting above the tabs + above the code block.
+   Reads as "here's what to do at this beat" rather than an input
+   label. */
+.ng-install-step-label {
+  display: block;
+  margin: 0 0 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #475569;
+  letter-spacing: 0.01em;
+}
 
 .ng-os-tabs {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 0;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 1rem;
-  background: #f8fafc;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
 }
 
+/* Pill-style tabs. Not connected — each is its own button so the
+   active state can lift with a subtle shadow instead of relying
+   on an inset border. */
 .ng-os-tab {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  padding: 0.65rem 0.75rem;
-  background: transparent;
-  border: none;
-  border-right: 1px solid #e2e8f0;
+  gap: 0.45rem;
+  padding: 0.7rem 0.9rem;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   color: #64748b;
   font-size: 0.875rem;
   font-weight: 500;
   cursor: pointer;
-  transition: background-color 120ms, color 120ms;
-}
-
-.ng-os-tab:last-child {
-  border-right: none;
+  transition: background-color 120ms, color 120ms, border-color 120ms,
+    box-shadow 120ms;
 }
 
 .ng-os-tab:hover {
-  background: #eef2f7;
-  color: #334155;
+  background: #ffffff;
+  color: #1e293b;
+  border-color: #cbd5e1;
 }
 
 .ng-os-tab.is-active {
   background: #ffffff;
   color: #0f172a;
   font-weight: 600;
-  box-shadow: inset 0 -2px 0 #3b82f6;
+  border-color: #93c5fd;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06),
+    0 0 0 3px rgba(59, 130, 246, 0.12);
 }
 
 .ng-os-tab .mdi {
   font-size: 1.1rem;
+  opacity: 0.9;
 }
 
-/* Code block for install command. Monospace, single-line
-   overflow-x scroll rather than wrap so admins can copy exactly
-   the string they see. */
-.ng-code-block {
+/* Tiny check next to the active OS label. Signals selection
+   without relying on colour alone (accessibility). */
+.ng-os-tab-check {
+  color: #3b82f6;
+  font-size: 1rem;
+}
+
+/* Header row above the code: step label on the left, copy
+   button on the right. Aligns so the button sits flush with
+   the top edge of the code block. */
+.ng-install-code-header {
   display: flex;
-  align-items: stretch;
-  gap: 0.5rem;
-  background: #0f172a;
-  color: #e2e8f0;
-  border-radius: 6px;
-  padding: 0.15rem;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.ng-install-code-header .ng-install-step-label {
+  margin: 0;
+}
+
+/* Light code block. Monospace, single-line horizontal scroll --
+   splitting a curl pipeline across lines is a footgun (paste
+   into a shell that mis-quotes the newline). Subtle border +
+   pale background reads as "this is a command" without the
+   heavy terminal-look of a black chrome. */
+.ng-code-block {
+  background: #f8fafc;
+  color: #0f172a;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
   font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
   font-size: 0.85rem;
+  line-height: 1.5;
+  overflow: hidden;
 }
 
 .ng-code-block pre {
-  flex: 1;
-  min-width: 0;
   margin: 0;
-  padding: 0.6rem 0.85rem;
+  padding: 0.85rem 1rem;
   overflow-x: auto;
   white-space: pre;
   color: inherit;
   background: transparent;
 }
 
-/* Copy button sits at right edge of code block, matching height. */
+.ng-code-block code {
+  color: inherit;
+  background: transparent;
+  padding: 0;
+}
+
+.ng-code-prompt {
+  color: #94a3b8;
+  user-select: none;
+  margin-right: 0.4em;
+}
+
+/* Copy button (ghost pill, outside the code block). Not competing
+   with the code visually -- reads as a discrete action. */
 .ng-copy-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0 0.85rem;
-  background: #1e293b;
-  color: #e2e8f0;
-  border: none;
-  border-radius: 4px;
+  gap: 0.4rem;
+  padding: 0.45rem 0.85rem;
+  background: #ffffff;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   cursor: pointer;
-  font-size: 0.85rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
   font-family: inherit;
-  transition: background-color 120ms, color 120ms;
-  min-width: 5.5rem;
+  transition: background-color 120ms, color 120ms, border-color 120ms;
+  min-width: 6rem;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .ng-copy-btn:hover {
-  background: #334155;
+  background: #f1f5f9;
+  color: #0f172a;
+  border-color: #94a3b8;
 }
 
 .ng-copy-btn.is-copied {
-  background: #14532d;
-  color: #d1fae5;
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.ng-copy-btn .mdi {
+  font-size: 1rem;
+}
+
+/* Info callout for the prereq hint. Soft blue tint + info icon
+   so it reads as informational-but-important, not decorative. */
+.ng-install-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  padding: 0.75rem 0.9rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 8px;
+  color: #1e40af;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+.ng-install-note .mdi {
+  font-size: 1.05rem;
+  flex-shrink: 0;
+  margin-top: 0.05rem;
+  color: #3b82f6;
 }
 
 /* Collapsible "Install on another machine" details/summary --
@@ -5928,23 +6014,66 @@ pre {
   border-left: 3px solid #cbd5e1;
 }
 
-/* Dark-mode variants keep the code block equally readable. */
+/* Dark-mode variants. Same aesthetic — light-first pattern
+   inverted, not the aggressive terminal-black of the previous
+   version. */
 @media (prefers-color-scheme: dark) {
-  .ng-os-tabs {
-    background: #1e293b;
-    border-color: #334155;
+  .ng-install-card {
+    background: #172033;
+  }
+  .ng-install-step-label {
+    color: #94a3b8;
   }
   .ng-os-tab {
+    background: #1e293b;
     border-color: #334155;
     color: #94a3b8;
   }
   .ng-os-tab:hover {
-    background: #334155;
+    background: #0f172a;
     color: #f1f5f9;
+    border-color: #475569;
   }
   .ng-os-tab.is-active {
     background: #0f172a;
     color: #f8fafc;
+    border-color: #3b82f6;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3),
+      0 0 0 3px rgba(59, 130, 246, 0.2);
+  }
+  .ng-os-tab-check {
+    color: #60a5fa;
+  }
+  .ng-code-block {
+    background: #0f172a;
+    color: #e2e8f0;
+    border-color: #334155;
+  }
+  .ng-code-prompt {
+    color: #64748b;
+  }
+  .ng-copy-btn {
+    background: #1e293b;
+    color: #cbd5e1;
+    border-color: #475569;
+  }
+  .ng-copy-btn:hover {
+    background: #334155;
+    color: #f8fafc;
+    border-color: #64748b;
+  }
+  .ng-copy-btn.is-copied {
+    background: #14532d;
+    color: #86efac;
+    border-color: #16a34a;
+  }
+  .ng-install-note {
+    background: #1e293b;
+    border-color: #3b82f6;
+    color: #93c5fd;
+  }
+  .ng-install-note .mdi {
+    color: #60a5fa;
   }
   .ng-collapsible > summary {
     color: #cbd5e1;
@@ -5955,17 +6084,20 @@ pre {
   }
 }
 
-/* Below ~640px, the code block's copy button drops beneath the
-   command so nothing clips. Tabs stay horizontal (3 short labels
-   fit fine at that width). */
+/* Below ~640px, the code header (step label + copy button)
+   stacks so the copy button doesn't get squeezed. Tabs stay
+   horizontal — three short labels fit at that width. */
 @media (max-width: 640px) {
-  .ng-code-block {
+  .ng-install-code-header {
     flex-direction: column;
-    gap: 0;
+    align-items: stretch;
   }
   .ng-copy-btn {
-    margin: 0.25rem;
-    padding: 0.5rem 0.85rem;
-    justify-content: center;
+    align-self: flex-end;
+  }
+  .ng-os-tab {
+    padding: 0.65rem 0.4rem;
+    gap: 0.3rem;
+    font-size: 0.8125rem;
   }
 }

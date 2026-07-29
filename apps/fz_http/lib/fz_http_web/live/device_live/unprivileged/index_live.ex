@@ -83,6 +83,15 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
     do:
       "Ubuntu 20.04+, Debian 11+, or a systemd-based x86_64 distro. Requires sudo."
 
+  @doc """
+  Label above the code block. Different per OS so users know which
+  shell to open before pasting -- avoids the "why is `irm` not
+  found in Terminal" support ticket.
+  """
+  def install_shell_label(:macos), do: "Run this in Terminal"
+  def install_shell_label(:windows), do: "Run this in PowerShell (as Administrator)"
+  def install_shell_label(:linux), do: "Run this in Terminal"
+
   defp authorize_socket_action(%{assigns: %{live_action: :new}} = socket) do
     Devices.authorize_user_device_management(socket.assigns.current_user, socket.assigns.subject)
   end
@@ -117,7 +126,7 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
     <div
       id="install-instructions"
       phx-hook="OSDetect"
-      class="ng-detail-card"
+      class="ng-detail-card ng-install-card"
     >
       <div class="ng-detail-card-header">
         <span class="ng-section-header">
@@ -125,6 +134,7 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
         </span>
       </div>
       <div class="ng-detail-card-body">
+        <p class="ng-install-step-label">Choose your operating system</p>
         <div class="ng-os-tabs" role="tablist" aria-label="Operating system">
           <%= for {os, label, icon} <- [
                 {:macos, "macOS", "apple"},
@@ -141,16 +151,19 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
             >
               <i class={"mdi mdi-#{icon}"}></i>
               <span><%= label %></span>
+              <%= if @install_selected_os == os do %>
+                <i class="mdi mdi-check ng-os-tab-check" aria-hidden="true"></i>
+              <% end %>
             </button>
           <% end %>
         </div>
 
-        <%# Static IDs so LiveView keeps the same DOM node across
-        %# tab switches -- otherwise the InstallCopy hook remounts on
-        %# every click and any pending "Copied ✓" revert timer runs
-        %# against a detached node. %>
-        <div class="ng-code-block">
-          <pre><code id="install-cmd"><%= install_command(@install_selected_os) %></code></pre>
+        <div class="ng-install-code-header">
+          <span class="ng-install-step-label"><%= install_shell_label(@install_selected_os) %></span>
+          <%# Static IDs so LiveView keeps the same DOM node across
+          %# tab switches -- otherwise the InstallCopy hook remounts
+          %# on every click and any pending "Copied ✓" revert timer
+          %# runs against a detached node. %>
           <button
             id="install-copy-btn"
             type="button"
@@ -164,9 +177,14 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
           </button>
         </div>
 
-        <p class="ng-field-hint" style="margin-top:0.75rem">
-          <%= install_hint(@install_selected_os) %>
-        </p>
+        <div class="ng-code-block">
+          <pre><code id="install-cmd"><span class="ng-code-prompt">$</span> <%= install_command(@install_selected_os) %></code></pre>
+        </div>
+
+        <div class="ng-install-note">
+          <i class="mdi mdi-information-outline"></i>
+          <span><%= install_hint(@install_selected_os) %></span>
+        </div>
       </div>
     </div>
     """
