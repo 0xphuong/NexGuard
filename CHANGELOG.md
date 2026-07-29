@@ -9,6 +9,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.6] - 2026-07-29
+
+UI-only release. No schema, no fz_wall, no proxy changes.
+Focuses on the end-user onboarding surface (`/user_devices`)
+and drops residual WireGuard-brand references in favour of
+NexGuard Connect where the audience is a portal user, not a
+sysadmin reading source.
+
+### Added
+
+- **Install NexGuard Connect** card on `/user_devices` with a
+  three-tab OS selector (macOS / Windows / Linux) + one-click
+  copy of the platform-specific `install.sh` / `install.ps1`
+  command. Renders at the empty-state (primary onboarding)
+  and inside a server-managed collapsible below the device
+  table (return path — installing on another machine).
+  Design: light-first palette matched to the rest of the
+  portal, pill-shaped tabs with focus ring + check icon on the
+  active one, ghost "Copy" button above the code block that
+  flips to "Copied ✓" for 2s, blue info-callout for per-OS
+  prereq hints.
+- JS hooks `OSDetect` (sniffs `navigator.userAgent` at mount +
+  pre-selects the tab) and `InstallCopy` (writes to clipboard,
+  survives tab switches by binding once + tracking timer state
+  on the hook object). Both wire through the existing
+  `Hooks` export in `assets/js/hooks.js`.
+- Design tokens in `main.scss`: `.ng-os-tabs`, `.ng-os-tab`,
+  `.ng-os-tab-check`, `.ng-install-code-header`,
+  `.ng-code-block`, `.ng-code-prompt`, `.ng-copy-btn`,
+  `.ng-install-note`, `.ng-install-step-label`,
+  `.ng-collapsible-toggle`, `.ng-collapsible-chevron`,
+  `.ng-collapsible-body`.
+
+### Changed
+
+- **Rebranded reader-visible copy on `/devices`, `/users/:id`,
+  and the New Device modal** from "WireGuard config" /
+  "WireGuard peer" / "WireGuard client" to "NexGuard Connect
+  endpoint" / "tunnel entry" / "NexGuard Connect client". The
+  underlying protocol is still WireGuard and backend module
+  names (`fz_vpn`, `wg` shell-outs, `wg-nexguard` interface)
+  stay untouched -- only the user-facing copy moves. The
+  `vpn_connection_component` sign-out callout goes from
+  "All active WireGuard sessions will be dropped" to the
+  more provider-agnostic "All active VPN sessions".
+
+### Fixed
+
+- **Install collapse closed itself on tab click.** `<details>`
+  is browser-managed; LiveView's diff-patch on the tab click
+  reset the element's `open` attribute to its default. Fix
+  replaces the native disclosure element with a `<button>` +
+  server-tracked `install_expanded` assign so the panel state
+  survives every re-render.
+- **Install card flipped to dark backgrounds on macOS default-
+  dark systems.** The `@media (prefers-color-scheme: dark)`
+  block added with the redesign was the only such block in the
+  portal, so the card became a black island in an otherwise
+  light page. Dropped the dark-mode variant entirely; the card
+  now stays light regardless of OS preference, matching every
+  other admin surface.
+
+---
+
 ## [4.0.5] - 2026-07-28
 
 ### Fixed
