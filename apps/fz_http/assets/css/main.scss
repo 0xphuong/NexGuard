@@ -5780,10 +5780,15 @@ pre {
    above code + info-callout for prereq hint. Matches the modern
    install-flow aesthetic used by Supabase / Vercel / Stripe. */
 
+/* v4.0.6 install card intentionally does NOT override the
+   default `.ng-detail-card` background -- it should feel like
+   the rest of the /user/devices page, not a separate island.
+   Earlier revisions tinted it slightly darker + added a
+   dark-mode variant; both broke the palette when the surrounding
+   portal stayed light. Keeping the class in place as a hook
+   for future scoped overrides. */
 .ng-install-card {
-  /* Slight tint over the default detail-card so the install
-     section reads as its own moment, not just another card. */
-  background: #fbfcfe;
+  /* inherit .ng-detail-card background */
 }
 
 /* Small step label sitting above the tabs + above the code block.
@@ -5965,124 +5970,64 @@ pre {
   color: #3b82f6;
 }
 
-/* Collapsible "Install on another machine" details/summary --
-   used on non-empty /user/devices. Keep it quiet by default and
-   let the user opt in. */
+/* Collapsible "Install on another machine" -- server-managed
+   toggle. Quiet chevron button, minimal footprint until user
+   opts in. Was a native `<details>/<summary>` in v4.0.6 but the
+   browser-side `open` state got clobbered on every LiveView
+   patch (tab click inside the panel would collapse it). */
 .ng-collapsible {
   margin-top: 1.5rem;
 }
 
-.ng-collapsible > summary {
-  cursor: pointer;
+.ng-collapsible-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: none;
   color: #475569;
+  font-family: inherit;
   font-weight: 500;
   font-size: 0.9rem;
+  cursor: pointer;
   border-radius: 4px;
-  list-style: none;
-  transition: background-color 120ms;
+  transition: background-color 120ms, color 120ms;
 }
 
-.ng-collapsible > summary:hover {
+.ng-collapsible-toggle:hover {
   background: #f1f5f9;
   color: #0f172a;
 }
 
-.ng-collapsible > summary::-webkit-details-marker {
-  display: none;
-}
-
-.ng-collapsible > summary::before {
-  content: "▸";
-  display: inline-block;
-  margin-right: 0.4rem;
+.ng-collapsible-chevron {
   transition: transform 120ms;
-  font-size: 0.7rem;
+  font-size: 1.05rem;
+  color: #94a3b8;
 }
 
-.ng-collapsible[open] > summary::before {
+.ng-collapsible-toggle.is-open .ng-collapsible-chevron {
   transform: rotate(90deg);
+  color: #475569;
 }
 
-.ng-collapsible[open] > summary {
-  margin-bottom: 0.75rem;
+.ng-collapsible-body {
+  margin-top: 0.75rem;
 }
 
-/* Wrap the install section inside the collapsible with a small
-   left rule so the content reads as scoped to the summary above. */
-.ng-collapsible[open] .ng-detail-card {
+/* Subtle left rule so the body reads as scoped to the toggle
+   above -- mirrors the visual affordance the old `<details>` gave. */
+.ng-collapsible-body .ng-detail-card {
   border-left: 3px solid #cbd5e1;
 }
 
-/* Dark-mode variants. Same aesthetic — light-first pattern
-   inverted, not the aggressive terminal-black of the previous
-   version. */
-@media (prefers-color-scheme: dark) {
-  .ng-install-card {
-    background: #172033;
-  }
-  .ng-install-step-label {
-    color: #94a3b8;
-  }
-  .ng-os-tab {
-    background: #1e293b;
-    border-color: #334155;
-    color: #94a3b8;
-  }
-  .ng-os-tab:hover {
-    background: #0f172a;
-    color: #f1f5f9;
-    border-color: #475569;
-  }
-  .ng-os-tab.is-active {
-    background: #0f172a;
-    color: #f8fafc;
-    border-color: #3b82f6;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3),
-      0 0 0 3px rgba(59, 130, 246, 0.2);
-  }
-  .ng-os-tab-check {
-    color: #60a5fa;
-  }
-  .ng-code-block {
-    background: #0f172a;
-    color: #e2e8f0;
-    border-color: #334155;
-  }
-  .ng-code-prompt {
-    color: #64748b;
-  }
-  .ng-copy-btn {
-    background: #1e293b;
-    color: #cbd5e1;
-    border-color: #475569;
-  }
-  .ng-copy-btn:hover {
-    background: #334155;
-    color: #f8fafc;
-    border-color: #64748b;
-  }
-  .ng-copy-btn.is-copied {
-    background: #14532d;
-    color: #86efac;
-    border-color: #16a34a;
-  }
-  .ng-install-note {
-    background: #1e293b;
-    border-color: #3b82f6;
-    color: #93c5fd;
-  }
-  .ng-install-note .mdi {
-    color: #60a5fa;
-  }
-  .ng-collapsible > summary {
-    color: #cbd5e1;
-  }
-  .ng-collapsible > summary:hover {
-    background: #1e293b;
-    color: #f8fafc;
-  }
-}
+/* NOTE: dark-mode variants intentionally omitted here. The
+   NexGuard portal ships light-only; adding
+   `@media (prefers-color-scheme: dark)` rules just for this
+   one section makes it flip to dark while the surrounding page
+   stays white (users on macOS default-dark reported the
+   install card reading as a black island on the page). Match
+   the portal's palette — always light. */
 
 /* Below ~640px, the code header (step label + copy button)
    stacks so the copy button doesn't get squeezed. Tabs stay

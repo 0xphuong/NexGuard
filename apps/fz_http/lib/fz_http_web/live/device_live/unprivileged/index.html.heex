@@ -83,15 +83,27 @@
       </table>
     </div>
 
-    <%# Install-on-another-machine — collapsible so it doesn't
-    %# compete with the device table for attention when the user's
-    %# already onboarded but is still handy when they get a new
-    %# laptop. Uses <details> for zero-JS state; hint above the
-    %# summary explains what's inside. %>
-    <details class="ng-collapsible">
-      <summary>Install NexGuard Connect on another machine</summary>
-      <%= render_install_section(assigns) %>
-    </details>
+    <%# Install-on-another-machine — server-controlled collapse.
+    %# `<details>` was the natural choice but its browser-managed
+    %# `open` attribute got wiped on every LiveView re-render
+    %# (tab click => diff => collapse). Toggle state lives on the
+    %# LiveView so it survives updates. %>
+    <div class="ng-collapsible">
+      <button
+        type="button"
+        class={["ng-collapsible-toggle", @install_expanded && "is-open"]}
+        phx-click="toggle_install"
+        aria-expanded={to_string(@install_expanded)}
+      >
+        <i class="mdi mdi-chevron-right ng-collapsible-chevron"></i>
+        Install NexGuard Connect on another machine
+      </button>
+      <%= if @install_expanded do %>
+        <div class="ng-collapsible-body">
+          <%= render_install_section(assigns) %>
+        </div>
+      <% end %>
+    </div>
   <% end %>
 
   <%# ── VPN Session ─────────────────────────────────────────────────────────── %>

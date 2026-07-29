@@ -25,6 +25,12 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
         # this on mount by inspecting `navigator.userAgent` and pushing
         # `os_detected` back to us.
         |> assign(:install_selected_os, :macos)
+        # Server-controlled collapse for the "install on another machine"
+        # section shown under the device table. Was a `<details>` element
+        # but browser-side `open` state got wiped on every LiveView diff
+        # (tab click => re-render => details collapsed itself). Managing
+        # the toggle server-side keeps the panel open across tab clicks.
+        |> assign(:install_expanded, false)
 
       {:ok, socket}
     else
@@ -43,6 +49,10 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
   # so an exotic user agent doesn't leave the section blank.
   def handle_event("os_detected", %{"os" => os}, socket) do
     {:noreply, assign(socket, :install_selected_os, to_os_atom(os))}
+  end
+
+  def handle_event("toggle_install", _params, socket) do
+    {:noreply, update(socket, :install_expanded, &(!&1))}
   end
 
   defp to_os_atom("macos"), do: :macos
