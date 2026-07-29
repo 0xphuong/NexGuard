@@ -70,6 +70,74 @@ const clipboardCopy = function () {
   })
 }
 
+// v4.0.6 install-instructions component.
+//
+// InstallCopy — click handler that copies `data-copy` and swaps the
+// button label to "Copied ✓" for 2s. Different from the older
+// ClipboardCopy hook (which relies on a Bulma tooltip): here we
+// swap the button's inner content because the tooltip family isn't
+// loaded on the unprivileged devices page.
+//
+// State (`this._copyBound`, `this._copyTimer`) lives on the hook
+// object so `mounted` and `updated` share it. We only bind the
+// click listener once; `data-copy` is read at click time so tab
+// switches (which change the attribute) don't need re-binding.
+// Any pending 2s revert timer is cleared on `updated` so a tab
+// switch mid-"Copied" doesn't leave the button stuck with the
+// success label as the new "original".
+const installCopy = function () {
+  const btn = this.el
+  const revertHTML = '<i class="mdi mdi-content-copy"></i><span>Copy</span>'
+
+  if (this._copyTimer) {
+    clearTimeout(this._copyTimer)
+    this._copyTimer = null
+    btn.innerHTML = revertHTML
+    btn.classList.remove("is-copied")
+  }
+
+  if (this._copyBound) return
+  this._copyBound = true
+
+  btn.addEventListener("click", () => {
+    const cmd = btn.dataset.copy || ""
+    if (!cmd) return
+
+    navigator.clipboard.writeText(cmd).then(() => {
+      btn.innerHTML = '<i class="mdi mdi-check"></i><span>Copied</span>'
+      btn.classList.add("is-copied")
+      if (this._copyTimer) clearTimeout(this._copyTimer)
+      this._copyTimer = setTimeout(() => {
+        btn.innerHTML = revertHTML
+        btn.classList.remove("is-copied")
+        this._copyTimer = null
+      }, 2000)
+    })
+  })
+}
+
+// OSDetect — on component mount, sniff `navigator.userAgent` and
+// push `os_detected` back to the LiveView so the correct tab
+// pre-selects. Only runs once per page load; server default (`:macos`)
+// applies on parse failure. Fires once via `mounted`, not `updated`,
+// so a re-render from `select_install_os` doesn't clobber the user's
+// manual tab pick.
+const osDetect = function () {
+  const ua = (navigator.userAgent || "").toLowerCase()
+  let os = "macos"
+  if (ua.includes("windows")) os = "windows"
+  else if (
+    ua.includes("linux") ||
+    ua.includes("android") ||
+    ua.includes("cros")
+  )
+    os = "linux"
+  else if (ua.includes("mac") || ua.includes("iphone") || ua.includes("ipad"))
+    os = "macos"
+
+  this.pushEvent("os_detected", { os: os })
+}
+
 let Hooks = {}
 Hooks.ClipboardCopy = {
   mounted: clipboardCopy,
@@ -97,6 +165,13 @@ Hooks.RenderQR = {
 }
 Hooks.GenerateKeyPair = {
   mounted: generateKeyPair
+}
+Hooks.InstallCopy = {
+  mounted: installCopy,
+  updated: installCopy
+}
+Hooks.OSDetect = {
+  mounted: osDetect
 }
 
 export default Hooks

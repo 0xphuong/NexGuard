@@ -5773,3 +5773,199 @@ pre {
   border-top: 1px solid #fee2e2;
   margin: 1.25rem 0;
 }
+
+/* v4.0.6 — Install NexGuard Connect section on /user/devices.
+   Segmented control (3 OS tabs) + code block + copy button.
+   Utilitarian palette, matches the rest of /settings/*. */
+
+.ng-os-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+}
+
+.ng-os-tab {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.65rem 0.75rem;
+  background: transparent;
+  border: none;
+  border-right: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 120ms, color 120ms;
+}
+
+.ng-os-tab:last-child {
+  border-right: none;
+}
+
+.ng-os-tab:hover {
+  background: #eef2f7;
+  color: #334155;
+}
+
+.ng-os-tab.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 600;
+  box-shadow: inset 0 -2px 0 #3b82f6;
+}
+
+.ng-os-tab .mdi {
+  font-size: 1.1rem;
+}
+
+/* Code block for install command. Monospace, single-line
+   overflow-x scroll rather than wrap so admins can copy exactly
+   the string they see. */
+.ng-code-block {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  background: #0f172a;
+  color: #e2e8f0;
+  border-radius: 6px;
+  padding: 0.15rem;
+  font-family: SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  font-size: 0.85rem;
+}
+
+.ng-code-block pre {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0.6rem 0.85rem;
+  overflow-x: auto;
+  white-space: pre;
+  color: inherit;
+  background: transparent;
+}
+
+/* Copy button sits at right edge of code block, matching height. */
+.ng-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0 0.85rem;
+  background: #1e293b;
+  color: #e2e8f0;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-family: inherit;
+  transition: background-color 120ms, color 120ms;
+  min-width: 5.5rem;
+  justify-content: center;
+}
+
+.ng-copy-btn:hover {
+  background: #334155;
+}
+
+.ng-copy-btn.is-copied {
+  background: #14532d;
+  color: #d1fae5;
+}
+
+/* Collapsible "Install on another machine" details/summary --
+   used on non-empty /user/devices. Keep it quiet by default and
+   let the user opt in. */
+.ng-collapsible {
+  margin-top: 1.5rem;
+}
+
+.ng-collapsible > summary {
+  cursor: pointer;
+  padding: 0.5rem 0.75rem;
+  color: #475569;
+  font-weight: 500;
+  font-size: 0.9rem;
+  border-radius: 4px;
+  list-style: none;
+  transition: background-color 120ms;
+}
+
+.ng-collapsible > summary:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+.ng-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.ng-collapsible > summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.4rem;
+  transition: transform 120ms;
+  font-size: 0.7rem;
+}
+
+.ng-collapsible[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.ng-collapsible[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+/* Wrap the install section inside the collapsible with a small
+   left rule so the content reads as scoped to the summary above. */
+.ng-collapsible[open] .ng-detail-card {
+  border-left: 3px solid #cbd5e1;
+}
+
+/* Dark-mode variants keep the code block equally readable. */
+@media (prefers-color-scheme: dark) {
+  .ng-os-tabs {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .ng-os-tab {
+    border-color: #334155;
+    color: #94a3b8;
+  }
+  .ng-os-tab:hover {
+    background: #334155;
+    color: #f1f5f9;
+  }
+  .ng-os-tab.is-active {
+    background: #0f172a;
+    color: #f8fafc;
+  }
+  .ng-collapsible > summary {
+    color: #cbd5e1;
+  }
+  .ng-collapsible > summary:hover {
+    background: #1e293b;
+    color: #f8fafc;
+  }
+}
+
+/* Below ~640px, the code block's copy button drops beneath the
+   command so nothing clips. Tabs stay horizontal (3 short labels
+   fit fine at that width). */
+@media (max-width: 640px) {
+  .ng-code-block {
+    flex-direction: column;
+    gap: 0;
+  }
+  .ng-copy-btn {
+    margin: 0.25rem;
+    padding: 0.5rem 0.85rem;
+    justify-content: center;
+  }
+}

@@ -38,11 +38,14 @@
       <i class="mdi mdi-laptop ng-empty-state-icon"></i>
       <p class="ng-empty-state-title">No devices yet</p>
       <p class="ng-empty-state-hint">
-        Add a device to enroll a NexGuard Connect client. You'll need
-        <a href="https://docs.nexguard.binhphuong.io.vn/user-guides/client-instructions/" target="_blank" class="ng-inline-link">NexGuard Connect</a>
-        installed on your machine (macOS / Windows / Linux) to reach this server.
+        Add a device to enroll a NexGuard Connect client. Install
+        NexGuard Connect on your machine using the command below,
+        then click <strong>Add Device</strong> above to generate a
+        config.
       </p>
     </div>
+
+    <%= render_install_section(assigns) %>
   <% else %>
     <div class="ng-table-wrap" style="margin-bottom:1.5rem">
       <table class="ng-table">
@@ -79,6 +82,16 @@
         </tbody>
       </table>
     </div>
+
+    <%# Install-on-another-machine — collapsible so it doesn't
+    %# compete with the device table for attention when the user's
+    %# already onboarded but is still handy when they get a new
+    %# laptop. Uses <details> for zero-JS state; hint above the
+    %# summary explains what's inside. %>
+    <details class="ng-collapsible">
+      <summary>Install NexGuard Connect on another machine</summary>
+      <%= render_install_section(assigns) %>
+    </details>
   <% end %>
 
   <%# ── VPN Session ─────────────────────────────────────────────────────────── %>
