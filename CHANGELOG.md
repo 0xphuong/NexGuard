@@ -9,6 +9,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [4.0.5] - 2026-07-28
+
+### Fixed
+
+- **L7 proxy: SSE / WebSocket / any streaming backend response
+  hung indefinitely on the client** ("Status: pending" in
+  browser DevTools for `EventSource` connections). Caught first
+  on an ArgoCD app -- the SPA opens
+  `/api/v1/stream/applications/*` after clicking Refresh, and
+  that stream stayed open with no data flowing.
+
+  Root cause: `proxy/internal/handler.recordingWriter` wrapped
+  `http.ResponseWriter` by embedding the interface but only
+  implementing `Write` + `WriteHeader`. Go's optional
+  `http.ResponseWriter` capabilities (`http.Flusher`,
+  `http.Hijacker`, `io.ReaderFrom`) are separate interfaces --
+  embedding the parent interface does **not** carry them
+  through. `httputil.ReverseProxy` runs
+  `w.(http.Flusher)` to decide whether to flush streaming
+  bodies incrementally; the assertion failed silently on the
+  wrapper, streaming events piled up in the underlying writer's
+  buffer, and clients saw the TCP connection as "pending" until
+  the backend closed it (or hit an inactivity timeout).
+
+  Regular XHR responses appeared to work because they complete
+  fast enough that net/http's post-handler flush drains the
+  buffer -- only long-lived streams exposed the missing
+  Flusher delegation.
+
+  Fix: `recordingWriter` now implements `Flush`, `Hijack`,
+  and `ReadFrom` as delegations to the wrapped
+  `ResponseWriter` when the underlying writer supports each
+  interface. Canonical Go middleware pattern documented in
+  `httptest.NewRecorder` and every mature HTTP framework.
+
+  Regression coverage: two new tests in
+  `proxy/internal/handler/handler_test.go` --
+  `TestRecordingWriter_ExposesFlusher` asserts every optional
+  interface at compile-time-ish (runtime type-assert),
+  `TestServeHTTP_StreamsSSEResponse` end-to-ends a
+  three-event SSE backend through the wrapper.
+
+  No config or admin action needed; `docker compose pull
+  nexguard-proxy && docker compose up -d nexguard-proxy` picks
+  up the fix.
+
+---
+
 ## [4.0.4] - 2026-07-28
 
 Refines the policy model: introduces a first-class **Default

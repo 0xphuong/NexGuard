@@ -18,6 +18,7 @@
 package handler
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"crypto/tls"
@@ -124,6 +125,68 @@ func (rw *recordingWriter) Write(b []byte) (int, error) {
 	}
 	n, err := rw.ResponseWriter.Write(b)
 	rw.bytes += int64(n)
+	return n, err
+}
+
+// v3.0.2: expose the optional `http.ResponseWriter` capabilities
+// (Flusher, Hijacker, Pusher, io.ReaderFrom) that the underlying
+// `net/http` writer supports. Without these delegations Go's
+// stdlib `httputil.ReverseProxy` sees the wrapper's concrete type,
+// fails the `w.(http.Flusher)` assertion, and silently disables
+// per-write flushing on streaming responses. Effect: any response
+// with `Content-Type: text/event-stream` (SSE) or a chunked
+// transfer with no Content-Length (long-poll, streaming APIs)
+// buffers indefinitely on the server side -- the client sees the
+// TCP connection as "pending" until the backend closes it. Symptom
+// caught on ArgoCD's `/api/v1/stream/applications/*` endpoint,
+// where the SPA relies on EventSource to reflect sync state in
+// real time. Regular XHR responses complete + flush at handler
+// return so they appear to work; only streaming responses expose
+// the missing capability.
+//
+// Delegation pattern is the canonical Go fix for
+// ResponseWriter wrappers -- documented in Go's own
+// `httptest.NewRecorder` and every mature middleware library.
+
+// Flush surfaces backend writes to the client immediately. Required
+// for SSE (`text/event-stream`), long-poll responses, gRPC-over-h2c,
+// and anything else where the client expects incremental data.
+func (rw *recordingWriter) Flush() {
+	if f, ok := rw.ResponseWriter.(http.Flusher); ok {
+		f.Flush()
+	}
+}
+
+// Hijack lets `httputil.ReverseProxy` take over the raw TCP
+// connection for WebSocket / CONNECT / HTTP upgrade flows. Without
+// this, an upgraded response falls back to buffered HTTP handling
+// and the socket never bidi-streams. `bytes` / `status` fields
+// stop tracking after hijack -- that's expected; hijacked
+// connections are outside the HTTP request model.
+func (rw *recordingWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if h, ok := rw.ResponseWriter.(http.Hijacker); ok {
+		return h.Hijack()
+	}
+	return nil, nil, http.ErrNotSupported
+}
+
+// ReadFrom lets the stdlib copy loop pick the fast path (sendfile
+// / splice on Linux) instead of allocating a heap buffer per copy.
+// Only forwards when the underlying writer implements io.ReaderFrom,
+// which stdlib's response writer does. Byte counting is preserved
+// so the access log's `bytes_out` stays accurate.
+func (rw *recordingWriter) ReadFrom(src io.Reader) (int64, error) {
+	if rw.status == 0 {
+		rw.status = http.StatusOK
+	}
+	rf, ok := rw.ResponseWriter.(io.ReaderFrom)
+	if !ok {
+		n, err := io.Copy(rw.ResponseWriter, src)
+		rw.bytes += n
+		return n, err
+	}
+	n, err := rf.ReadFrom(src)
+	rw.bytes += n
 	return n, err
 }
 
