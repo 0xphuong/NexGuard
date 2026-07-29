@@ -7,7 +7,7 @@ defmodule FzHttpWeb.DeviceLive.Unprivileged.Index do
 
   @page_title "Your Devices"
   @page_subtitle """
-  Each device corresponds to a WireGuard configuration for connecting to this NexGuard server.
+  Each device is one NexGuard Connect endpoint authorised to reach this server.
   """
 
   @impl Phoenix.LiveView

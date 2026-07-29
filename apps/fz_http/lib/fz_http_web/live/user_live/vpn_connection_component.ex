@@ -48,7 +48,7 @@ defmodule FzHttpWeb.UserLive.VPNConnectionComponent do
             <section class="modal-card-body">
               <p class="ng-modal-intro">Disable VPN access for:</p>
               <div class="ng-modal-entity"><%= @user.email %></div>
-              <p class="ng-modal-desc">All active WireGuard sessions will be dropped immediately.</p>
+              <p class="ng-modal-desc">All active VPN sessions will be dropped immediately.</p>
             </section>
             <footer class="modal-card-foot">
               <button class="ng-secondary-btn" phx-click="cancel_toggle" phx-target={@myself}>
